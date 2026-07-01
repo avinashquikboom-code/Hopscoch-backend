@@ -104,7 +104,14 @@ export class VisualSearchService {
           resultCount: matchedProducts.length,
           status: 'success',
           providerLatencyMs: Date.now() - startTime,
-          extractedData: extractedData as any,
+          extractedCategory: extractedData.extractedCategory,
+          extractedColor: extractedData.extractedColor,
+          extractedMaterial: extractedData.extractedMaterial,
+          extractedPattern: extractedData.extractedPattern,
+          extractedBrand: extractedData.extractedBrand,
+          extractedStyle: extractedData.extractedStyle,
+          extractedGender: extractedData.extractedGender ? (extractedData.extractedGender.toUpperCase() as any) : undefined,
+          extractedAgeGroup: extractedData.extractedAgeGroup ? (extractedData.extractedAgeGroup.toUpperCase() as any) : undefined,
         },
       });
 

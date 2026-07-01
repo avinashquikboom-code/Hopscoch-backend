@@ -1,15 +1,19 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../middleware/errorHandler';
+import prisma from '../../../utils/prisma';
 
 export class GeminiService {
-  private genAI: GoogleGenerativeAI;
+  private genAI?: GoogleGenerativeAI;
   private model: any;
+  private isMockMode: boolean = false;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new AppError('Gemini API key not configured', 500);
+      logger.warn('[GEMINI] Gemini API key not configured. Running in MOCK mode.');
+      this.isMockMode = true;
+      return;
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -30,6 +34,21 @@ export class GeminiService {
     isBarcode?: boolean;
     barcodeData?: string;
   }> {
+    if (this.isMockMode) {
+      logger.info('[GEMINI] Returning mock image analysis');
+      return {
+        extractedCategory: 'Kurta',
+        extractedColor: 'navy blue',
+        extractedMaterial: 'cotton',
+        extractedPattern: 'printed',
+        extractedBrand: 'MockBrand',
+        extractedStyle: 'casual',
+        extractedGender: 'unisex',
+        extractedAgeGroup: 'adult',
+        isBarcode: false,
+      };
+    }
+
     try {
       const prompt = `
         Analyze this image carefully. First determine if it contains a barcode/QR code.
@@ -95,23 +114,57 @@ export class GeminiService {
       overallScore: number;
     }>;
   }> {
+    if (this.isMockMode) {
+      logger.info('[GEMINI] Returning mock search results matching products in the database...');
+      const products = await prisma.product.findMany({
+        take: 3,
+        where: {
+          status: 'PUBLISHED',
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+        },
+      });
+      const ids = products.map((p: { id: string }) => p.id);
+      
+      // If database is empty, return dummy ids
+      if (ids.length === 0) {
+        ids.push('mock-product-id-1', 'mock-product-id-2');
+      }
+
+      return {
+        matchedProductIds: ids,
+        confidence: 0.95,
+        matchScores: ids.map((id: string, index: number) => ({
+          productId: id,
+          categoryMatch: 1.0,
+          colorMatch: 0.9 - index * 0.1,
+          materialMatch: 0.8,
+          brandMatch: 1.0,
+          styleMatch: 0.9,
+          overallScore: 0.95 - index * 0.05,
+        })),
+      };
+    }
+
     try {
       const prompt = `
         Based on the following extracted attributes from a fashion image:
         ${JSON.stringify(extractedData)}
-
+ 
         Calculate similarity scores for matching products using multi-factor scoring:
         - Category match: 40% weight (exact match = 1.0, partial match = 0.6, no match = 0)
         - Color match: 25% weight (exact shade = 1.0, similar color family = 0.7, no match = 0)
         - Material match: 15% weight (exact = 1.0, similar fabric type = 0.6, no match = 0)
         - Brand match: 10% weight (exact brand = 1.0, no match = 0)
         - Style match: 10% weight (exact style = 1.0, complementary style = 0.5, no match = 0)
-
+ 
         Return a JSON response with:
         - matchedProductIds: array of product IDs that match (up to 10, sorted by overallScore descending)
         - confidence: overall match confidence score (0.0 to 1.0) based on best match
         - matchScores: array of objects with productId, categoryMatch, colorMatch, materialMatch, brandMatch, styleMatch, overallScore
-
+ 
         Consider all attributes for comprehensive matching. Return only valid JSON.
       `;
 
@@ -130,15 +183,10 @@ export class GeminiService {
   }
 
   private async getImageBase64(imageUrl: string): Promise<string> {
-    // In production, you would download the image from the URL
-    // For now, we'll assume the imageUrl is already a base64 string or accessible
-    // This is a simplified implementation
     if (imageUrl.startsWith('data:')) {
       return imageUrl.split(',')[1];
     }
 
-    // For URLs, you would use fetch or axios to download the image
-    // For now, return a placeholder or handle appropriately
     throw new AppError('Image URL processing not implemented for external URLs', 500);
   }
 
@@ -148,6 +196,16 @@ export class GeminiService {
     barcodeType?: string;
     confidence: number;
   }> {
+    if (this.isMockMode) {
+      logger.info('[GEMINI] Returning mock barcode scan results');
+      return {
+        isBarcode: true,
+        barcodeData: '8901234567890',
+        barcodeType: 'EAN',
+        confidence: 0.99,
+      };
+    }
+
     try {
       const prompt = `
         Analyze this image to detect and decode any barcodes or QR codes.
