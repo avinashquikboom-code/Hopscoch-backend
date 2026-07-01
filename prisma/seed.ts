@@ -1,9 +1,42 @@
-import { PrismaClient, Gender, AgeGroup, ProductStatus } from '@prisma/client';
+import { PrismaClient, Gender, AgeGroup, ProductStatus, Role } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Start seeding mock database...');
+
+  // 0. Create Users
+  console.log('Creating users...');
+  const hashedPassword = await bcrypt.hash('Password123', 10);
+  
+  await prisma.user.upsert({
+    where: { email: 'user@example.com' },
+    update: {},
+    create: {
+      email: 'user@example.com',
+      passwordHash: hashedPassword,
+      role: Role.CUSTOMER,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      isEmailVerified: true,
+      isActive: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      email: 'admin@example.com',
+      passwordHash: hashedPassword,
+      role: Role.ADMIN,
+      firstName: 'Admin',
+      lastName: 'User',
+      isEmailVerified: true,
+      isActive: true,
+    },
+  });
 
   // 1. Create Brands
   console.log('Creating brands...');

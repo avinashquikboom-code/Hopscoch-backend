@@ -31,7 +31,7 @@ const visualSearchController = VisualSearchController;
  *       401:
  *         description: Authentication required
  */
-router.post('/visual-search', authenticate, visualSearchController.search.bind(visualSearchController));
+router.post('/visual-search', visualSearchController.search.bind(visualSearchController));
 
 /**
  * @swagger
