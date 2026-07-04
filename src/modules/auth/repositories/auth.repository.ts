@@ -1,7 +1,6 @@
 import { Prisma, User, RefreshToken } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import prisma from '../../../utils/prisma';
-import { AppError } from '../../../middleware/errorHandler';
 
 export class AuthRepository {
   async findByEmail(email: string): Promise<User | null> {
@@ -13,18 +12,6 @@ export class AuthRepository {
   async findById(id: string): Promise<User | null> {
     return prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        avatar: true,
-        role: true,
-        isEmailVerified: true,
-        isPhoneVerified: true,
-        isActive: true,
-        createdAt: true,
-      },
     });
   }
 
@@ -35,12 +22,16 @@ export class AuthRepository {
     phone?: string;
   }): Promise<User> {
     const hashedPassword = await bcrypt.hash(data.password, 12);
+    const nameParts = (data.name || '').trim().split(/\s+/);
+    const firstName = nameParts[0] || 'User';
+    const lastName = nameParts.slice(1).join(' ') || null;
 
     return prisma.user.create({
       data: {
         email: data.email,
-        password: hashedPassword,
-        name: data.name,
+        passwordHash: hashedPassword,
+        firstName,
+        lastName,
         phone: data.phone,
       },
     });
@@ -51,7 +42,7 @@ export class AuthRepository {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
   }
 
@@ -60,7 +51,6 @@ export class AuthRepository {
       where: { id: userId },
       data: {
         isEmailVerified: true,
-        emailVerified: true,
       },
     });
   }
@@ -70,10 +60,25 @@ export class AuthRepository {
     token: string,
     expiresAt: Date
   ): Promise<RefreshToken> {
+    let session = await prisma.session.findFirst({
+      where: { userId, isActive: true },
+    });
+
+    if (!session) {
+      session = await prisma.session.create({
+        data: {
+          userId,
+          deviceName: 'Web App',
+          isActive: true,
+        },
+      });
+    }
+
     return prisma.refreshToken.create({
       data: {
         userId,
-        token,
+        tokenHash: token,
+        sessionId: session.id,
         expiresAt,
       },
     });
@@ -81,22 +86,22 @@ export class AuthRepository {
 
   async findRefreshToken(token: string): Promise<RefreshToken | null> {
     return prisma.refreshToken.findUnique({
-      where: { token },
+      where: { tokenHash: token },
       include: { user: true },
     });
   }
 
   async revokeRefreshToken(token: string): Promise<void> {
     await prisma.refreshToken.update({
-      where: { token },
-      data: { revokedAt: new Date() },
+      where: { tokenHash: token },
+      data: { revoked: true },
     });
   }
 
   async revokeAllUserTokens(userId: string): Promise<void> {
     await prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+      where: { userId, revoked: false },
+      data: { revoked: true },
     });
   }
 

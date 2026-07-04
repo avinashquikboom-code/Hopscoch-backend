@@ -29,7 +29,6 @@ export class CartService {
     // Create cart if it doesn't exist
     if (!cart) {
       cart = await prisma.cart.create({
-        where: { userId },
         data: { userId },
         include: {
           items: {

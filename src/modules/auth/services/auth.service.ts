@@ -47,9 +47,9 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: `${user.firstName} ${user.lastName || ''}`.trim(),
         phone: user.phone,
-        avatar: user.avatar,
+        avatar: user.avatarUrl,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
       },
@@ -71,7 +71,7 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new AppError('Invalid email or password', 401);
     }
@@ -92,9 +92,9 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: `${user.firstName} ${user.lastName || ''}`.trim(),
         phone: user.phone,
-        avatar: user.avatar,
+        avatar: user.avatarUrl,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
       },
@@ -106,7 +106,7 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     // Find refresh token
     const tokenRecord = await authRepository.findRefreshToken(refreshToken);
-    if (!tokenRecord || tokenRecord.revokedAt || tokenRecord.expiresAt < new Date()) {
+    if (!tokenRecord || tokenRecord.revoked || tokenRecord.expiresAt < new Date()) {
       throw new AppError('Invalid or expired refresh token', 401);
     }
 
@@ -146,7 +146,7 @@ export class AuthService {
       throw new AppError('User not found', 404);
     }
 
-    const isPasswordValid = await bcrypt.compare(currentPassword, userWithPassword.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, userWithPassword.passwordHash);
     if (!isPasswordValid) {
       throw new AppError('Current password is incorrect', 401);
     }
@@ -214,11 +214,11 @@ export class AuthService {
     const payload: TokenPayload = { userId, email, role };
 
     const accessToken = jwt.sign(payload, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn,
+      expiresIn: this.jwtExpiresIn as any,
     });
 
     const refreshToken = jwt.sign(payload, this.refreshSecret, {
-      expiresIn: this.refreshExpiresIn,
+      expiresIn: this.refreshExpiresIn as any,
     });
 
     return { accessToken, refreshToken };
