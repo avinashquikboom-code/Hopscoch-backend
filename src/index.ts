@@ -26,6 +26,13 @@ import notificationRoutes from './modules/notification/routes';
 import couponRoutes from './modules/coupon/routes';
 import homeRoutes from './modules/home/routes';
 import searchRoutes from './modules/search/routes';
+import returnRoutes from './modules/returns/routes';
+import paymentRoutes from './modules/payments/routes';
+import shipmentRoutes from './modules/shipments/routes';
+import inventoryRoutes from './modules/inventory/routes';
+import reportRoutes from './modules/reports/routes';
+import adminRoutes from './modules/admin/routes';
+import settingsRoutes from './modules/settings/routes';
 
 // Load environment variables
 dotenv.config();
@@ -101,6 +108,13 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/returns', returnRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/shipments', shipmentRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/settings', settingsRoutes);
 app.use('/api/recently-viewed', recentlyViewedRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);

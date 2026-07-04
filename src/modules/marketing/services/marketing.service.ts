@@ -1,0 +1,201 @@
+import { AppError } from '../../../middleware/errorHandler';
+import { logger } from '../../../utils/logger';
+import prisma from '../../../utils/prisma';
+
+export class MarketingService {
+  async createBanner(data: {
+    title: string;
+    description?: string;
+    imageUrl: string;
+    link?: string;
+    position: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL';
+    isActive: boolean;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const { title, description, imageUrl, link, position, isActive, startDate, endDate } = data;
+
+    const banner = await prisma.banner.create({
+      data: {
+        title,
+        description,
+        imageUrl,
+        link,
+        position,
+        isActive,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+    });
+
+    logger.info(`Banner created: ${banner.id}`);
+    return banner;
+  }
+
+  async getBanners(filters: {
+    position?: string;
+    isActive?: boolean;
+  }) {
+    const { position, isActive } = filters;
+
+    const where: any = {};
+    if (position) {
+      where.position = position;
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    const banners = await prisma.banner.findMany({
+      where,
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    return banners;
+  }
+
+  async getBannerById(bannerId: string) {
+    const banner = await prisma.banner.findUnique({
+      where: { id: bannerId },
+    });
+
+    if (!banner) {
+      throw new AppError('Banner not found', 404);
+    }
+
+    return banner;
+  }
+
+  async updateBanner(bannerId: string, data: {
+    title?: string;
+    description?: string;
+    imageUrl?: string;
+    link?: string;
+    position?: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL';
+    isActive?: boolean;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const { title, description, imageUrl, link, position, isActive, startDate, endDate } = data;
+
+    const banner = await prisma.banner.findUnique({
+      where: { id: bannerId },
+    });
+
+    if (!banner) {
+      throw new AppError('Banner not found', 404);
+    }
+
+    const updatedBanner = await prisma.banner.update({
+      where: { id: bannerId },
+      data: {
+        title,
+        description,
+        imageUrl,
+        link,
+        position,
+        isActive,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      },
+    });
+
+    logger.info(`Banner updated: ${bannerId}`);
+    return updatedBanner;
+  }
+
+  async deleteBanner(bannerId: string) {
+    const banner = await prisma.banner.findUnique({
+      where: { id: bannerId },
+    });
+
+    if (!banner) {
+      throw new AppError('Banner not found', 404);
+    }
+
+    await prisma.banner.update({
+      where: { id: bannerId },
+      data: {
+        isActive: false,
+      },
+    });
+
+    logger.info(`Banner deleted: ${bannerId}`);
+    return { message: 'Banner deleted successfully' };
+  }
+
+  async createCampaign(data: {
+    name: string;
+    description?: string;
+    type: 'EMAIL' | 'PUSH' | 'SMS' | 'ALL';
+    message: string;
+    targetAudience: 'ALL' | 'CUSTOMERS' | 'NEW_USERS' | 'INACTIVE';
+    scheduledDate?: string;
+    isActive: boolean;
+  }) {
+    const { name, description, type, message, targetAudience, scheduledDate, isActive } = data;
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name,
+        description,
+        type,
+        message,
+        targetAudience,
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+        isActive,
+      },
+    });
+
+    logger.info(`Campaign created: ${campaign.id}`);
+    return campaign;
+  }
+
+  async getCampaigns() {
+    const campaigns = await prisma.campaign.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return campaigns;
+  }
+
+  async getCampaignById(campaignId: string) {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      throw new AppError('Campaign not found', 404);
+    }
+
+    return campaign;
+  }
+
+  async sendCampaign(campaignId: string) {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      throw new AppError('Campaign not found', 404);
+    }
+
+    // Update campaign status
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        isActive: false,
+        sentAt: new Date(),
+      },
+    });
+
+    // In production, you would integrate with email, push, or SMS providers
+    // For now, we'll just log the campaign
+    logger.info(`Campaign sent: ${campaignId} to audience: ${campaign.targetAudience}`);
+
+    return { message: 'Campaign sent successfully' };
+  }
+}
+
+export default new MarketingService();
