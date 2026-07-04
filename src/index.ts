@@ -33,6 +33,7 @@ import inventoryRoutes from './modules/inventory/routes';
 import reportRoutes from './modules/reports/routes';
 import adminRoutes from './modules/admin/routes';
 import settingsRoutes from './modules/settings/routes';
+import './workers';
 
 // Load environment variables
 dotenv.config();
