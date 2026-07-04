@@ -17,7 +17,18 @@ export class AuthController {
   async register(req: AuthRequest, res: Response): Promise<void> {
     try {
       const validatedData = registerSchema.parse(req.body);
-      const result = await AuthService.register(validatedData);
+      const deviceInfo = {
+        deviceType: validatedData.deviceType,
+        platform: validatedData.platform,
+        browser: validatedData.browser,
+        os: validatedData.os,
+        deviceId: validatedData.deviceId,
+        deviceName: validatedData.deviceName,
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip || req.socket.remoteAddress,
+        fcmToken: validatedData.fcmToken,
+      };
+      const result = await AuthService.register({ ...validatedData, ...deviceInfo });
       ResponseFormatter.created(res, 'Registration successful', result);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -31,7 +42,18 @@ export class AuthController {
   async login(req: AuthRequest, res: Response): Promise<void> {
     try {
       const validatedData = loginSchema.parse(req.body);
-      const result = await AuthService.login(validatedData.email, validatedData.password);
+      const deviceInfo = {
+        deviceType: validatedData.deviceType,
+        platform: validatedData.platform,
+        browser: validatedData.browser,
+        os: validatedData.os,
+        deviceId: validatedData.deviceId,
+        deviceName: validatedData.deviceName,
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip || req.socket.remoteAddress,
+        fcmToken: validatedData.fcmToken,
+      };
+      const result = await AuthService.login(validatedData.email, validatedData.password, deviceInfo);
       ResponseFormatter.success(res, 'Login successful', result);
     } catch (error) {
       if (error instanceof ZodError) {

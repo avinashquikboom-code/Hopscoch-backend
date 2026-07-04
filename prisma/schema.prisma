@@ -176,6 +176,8 @@ model User {
   supportTickets     SupportTicket[]
   analyticsEvents    AnalyticsEvent[]
   aiImageSearchLogs  AIImageSearchLog[]
+  auditLogs          AuditLog[]
+  activityLogs       ActivityLog[]
 
   @@index([email])
   @@index([deletedAt])
@@ -198,21 +200,30 @@ model RefreshToken {
 }
 
 model Session {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceName   String?
-  deviceId     String?
-  fcmToken     String?
-  userAgent    String?
-  ipAddress    String?
-  isActive     Boolean  @default(true)
-  lastActiveAt DateTime @default(now())
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName      String?
+  deviceId        String?
+  deviceType      String?  // mobile, web, admin
+  platform        String?  // android, ios, web
+  browser         String?
+  os              String?
+  fcmToken        String?
+  userAgent       String?
+  ipAddress       String?
+  accessTokenHash String?
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   refreshTokens RefreshToken[]
 
   @@index([userId])
+  @@index([deviceId])
+  @@index([isActive])
 }
 
 model UserPreference {
@@ -225,6 +236,44 @@ model UserPreference {
   emailOptIn           Boolean  @default(true)
   smsOptIn             Boolean  @default(false)
   updatedAt            DateTime @updatedAt
+}
+
+// =====================================================================
+// AUDIT & ACTIVITY LOGGING
+// =====================================================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // LOGIN, LOGOUT, PASSWORD_CHANGE, ACCOUNT_DELETE, SESSION_REVOKED, etc.
+  entityType  String?  // USER, SESSION, REFRESH_TOKEN
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?    // Additional context
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  activity    String   // PRODUCT_VIEW, CART_ADD, ORDER_PLACED, SEARCH, etc.
+  entityType  String?  // PRODUCT, ORDER, CART, etc.
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?    // Additional context
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([activity])
+  @@index([createdAt])
 }
 
 model Address {

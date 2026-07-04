@@ -5,11 +5,13 @@ import { ResponseFormatter } from '../utils/responseFormatter';
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
+  errorCode?: string;
 
-  constructor(message: string, statusCode: number = 500, isOperational: boolean = true) {
+  constructor(message: string, statusCode: number = 500, isOperational: boolean = true, errorCode?: string) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
+    this.errorCode = errorCode;
 
     Error.captureStackTrace(this, this.constructor);
   }
@@ -25,6 +27,7 @@ export const errorHandler = (
     logger.error({
       message: err.message,
       statusCode: err.statusCode,
+      errorCode: err.errorCode,
       stack: err.stack,
       path: req.path,
       method: req.method,
@@ -34,7 +37,7 @@ export const errorHandler = (
       res,
       err.message,
       err.statusCode,
-      err.name,
+      err.errorCode || err.name,
       []
     );
     return;

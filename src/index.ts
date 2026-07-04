@@ -36,7 +36,7 @@ import settingsRoutes from './modules/settings/routes';
 import './workers';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: './env/env.local' });
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;

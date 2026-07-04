@@ -1,5 +1,6 @@
-import { Prisma, User, RefreshToken } from '@prisma/client';
+import { Prisma, User, RefreshToken, Session, AuditLog, ActivityLog } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import prisma from '../../../utils/prisma';
 
 export class AuthRepository {
@@ -58,36 +59,127 @@ export class AuthRepository {
   async createRefreshToken(
     userId: string,
     token: string,
-    expiresAt: Date
+    expiresAt: Date,
+    sessionId: string
   ): Promise<RefreshToken> {
-    let session = await prisma.session.findFirst({
-      where: { userId, isActive: true },
-    });
-
-    if (!session) {
-      session = await prisma.session.create({
-        data: {
-          userId,
-          deviceName: 'Web App',
-          isActive: true,
-        },
-      });
-    }
-
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    
     return prisma.refreshToken.create({
       data: {
         userId,
-        tokenHash: token,
-        sessionId: session.id,
+        tokenHash,
+        sessionId,
         expiresAt,
       },
+    });
+  }
+
+  async createSession(data: {
+    userId: string;
+    deviceId?: string;
+    deviceType?: string;
+    platform?: string;
+    browser?: string;
+    os?: string;
+    deviceName?: string;
+    userAgent?: string;
+    ipAddress?: string;
+    fcmToken?: string;
+  }): Promise<Session> {
+    return prisma.session.create({
+      data: {
+        userId: data.userId,
+        deviceId: data.deviceId,
+        deviceType: data.deviceType,
+        platform: data.platform,
+        browser: data.browser,
+        os: data.os,
+        deviceName: data.deviceName,
+        userAgent: data.userAgent,
+        ipAddress: data.ipAddress,
+        fcmToken: data.fcmToken,
+        isActive: true,
+        lastLoginAt: new Date(),
+        lastActivityAt: new Date(),
+      },
+    });
+  }
+
+  async findActiveSession(userId: string, deviceId?: string): Promise<Session | null> {
+    if (deviceId) {
+      return prisma.session.findFirst({
+        where: { userId, deviceId, isActive: true },
+      });
+    }
+    return prisma.session.findFirst({
+      where: { userId, isActive: true },
+    });
+  }
+
+  async deactivateSession(sessionId: string): Promise<void> {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { isActive: false },
+    });
+  }
+
+  async deactivateAllUserSessions(userId: string, excludeSessionId?: string): Promise<void> {
+    await prisma.session.updateMany({
+      where: {
+        userId,
+        isActive: true,
+        ...(excludeSessionId && { id: { not: excludeSessionId } }),
+      },
+      data: { isActive: false },
+    });
+  }
+
+  async updateSessionActivity(sessionId: string): Promise<void> {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { lastActivityAt: new Date() },
+    });
+  }
+
+  async updateSessionAccessToken(sessionId: string, accessTokenHash: string): Promise<void> {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { accessTokenHash },
+    });
+  }
+
+  async createAuditLog(data: {
+    userId?: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    metadata?: any;
+  }): Promise<AuditLog> {
+    return prisma.auditLog.create({
+      data,
+    });
+  }
+
+  async createActivityLog(data: {
+    userId?: string;
+    activity: string;
+    entityType?: string;
+    entityId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    metadata?: any;
+  }): Promise<ActivityLog> {
+    return prisma.activityLog.create({
+      data,
     });
   }
 
   async findRefreshToken(token: string): Promise<RefreshToken | null> {
     return prisma.refreshToken.findUnique({
       where: { tokenHash: token },
-      include: { user: true },
+      include: { user: true, session: true },
     });
   }
 
