@@ -11,9 +11,9 @@ export class BrandService {
     return brands;
   }
 
-  async getBrandById(brandId: string) {
+  async getBrandById(brandId: any) {
     const brand = await prisma.brand.findUnique({
-      where: { id: brandId, deletedAt: null },
+      where: { id: Number(brandId), deletedAt: null },
       include: {
         products: {
           where: { status: 'PUBLISHED', deletedAt: null },

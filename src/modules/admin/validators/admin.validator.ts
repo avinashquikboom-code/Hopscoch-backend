@@ -31,7 +31,7 @@ export const updateRoleSchema = z.object({
 export const activityLogQuerySchema = z.object({
   page: z.string().optional().default('1'),
   limit: z.string().optional().default('20'),
-  userId: z.string().uuid().optional(),
+  userId: z.coerce.number().int().optional(),
   action: z.string().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),

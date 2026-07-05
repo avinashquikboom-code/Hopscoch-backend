@@ -103,7 +103,7 @@ export class AdminService {
     };
   }
 
-  async updateAdminUser(userId: string, data: {
+  async updateAdminUser(userId: any, data: {
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -113,7 +113,7 @@ export class AdminService {
     const { firstName, lastName, email, role, isActive } = data;
 
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: Number(userId) },
     });
 
     if (!existingUser) {
@@ -131,7 +131,7 @@ export class AdminService {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: {
         firstName,
         lastName,
@@ -155,9 +155,9 @@ export class AdminService {
     return updatedUser;
   }
 
-  async deleteAdminUser(userId: string) {
+  async deleteAdminUser(userId: any) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: Number(userId) },
     });
 
     if (!user) {
@@ -166,7 +166,7 @@ export class AdminService {
 
     // Soft delete
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: {
         deletedAt: new Date(),
         isActive: false,
@@ -180,7 +180,7 @@ export class AdminService {
   async getActivityLogs(filters: {
     page: number;
     limit: number;
-    userId?: string;
+    userId?: any;
     action?: string;
     startDate?: string;
     endDate?: string;
@@ -191,7 +191,7 @@ export class AdminService {
     // Since we don't have an ActivityLog table in the schema, we'll use AnalyticsEvent as a proxy
     const where: any = {};
     if (userId) {
-      where.userId = userId;
+      where.userId = Number(userId);
     }
 
     if (action) {
@@ -243,10 +243,12 @@ export class AdminService {
       totalRevenue,
       pendingReturns,
       lowStockItems,
+      totalProducts,
+      recentOrders,
       recentActivity,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { isActive: true, deletedAt: null } }),
       prisma.order.count(),
       prisma.order.aggregate({
         where: {
@@ -264,12 +266,27 @@ export class AdminService {
       prisma.inventoryItem.count({
         where: {
           quantity: {
-            lte: prisma.inventoryItem.fields.lowStockThreshold,
+            lte: 5,
+          },
+        },
+      }),
+      prisma.product.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+      prisma.order.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
           },
         },
       }),
       prisma.analyticsEvent.findMany({
-        take: 20,
+        take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
@@ -292,9 +309,99 @@ export class AdminService {
         totalRevenue: totalRevenue._sum.totalAmount || 0,
         pendingReturns,
         lowStockItems,
+        totalProducts,
       },
+      recentOrders,
       recentActivity,
     };
+  }
+
+  async getAdminProfile(userId: any) {
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        isEmailVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
+        avatarUrl: true,
+        phone: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    return user;
+  }
+
+  async updateAdminProfile(userId: any, data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    avatarUrl?: string;
+  }) {
+    const { firstName, lastName, email, phone, avatarUrl } = data;
+
+    if (email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      if (existingUser && existingUser.id !== Number(userId)) {
+        throw new AppError('Email already registered by another user', 400);
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(userId) },
+      data: {
+        firstName,
+        lastName,
+        email,
+        phone,
+        avatarUrl,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        isEmailVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
+        avatarUrl: true,
+        phone: true,
+      },
+    });
+
+    logger.info(`Admin profile updated: ${userId}`);
+    return updatedUser;
+  }
+
+  async logoutAdmin(userId: any) {
+    // Deactivate all sessions for the user
+    await prisma.session.updateMany({
+      where: { userId },
+      data: { isActive: false },
+    });
+
+    // Revoke all refresh tokens for the user
+    await prisma.refreshToken.updateMany({
+      where: { userId },
+      data: { revoked: true },
+    });
+
+    logger.info(`Admin logged out: ${userId}`);
+    return { message: 'Logout successful' };
   }
 }
 

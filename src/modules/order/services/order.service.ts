@@ -3,12 +3,13 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class OrderService {
-  async createOrder(userId: string, data: { addressId: string }) {
+  async createOrder(userId: any, data: { addressId: any }) {
     const { addressId } = data;
+    const addrId = Number(addressId);
 
     // Get user's cart
-    const cart = await prisma.cart.findUnique({
-      where: { userId },
+    const cart: any = await prisma.cart.findUnique({
+      where: { userId: Number(userId) },
       include: {
         items: {
           include: {
@@ -25,7 +26,7 @@ export class OrderService {
 
     // Validate address
     const address = await prisma.address.findFirst({
-      where: { id: addressId, userId, deletedAt: null },
+      where: { id: addrId, userId: Number(userId), deletedAt: null },
     });
 
     if (!address) {
@@ -53,8 +54,8 @@ export class OrderService {
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        userId,
-        addressId,
+        userId: Number(userId),
+        addressId: addrId,
         status: 'PENDING',
         subtotal,
         taxAmount,
@@ -109,7 +110,7 @@ export class OrderService {
     return order;
   }
 
-  async getOrders(userId: string, filters: { page: number; limit: number; status?: string }) {
+  async getOrders(userId: any, filters: { page: number; limit: number; status?: string }) {
     const { page, limit, status } = filters;
     const skip = (page - 1) * limit;
 
@@ -154,9 +155,9 @@ export class OrderService {
     };
   }
 
-  async getOrderById(userId: string, orderId: string) {
+  async getOrderById(userId: any, orderId: any) {
     const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: { id: Number(orderId), userId },
       include: {
         items: {
           include: {
@@ -184,9 +185,9 @@ export class OrderService {
     return order;
   }
 
-  async cancelOrder(userId: string, orderId: string) {
+  async cancelOrder(userId: any, orderId: any) {
     const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: { id: Number(orderId), userId },
     });
 
     if (!order) {
@@ -200,7 +201,7 @@ export class OrderService {
 
     // Update order status
     const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
       data: {
         status: 'CANCELLED',
         timeline: {
@@ -216,7 +217,7 @@ export class OrderService {
     });
 
     // Restore stock
-    for (const item of updatedOrder.items) {
+    for (const item of (updatedOrder as any).items) {
       await prisma.productVariant.update({
         where: { id: item.variantId },
         data: { stock: { increment: item.quantity } },

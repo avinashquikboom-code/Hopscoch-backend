@@ -4,12 +4,12 @@ import prisma from '../../../utils/prisma';
 
 export class InventoryService {
   async createStockMovement(data: {
-    variantId: string;
-    warehouseId: string;
+    variantId: any;
+    warehouseId: any;
     type: 'RESTOCK' | 'SALE' | 'RETURN' | 'ADJUSTMENT' | 'DAMAGE';
     quantityChange: number;
     reason?: string;
-    referenceOrderId?: string;
+    referenceOrderId?: any;
   }) {
     const { variantId, warehouseId, type, quantityChange, reason, referenceOrderId } = data;
 
@@ -86,7 +86,7 @@ export class InventoryService {
   async getInventoryItems(filters: {
     page: number;
     limit: number;
-    warehouseId?: string;
+    warehouseId?: any;
     lowStock?: boolean;
   }) {
     const { page, limit, warehouseId, lowStock } = filters;
@@ -94,7 +94,7 @@ export class InventoryService {
 
     const where: any = {};
     if (warehouseId) {
-      where.warehouseId = warehouseId;
+      where.warehouseId = Number(warehouseId);
     }
 
     if (lowStock) {
@@ -145,7 +145,7 @@ export class InventoryService {
     };
   }
 
-  async getInventoryByVariant(variantId: string) {
+  async getInventoryByVariant(variantId: any) {
     const inventoryItems = await prisma.inventoryItem.findMany({
       where: { variantId },
       include: {
@@ -176,13 +176,13 @@ export class InventoryService {
   }
 
   async updateInventoryThreshold(data: {
-    inventoryItemId: string;
+    inventoryItemId: any;
     lowStockThreshold: number;
   }) {
     const { inventoryItemId, lowStockThreshold } = data;
 
     const inventoryItem = await prisma.inventoryItem.findUnique({
-      where: { id: inventoryItemId },
+      where: { id: Number(inventoryItemId) },
     });
 
     if (!inventoryItem) {
@@ -190,7 +190,7 @@ export class InventoryService {
     }
 
     const updatedInventoryItem = await prisma.inventoryItem.update({
-      where: { id: inventoryItemId },
+      where: { id: Number(inventoryItemId) },
       data: { lowStockThreshold },
       include: {
         variant: {
@@ -209,7 +209,7 @@ export class InventoryService {
   async getStockMovements(filters: {
     page: number;
     limit: number;
-    inventoryItemId?: string;
+    inventoryItemId?: any;
     type?: string;
   }) {
     const { page, limit, inventoryItemId, type } = filters;
@@ -217,7 +217,7 @@ export class InventoryService {
 
     const where: any = {};
     if (inventoryItemId) {
-      where.inventoryItemId = inventoryItemId;
+      where.inventoryItemId = Number(inventoryItemId);
     }
 
     if (type) {

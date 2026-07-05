@@ -105,7 +105,7 @@ export class GeminiService {
     matchedProductIds: string[];
     confidence: number;
     matchScores: Array<{
-      productId: string;
+      productId: any;
       categoryMatch: number;
       colorMatch: number;
       materialMatch: number;
@@ -126,7 +126,7 @@ export class GeminiService {
           id: true,
         },
       });
-      const ids = products.map((p: { id: string }) => p.id);
+      const ids = products.map((p: { id: any }) => p.id);
       
       // If database is empty, return dummy ids
       if (ids.length === 0) {
@@ -136,8 +136,8 @@ export class GeminiService {
       return {
         matchedProductIds: ids,
         confidence: 0.95,
-        matchScores: ids.map((id: string, index: number) => ({
-          productId: id,
+        matchScores: ids.map((id: any, index: number) => ({
+          productId: Number(id),
           categoryMatch: 1.0,
           colorMatch: 0.9 - index * 0.1,
           materialMatch: 0.8,

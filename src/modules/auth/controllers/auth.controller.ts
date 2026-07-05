@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AuthRequest } from '../../../middleware/auth';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
@@ -14,7 +14,7 @@ import {
 } from '../validators/auth.validator';
 
 export class AuthController {
-  async register(req: AuthRequest, res: Response): Promise<void> {
+  async register(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = registerSchema.parse(req.body);
       const deviceInfo = {
@@ -34,12 +34,12 @@ export class AuthController {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async login(req: AuthRequest, res: Response): Promise<void> {
+  async login(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = loginSchema.parse(req.body);
       const deviceInfo = {
@@ -59,36 +59,37 @@ export class AuthController {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async refreshToken(req: AuthRequest, res: Response): Promise<void> {
+  async refreshToken(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = refreshTokenSchema.parse(req.body);
-      const result = await AuthService.refreshAccessToken(validatedData.refreshToken);
+      const deviceType = req.body.deviceType || 'web';
+      const result = await AuthService.refreshAccessToken(validatedData.refreshToken, deviceType);
       ResponseFormatter.success(res, 'Token refreshed successfully', result);
     } catch (error) {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async logout(req: AuthRequest, res: Response): Promise<void> {
+  async logout(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { refreshToken } = req.body;
       await AuthService.logout(refreshToken);
       ResponseFormatter.success(res, 'Logout successful');
     } catch (error) {
-      throw error;
+      next(error);
     }
   }
 
-  async logoutAll(req: AuthRequest, res: Response): Promise<void> {
+  async logoutAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
         ResponseFormatter.error(res, 'Authentication required', 401);
@@ -97,11 +98,11 @@ export class AuthController {
       await AuthService.logoutAll(req.user.id);
       ResponseFormatter.success(res, 'Logged out from all devices successfully');
     } catch (error) {
-      throw error;
+      next(error);
     }
   }
 
-  async changePassword(req: AuthRequest, res: Response): Promise<void> {
+  async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
         ResponseFormatter.error(res, 'Authentication required', 401);
@@ -114,12 +115,12 @@ export class AuthController {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async forgotPassword(req: AuthRequest, res: Response): Promise<void> {
+  async forgotPassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = forgotPasswordSchema.parse(req.body);
       const resetToken = await AuthService.forgotPassword(validatedData.email);
@@ -129,12 +130,12 @@ export class AuthController {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async resetPassword(req: AuthRequest, res: Response): Promise<void> {
+  async resetPassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = resetPasswordSchema.parse(req.body);
       await AuthService.resetPassword(validatedData.token, validatedData.password);
@@ -143,12 +144,12 @@ export class AuthController {
       if (error instanceof ZodError) {
         ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
       } else {
-        throw error;
+        next(error);
       }
     }
   }
 
-  async deleteAccount(req: AuthRequest, res: Response): Promise<void> {
+  async deleteAccount(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
         ResponseFormatter.error(res, 'Authentication required', 401);
@@ -157,11 +158,11 @@ export class AuthController {
       await AuthService.deleteAccount(req.user.id);
       ResponseFormatter.success(res, 'Account deleted successfully');
     } catch (error) {
-      throw error;
+      next(error);
     }
   }
 
-  async getMe(req: AuthRequest, res: Response): Promise<void> {
+  async getMe(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
         ResponseFormatter.error(res, 'Authentication required', 401);
@@ -170,7 +171,7 @@ export class AuthController {
       const user = await AuthService.getUserById(req.user.id);
       ResponseFormatter.success(res, 'User profile retrieved successfully', user);
     } catch (error) {
-      throw error;
+      next(error);
     }
   }
 }

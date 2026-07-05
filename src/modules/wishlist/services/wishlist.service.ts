@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class WishlistService {
-  async getWishlist(userId: string) {
+  async getWishlist(userId: any) {
     const wishlistItems = await prisma.wishlistItem.findMany({
       where: { userId },
       include: {
@@ -25,10 +25,11 @@ export class WishlistService {
     return wishlistItems;
   }
 
-  async addToWishlist(userId: string, productId: string, variantId?: string) {
+  async addToWishlist(userId: any, productId: any, variantId?: any) {
+    const varId = variantId ? Number(variantId) : null;
     // Check if product exists
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
     });
 
     if (!product) {
@@ -39,9 +40,9 @@ export class WishlistService {
     const existingItem = await prisma.wishlistItem.findUnique({
       where: {
         userId_productId_variantId: {
-          userId,
-          productId,
-          variantId: (variantId || null) as any,
+          userId: Number(userId),
+          productId: Number(productId),
+          variantId: varId as any,
         },
       },
     });
@@ -53,9 +54,9 @@ export class WishlistService {
     // Add to wishlist
     const wishlistItem = await prisma.wishlistItem.create({
       data: {
-        userId,
-        productId,
-        variantId,
+        userId: Number(userId),
+        productId: Number(productId),
+        variantId: varId,
       },
       include: {
         product: {
@@ -74,7 +75,7 @@ export class WishlistService {
     return wishlistItem;
   }
 
-  async removeFromWishlist(userId: string, productId: string): Promise<void> {
+  async removeFromWishlist(userId: any, productId: any): Promise<void> {
     const deleted = await prisma.wishlistItem.deleteMany({
       where: { userId, productId },
     });
@@ -86,7 +87,7 @@ export class WishlistService {
     logger.info(`Product removed from wishlist: ${productId} by user: ${userId}`);
   }
 
-  async getWishlistStatus(userId: string, productId: string) {
+  async getWishlistStatus(userId: any, productId: any) {
     const wishlistItem = await prisma.wishlistItem.findFirst({
       where: { userId, productId },
     });

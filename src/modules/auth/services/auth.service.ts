@@ -7,14 +7,36 @@ import { AuthResponse, TokenPayload } from '../dto/auth.dto';
 import { logger } from '../../../utils/logger';
 
 export class AuthService {
-  private readonly jwtSecret: string;
   private readonly jwtExpiresIn: string;
-  private readonly refreshSecret: string;
 
   constructor() {
-    this.jwtSecret = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
-    this.refreshSecret = process.env.REFRESH_TOKEN_SECRET || 'your-super-secret-refresh-token-key';
+  }
+
+  private getJwtSecret(deviceType?: string): string {
+    switch (deviceType) {
+      case 'admin':
+        return process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET || 'your-admin-jwt-secret';
+      case 'mobile':
+        return process.env.MOBILE_JWT_SECRET || process.env.JWT_SECRET || 'your-mobile-jwt-secret';
+      case 'web':
+        return process.env.WEBSITE_JWT_SECRET || process.env.JWT_SECRET || 'your-website-jwt-secret';
+      default:
+        return process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+    }
+  }
+
+  private getRefreshSecret(deviceType?: string): string {
+    switch (deviceType) {
+      case 'admin':
+        return process.env.ADMIN_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-admin-refresh-secret';
+      case 'mobile':
+        return process.env.MOBILE_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-mobile-refresh-secret';
+      case 'web':
+        return process.env.WEBSITE_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-website-refresh-secret';
+      default:
+        return process.env.REFRESH_TOKEN_SECRET || 'your-super-secret-refresh-token-key';
+    }
   }
 
   private getRefreshTokenExpiry(deviceType?: string): number {
@@ -73,7 +95,7 @@ export class AuthService {
     });
 
     // Generate tokens
-    const { accessToken, refreshToken } = await this.generateTokens(user.id, user.email, user.role);
+    const { accessToken, refreshToken } = await this.generateTokens(user.id, user.email, user.role, data.deviceType);
 
     // Hash access token and store in session
     const accessTokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
@@ -85,10 +107,10 @@ export class AuthService {
 
     // Log audit event
     await authRepository.createAuditLog({
-      userId: user.id,
+      userId: String(user.id),
       action: 'REGISTER',
       entityType: 'USER',
-      entityId: user.id,
+      entityId: String(user.id),
       ipAddress: data.ipAddress,
       userAgent: data.userAgent,
       metadata: { deviceType: data.deviceType, deviceId: data.deviceId },
@@ -98,7 +120,7 @@ export class AuthService {
 
     return {
       user: {
-        id: user.id,
+        id: String(user.id),
         email: user.email,
         name: `${user.firstName} ${user.lastName || ''}`.trim(),
         phone: user.phone,
@@ -122,22 +144,35 @@ export class AuthService {
     ipAddress?: string;
     fcmToken?: string;
   }): Promise<AuthResponse> {
+    logger.info(`🔑 Login attempt initiated: email=${email}, deviceType=${deviceInfo?.deviceType || 'unknown'}`);
+
     // Find user
     const user = await authRepository.findByEmail(email);
     if (!user) {
-      throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+      logger.warn(`⚠️ Login failed: email=${email}. Reason: User not found`);
+      throw new AppError('Invalid email or password', 401, true, 'INVALID_CREDENTIALS');
     }
 
     // Check if user is active
     if (!user.isActive || user.deletedAt) {
-      throw new AppError('Account is inactive or deleted', 401, 'ACCOUNT_DISABLED');
+      logger.warn(`⚠️ Login failed: email=${email}. Reason: Account inactive or deleted`);
+      throw new AppError('Account is inactive or deleted', 401, true, 'ACCOUNT_DISABLED');
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+      logger.warn(`⚠️ Login failed: email=${email}. Reason: Invalid password`);
+      throw new AppError('Invalid email or password', 401, true, 'INVALID_CREDENTIALS');
     }
+
+    // Restrict admin login to admin panel only
+    if (user.role === 'ADMIN' && deviceInfo?.deviceType !== 'admin') {
+      logger.warn(`⚠️ Login failed: email=${email}. Reason: Admin restricted to admin panel`);
+      throw new AppError('Admin users can only login through the admin panel', 403, true, 'ADMIN_ONLY_ADMIN_PANEL');
+    }
+
+    logger.info(`✅ User verified: email=${email}, role=${user.role}. Creating session...`);
 
     // Update last login
     await authRepository.updateLastLogin(user.id);
@@ -160,7 +195,7 @@ export class AuthService {
     });
 
     // Generate tokens
-    const { accessToken, refreshToken } = await this.generateTokens(user.id, user.email, user.role);
+    const { accessToken, refreshToken } = await this.generateTokens(user.id, user.email, user.role, deviceInfo?.deviceType);
 
     // Hash access token and store in session
     const accessTokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
@@ -172,20 +207,20 @@ export class AuthService {
 
     // Log audit event
     await authRepository.createAuditLog({
-      userId: user.id,
+      userId: String(user.id),
       action: 'LOGIN',
       entityType: 'SESSION',
-      entityId: session.id,
+      entityId: String(session.id),
       ipAddress: deviceInfo?.ipAddress,
       userAgent: deviceInfo?.userAgent,
       metadata: { deviceType: deviceInfo?.deviceType, deviceId: deviceInfo?.deviceId },
     });
 
-    logger.info(`User logged in: ${user.email}`);
+    logger.info(`🎉 Login successful: email=${user.email}, role=${user.role}, sessionId=${session.id}`);
 
     return {
       user: {
-        id: user.id,
+        id: String(user.id),
         email: user.email,
         name: `${user.firstName} ${user.lastName || ''}`.trim(),
         phone: user.phone,
@@ -198,40 +233,40 @@ export class AuthService {
     };
   }
 
-  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async refreshAccessToken(refreshToken: string, deviceType?: string): Promise<{ accessToken: string; refreshToken: string }> {
     // Find refresh token
     const tokenRecord = await authRepository.findRefreshToken(refreshToken);
     if (!tokenRecord) {
-      throw new AppError('Invalid refresh token', 401, 'REFRESH_TOKEN_INVALID');
+      throw new AppError('Invalid refresh token', 401, true, 'REFRESH_TOKEN_INVALID');
     }
 
     if (tokenRecord.revoked) {
-      throw new AppError('Refresh token has been revoked', 401, 'SESSION_REVOKED');
+      throw new AppError('Refresh token has been revoked', 401, true, 'SESSION_REVOKED');
     }
 
     if (tokenRecord.expiresAt < new Date()) {
-      throw new AppError('Refresh token has expired', 401, 'TOKEN_EXPIRED');
+      throw new AppError('Refresh token has expired', 401, true, 'TOKEN_EXPIRED');
     }
 
     // Check if session is still active
     if (!tokenRecord.session.isActive) {
-      throw new AppError('Session has been revoked', 401, 'SESSION_REVOKED');
+      throw new AppError('Session has been revoked', 401, true, 'SESSION_REVOKED');
     }
 
-    // Verify refresh token
-    const decoded = jwt.verify(refreshToken, this.refreshSecret) as TokenPayload;
+    // Verify refresh token with device-specific secret
+    const decoded = jwt.verify(refreshToken, this.getRefreshSecret(deviceType)) as TokenPayload;
 
     // Check if user is still active
     const user = await authRepository.findById(decoded.userId);
     if (!user || !user.isActive || user.deletedAt) {
-      throw new AppError('Account is inactive or deleted', 401, 'ACCOUNT_DISABLED');
+      throw new AppError('Account is inactive or deleted', 401, true, 'ACCOUNT_DISABLED');
     }
 
     // Revoke old refresh token
     await authRepository.revokeRefreshToken(refreshToken);
 
     // Generate new tokens
-    const tokens = await this.generateTokens(decoded.userId, decoded.email, decoded.role);
+    const tokens = await this.generateTokens(decoded.userId, decoded.email, decoded.role, deviceType);
 
     // Hash new access token and update session
     const accessTokenHash = crypto.createHash('sha256').update(tokens.accessToken).digest('hex');
@@ -248,8 +283,8 @@ export class AuthService {
       userId: decoded.userId,
       action: 'TOKEN_REFRESH',
       entityType: 'SESSION',
-      entityId: tokenRecord.sessionId,
-      metadata: { previousTokenRevoked: true },
+      entityId: String(tokenRecord.sessionId),
+      metadata: { previousTokenRevoked: true, deviceType },
     });
 
     return tokens;
@@ -259,7 +294,7 @@ export class AuthService {
     // Find refresh token
     const tokenRecord = await authRepository.findRefreshToken(refreshToken);
     if (!tokenRecord) {
-      throw new AppError('Invalid refresh token', 401, 'REFRESH_TOKEN_INVALID');
+      throw new AppError('Invalid refresh token', 401, true, 'REFRESH_TOKEN_INVALID');
     }
 
     // Revoke refresh token
@@ -270,16 +305,16 @@ export class AuthService {
 
     // Log audit event
     await authRepository.createAuditLog({
-      userId: tokenRecord.userId,
+      userId: String(tokenRecord.userId),
       action: 'LOGOUT',
       entityType: 'SESSION',
-      entityId: tokenRecord.sessionId,
+      entityId: String(tokenRecord.sessionId),
     });
 
     logger.info(`User logged out: ${tokenRecord.userId}`);
   }
 
-  async logoutAll(userId: string): Promise<void> {
+  async logoutAll(userId: any): Promise<void> {
     // Revoke all refresh tokens
     await authRepository.revokeAllUserTokens(userId);
 
@@ -297,7 +332,7 @@ export class AuthService {
     logger.info(`User logged out from all devices: ${userId}`);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(userId: any, currentPassword: string, newPassword: string): Promise<void> {
     const user = await authRepository.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
@@ -311,7 +346,7 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(currentPassword, userWithPassword.passwordHash);
     if (!isPasswordValid) {
-      throw new AppError('Current password is incorrect', 401, 'INVALID_CREDENTIALS');
+      throw new AppError('Current password is incorrect', 401, true, 'INVALID_CREDENTIALS');
     }
 
     // Update password
@@ -346,10 +381,10 @@ export class AuthService {
 
     // Log audit event
     await authRepository.createAuditLog({
-      userId: user.id,
+      userId: String(user.id),
       action: 'PASSWORD_RESET_REQUEST',
       entityType: 'USER',
-      entityId: user.id,
+      entityId: String(user.id),
     });
 
     // In production, save this to database with expiry
@@ -365,7 +400,7 @@ export class AuthService {
     logger.info(`Password reset with token: ${token}`);
   }
 
-  async deleteAccount(userId: string): Promise<void> {
+  async deleteAccount(userId: any): Promise<void> {
     // Revoke all refresh tokens
     await authRepository.revokeAllUserTokens(userId);
 
@@ -386,7 +421,7 @@ export class AuthService {
     logger.info(`Account deleted for user: ${userId}`);
   }
 
-  async getUserById(userId: string) {
+  async getUserById(userId: any) {
     const user = await authRepository.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
@@ -405,17 +440,17 @@ export class AuthService {
     };
   }
 
-  private async generateTokens(userId: string, email: string, role: string): Promise<{
+  private async generateTokens(userId: any, email: string, role: string, deviceType?: string): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
     const payload: TokenPayload = { userId, email, role };
 
-    const accessToken = jwt.sign(payload, this.jwtSecret, {
+    const accessToken = jwt.sign(payload, this.getJwtSecret(deviceType), {
       expiresIn: this.jwtExpiresIn as any,
     });
 
-    const refreshToken = jwt.sign(payload, this.refreshSecret, {
+    const refreshToken = jwt.sign(payload, this.getRefreshSecret(deviceType), {
       expiresIn: '30d', // Default 30 days, actual expiry handled by database
     });
 

@@ -3,9 +3,9 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class UserService {
-  async getUserProfile(userId: string) {
+  async getUserProfile(userId: any) {
     const user = await prisma.user.findUnique({
-      where: { id: userId, deletedAt: null },
+      where: { id: Number(userId), deletedAt: null },
       select: {
         id: true,
         email: true,
@@ -28,14 +28,14 @@ export class UserService {
     return user;
   }
 
-  async updateCurrentUser(userId: string, data: {
+  async updateCurrentUser(userId: any, data: {
     firstName?: string;
     lastName?: string;
     phone?: string;
     avatarUrl?: string;
   }) {
     const user = await prisma.user.update({
-      where: { id: userId, deletedAt: null },
+      where: { id: Number(userId), deletedAt: null },
       data: {
         ...(data.firstName && { firstName: data.firstName }),
         ...(data.lastName && { lastName: data.lastName }),
@@ -61,9 +61,9 @@ export class UserService {
     return user;
   }
 
-  async deleteCurrentUser(userId: string): Promise<void> {
+  async deleteCurrentUser(userId: any): Promise<void> {
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: { deletedAt: new Date() },
     });
     logger.info(`User account deleted: ${userId}`);

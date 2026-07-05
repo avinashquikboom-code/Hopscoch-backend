@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const createShipmentSchema = z.object({
-  orderId: z.string().uuid('Invalid order ID'),
+  orderId: z.coerce.number().int('Invalid order ID'),
   courierPartner: z.string().min(1, 'Courier partner is required'),
   trackingNumber: z.string().min(1, 'Tracking number is required'),
   estimatedDeliveryDate: z.string().datetime(),

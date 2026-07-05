@@ -32,6 +32,21 @@ const authController = AuthController;
  *                 type: string
  *               phone:
  *                 type: string
+ *               deviceType:
+ *                 type: string
+ *                 enum: [mobile, web, admin]
+ *               platform:
+ *                 type: string
+ *               browser:
+ *                 type: string
+ *               os:
+ *                 type: string
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *               fcmToken:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Registration successful
@@ -63,11 +78,26 @@ router.post('/register', authRateLimiter, authController.register.bind(authContr
  *                 format: email
  *               password:
  *                 type: string
+ *               deviceType:
+ *                 type: string
+ *                 enum: [mobile, web, admin]
+ *               platform:
+ *                 type: string
+ *               browser:
+ *                 type: string
+ *               os:
+ *                 type: string
+ *               deviceId:
+ *                 type: string
+ *               deviceName:
+ *                 type: string
+ *               fcmToken:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Login successful
  *       401:
- *         description: Invalid credentials
+ *         description: Authentication failed
  */
 router.post('/login', authRateLimiter, authController.login.bind(authController));
 
@@ -88,11 +118,14 @@ router.post('/login', authRateLimiter, authController.login.bind(authController)
  *             properties:
  *               refreshToken:
  *                 type: string
+ *               deviceType:
+ *                 type: string
+ *                 enum: [mobile, web, admin]
  *     responses:
  *       200:
  *         description: Token refreshed successfully
  *       401:
- *         description: Invalid or expired refresh token
+ *         description: Authentication failed
  */
 router.post('/refresh', authController.refreshToken.bind(authController));
 

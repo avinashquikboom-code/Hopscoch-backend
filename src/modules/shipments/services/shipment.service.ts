@@ -4,7 +4,7 @@ import prisma from '../../../utils/prisma';
 
 export class ShipmentService {
   async createShipment(data: {
-    orderId: string;
+    orderId: any;
     courierPartner: string;
     trackingNumber: string;
     estimatedDeliveryDate: string;
@@ -13,7 +13,7 @@ export class ShipmentService {
 
     // Validate order exists
     const order = await prisma.order.findUnique({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
     });
 
     if (!order) {
@@ -34,7 +34,7 @@ export class ShipmentService {
 
     // Update order status to PROCESSING
     const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
       data: {
         status: 'PROCESSING',
         timeline: {
@@ -64,7 +64,7 @@ export class ShipmentService {
     };
   }
 
-  async updateTracking(orderId: string, data: {
+  async updateTracking(orderId: any, data: {
     status: 'PICKED_UP' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED';
     location?: string;
     note?: string;
@@ -72,7 +72,7 @@ export class ShipmentService {
     const { status, location, note } = data;
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
     });
 
     if (!order) {
@@ -93,7 +93,7 @@ export class ShipmentService {
 
     // Update order status
     const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
       data: {
         status: orderStatus as any,
         timeline: {
@@ -120,9 +120,9 @@ export class ShipmentService {
     return updatedOrder;
   }
 
-  async getShipmentByOrderId(orderId: string) {
+  async getShipmentByOrderId(orderId: any) {
     const order = await prisma.order.findUnique({
-      where: { id: orderId },
+      where: { id: Number(orderId) },
       include: {
         items: {
           include: {

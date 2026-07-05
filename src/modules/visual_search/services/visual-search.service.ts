@@ -4,7 +4,7 @@ import prisma from '../../../utils/prisma';
 import GeminiService from './gemini.service';
 
 export class VisualSearchService {
-  async search(userId: string, data: { imageUrl: string }) {
+  async search(userId: any, data: { imageUrl: string }) {
     const { imageUrl } = data;
     const startTime = Date.now();
 
@@ -34,7 +34,7 @@ export class VisualSearchService {
       const dbStartTime = Date.now();
       const matchedProducts = await prisma.product.findMany({
         where: {
-          id: { in: searchResult.matchedProductIds },
+          id: { in: searchResult.matchedProductIds.map(Number) },
           status: 'PUBLISHED',
           deletedAt: null,
         },
@@ -149,11 +149,11 @@ export class VisualSearchService {
     }
   }
 
-  async getQuery(queryId: string) {
+  async getQuery(queryId: any) {
     logger.info(`[VISUAL_SEARCH] Fetching query details for queryId: ${queryId}`);
     
     const query = await prisma.aIImageSearchLog.findUnique({
-      where: { id: queryId },
+      where: { id: Number(queryId) },
     });
 
     if (!query) {
@@ -165,7 +165,7 @@ export class VisualSearchService {
     return query;
   }
 
-  async getHistory(userId: string) {
+  async getHistory(userId: any) {
     logger.info(`[VISUAL_SEARCH] Fetching search history for user: ${userId}`);
     
     const history = await prisma.aIImageSearchLog.findMany({
@@ -178,11 +178,11 @@ export class VisualSearchService {
     return history;
   }
 
-  async deleteQuery(userId: string, queryId: string): Promise<void> {
+  async deleteQuery(userId: any, queryId: any): Promise<void> {
     logger.info(`[VISUAL_SEARCH] Attempting to delete query ${queryId} by user ${userId}`);
     
     const query = await prisma.aIImageSearchLog.findUnique({
-      where: { id: queryId },
+      where: { id: Number(queryId) },
     });
 
     if (!query) {
@@ -190,13 +190,13 @@ export class VisualSearchService {
       throw new AppError('Visual search query not found', 404);
     }
 
-    if (query.userId !== userId) {
+    if (query.userId !== Number(userId)) {
       logger.warn(`[VISUAL_SEARCH] Delete failed - unauthorized: user ${userId} tried to delete query owned by ${query.userId}`);
       throw new AppError('Unauthorized to delete this query', 403);
     }
 
     await prisma.aIImageSearchLog.delete({
-      where: { id: queryId },
+      where: { id: Number(queryId) },
     });
 
     logger.info(`[VISUAL_SEARCH] Query deleted successfully: ${queryId} by user ${userId}`);

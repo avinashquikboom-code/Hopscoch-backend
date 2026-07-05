@@ -50,7 +50,7 @@ export class SettingsService {
     return updatedSettings;
   }
 
-  async getUserPreferences(userId: string) {
+  async getUserPreferences(userId: any) {
     const preferences = await prisma.userPreference.findUnique({
       where: { userId },
     });
@@ -62,7 +62,7 @@ export class SettingsService {
     return preferences;
   }
 
-  async updateUserPreferences(userId: string, data: {
+  async updateUserPreferences(userId: any, data: {
     currency?: string;
     language?: string;
     pushOptIn?: boolean;

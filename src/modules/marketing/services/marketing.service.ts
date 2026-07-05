@@ -55,9 +55,9 @@ export class MarketingService {
     return banners;
   }
 
-  async getBannerById(bannerId: string) {
+  async getBannerById(bannerId: any) {
     const banner = await prisma.banner.findUnique({
-      where: { id: bannerId },
+      where: { id: Number(bannerId) },
     });
 
     if (!banner) {
@@ -67,7 +67,7 @@ export class MarketingService {
     return banner;
   }
 
-  async updateBanner(bannerId: string, data: {
+  async updateBanner(bannerId: any, data: {
     title?: string;
     description?: string;
     imageUrl?: string;
@@ -80,7 +80,7 @@ export class MarketingService {
     const { title, description, imageUrl, link, position, isActive, startDate, endDate } = data;
 
     const banner = await prisma.banner.findUnique({
-      where: { id: bannerId },
+      where: { id: Number(bannerId) },
     });
 
     if (!banner) {
@@ -88,7 +88,7 @@ export class MarketingService {
     }
 
     const updatedBanner = await prisma.banner.update({
-      where: { id: bannerId },
+      where: { id: Number(bannerId) },
       data: {
         title,
         description,
@@ -105,9 +105,9 @@ export class MarketingService {
     return updatedBanner;
   }
 
-  async deleteBanner(bannerId: string) {
+  async deleteBanner(bannerId: any) {
     const banner = await prisma.banner.findUnique({
-      where: { id: bannerId },
+      where: { id: Number(bannerId) },
     });
 
     if (!banner) {
@@ -115,7 +115,7 @@ export class MarketingService {
     }
 
     await prisma.banner.update({
-      where: { id: bannerId },
+      where: { id: Number(bannerId) },
       data: {
         isActive: false,
       },
@@ -160,9 +160,9 @@ export class MarketingService {
     return campaigns;
   }
 
-  async getCampaignById(campaignId: string) {
+  async getCampaignById(campaignId: any) {
     const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
+      where: { id: Number(campaignId) },
     });
 
     if (!campaign) {
@@ -172,9 +172,9 @@ export class MarketingService {
     return campaign;
   }
 
-  async sendCampaign(campaignId: string) {
+  async sendCampaign(campaignId: any) {
     const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
+      where: { id: Number(campaignId) },
     });
 
     if (!campaign) {
@@ -183,7 +183,7 @@ export class MarketingService {
 
     // Update campaign status
     await prisma.campaign.update({
-      where: { id: campaignId },
+      where: { id: Number(campaignId) },
       data: {
         isActive: false,
         sentAt: new Date(),

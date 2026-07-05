@@ -80,7 +80,7 @@ export class ReportService {
 
   async getInventoryReport(filters: {
     lowStock?: boolean;
-    warehouseId?: string;
+    warehouseId?: any;
     page: number;
     limit: number;
   }) {
@@ -89,7 +89,7 @@ export class ReportService {
 
     const where: any = {};
     if (warehouseId) {
-      where.warehouseId = warehouseId;
+      where.warehouseId = Number(warehouseId);
     }
 
     if (lowStock) {

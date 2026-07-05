@@ -9,7 +9,7 @@ export const salesReportQuerySchema = z.object({
 
 export const inventoryReportQuerySchema = z.object({
   lowStock: z.string().optional().transform(val => val === 'true'),
-  warehouseId: z.string().uuid().optional(),
+  warehouseId: z.coerce.number().int().optional(),
   page: z.string().optional().default('1'),
   limit: z.string().optional().default('20'),
 });

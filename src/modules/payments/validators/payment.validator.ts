@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export const createPaymentSchema = z.object({
-  orderId: z.string().uuid('Invalid order ID'),
+  orderId: z.coerce.number().int('Invalid order ID'),
   method: z.enum(['RAZORPAY', 'STRIPE', 'UPI', 'CARD', 'WALLET', 'COD']),
   providerRef: z.string().optional(),
 });
 
 export const processRefundSchema = z.object({
-  paymentId: z.string().uuid('Invalid payment ID'),
+  paymentId: z.coerce.number().int('Invalid payment ID'),
   refundAmount: z.number().positive('Refund amount must be positive'),
   refundReason: z.string().min(10).max(500),
 });

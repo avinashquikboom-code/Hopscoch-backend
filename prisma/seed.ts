@@ -1,34 +1,19 @@
-import { PrismaClient, Gender, AgeGroup, ProductStatus, Role } from '@prisma/client';
+import { Gender, AgeGroup, ProductStatus, Role } from '@prisma/client';
 import bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
+import prisma from '../src/utils/prisma';
 
 async function main() {
   console.log('🌱 Start seeding mock database...');
 
   // 0. Create Users
   console.log('Creating users...');
-  const hashedPassword = await bcrypt.hash('Password123', 10);
+  const hashedPassword = await bcrypt.hash('123456', 10);
   
   await prisma.user.upsert({
-    where: { email: 'user@example.com' },
+    where: { email: 'admin@gmail.com' },
     update: {},
     create: {
-      email: 'user@example.com',
-      passwordHash: hashedPassword,
-      role: Role.CUSTOMER,
-      firstName: 'Jane',
-      lastName: 'Doe',
-      isEmailVerified: true,
-      isActive: true,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      email: 'admin@example.com',
+      email: 'admin@gmail.com',
       passwordHash: hashedPassword,
       role: Role.ADMIN,
       firstName: 'Admin',

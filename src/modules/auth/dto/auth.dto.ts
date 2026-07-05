@@ -1,6 +1,6 @@
 export interface AuthResponse {
   user: {
-    id: string;
+    id: any;
     email: string;
     name: string | null;
     phone: string | null;
@@ -13,7 +13,7 @@ export interface AuthResponse {
 }
 
 export interface TokenPayload {
-  userId: string;
+  userId: any;
   email: string;
   role: string;
 }

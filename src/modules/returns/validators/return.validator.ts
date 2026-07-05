@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const createReturnRequestSchema = z.object({
-  orderId: z.string().uuid('Invalid order ID'),
+  orderId: z.coerce.number().int('Invalid order ID'),
   reason: z.string().min(10, 'Reason must be at least 10 characters').max(500, 'Reason must not exceed 500 characters'),
   isReplacement: z.boolean().default(false),
   images: z.array(z.string().url()).optional(),

@@ -10,7 +10,7 @@ export class AuthRepository {
     });
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: any): Promise<User | null> {
     return prisma.user.findUnique({
       where: { id },
     });
@@ -38,18 +38,18 @@ export class AuthRepository {
     });
   }
 
-  async updatePassword(userId: string, newPassword: string): Promise<void> {
+  async updatePassword(userId: any, newPassword: string): Promise<void> {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: { passwordHash: hashedPassword },
     });
   }
 
-  async verifyEmail(userId: string): Promise<User> {
+  async verifyEmail(userId: any): Promise<User> {
     return prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: {
         isEmailVerified: true,
       },
@@ -57,10 +57,10 @@ export class AuthRepository {
   }
 
   async createRefreshToken(
-    userId: string,
+    userId: any,
     token: string,
     expiresAt: Date,
-    sessionId: string
+    sessionId: any
   ): Promise<RefreshToken> {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     
@@ -75,7 +75,7 @@ export class AuthRepository {
   }
 
   async createSession(data: {
-    userId: string;
+    userId: any;
     deviceId?: string;
     deviceType?: string;
     platform?: string;
@@ -105,7 +105,7 @@ export class AuthRepository {
     });
   }
 
-  async findActiveSession(userId: string, deviceId?: string): Promise<Session | null> {
+  async findActiveSession(userId: any, deviceId?: string): Promise<Session | null> {
     if (deviceId) {
       return prisma.session.findFirst({
         where: { userId, deviceId, isActive: true },
@@ -116,40 +116,40 @@ export class AuthRepository {
     });
   }
 
-  async deactivateSession(sessionId: string): Promise<void> {
+  async deactivateSession(sessionId: any): Promise<void> {
     await prisma.session.update({
-      where: { id: sessionId },
+      where: { id: Number(sessionId) },
       data: { isActive: false },
     });
   }
 
-  async deactivateAllUserSessions(userId: string, excludeSessionId?: string): Promise<void> {
+  async deactivateAllUserSessions(userId: any, excludeSessionId?: any): Promise<void> {
     await prisma.session.updateMany({
       where: {
-        userId,
+        userId: Number(userId),
         isActive: true,
-        ...(excludeSessionId && { id: { not: excludeSessionId } }),
+        ...(excludeSessionId && { id: { not: Number(excludeSessionId) } }),
       },
       data: { isActive: false },
     });
   }
 
-  async updateSessionActivity(sessionId: string): Promise<void> {
+  async updateSessionActivity(sessionId: any): Promise<void> {
     await prisma.session.update({
-      where: { id: sessionId },
+      where: { id: Number(sessionId) },
       data: { lastActivityAt: new Date() },
     });
   }
 
-  async updateSessionAccessToken(sessionId: string, accessTokenHash: string): Promise<void> {
+  async updateSessionAccessToken(sessionId: any, accessTokenHash: string): Promise<void> {
     await prisma.session.update({
-      where: { id: sessionId },
+      where: { id: Number(sessionId) },
       data: { accessTokenHash },
     });
   }
 
   async createAuditLog(data: {
-    userId?: string;
+    userId?: any;
     action: string;
     entityType?: string;
     entityId?: string;
@@ -158,12 +158,15 @@ export class AuthRepository {
     metadata?: any;
   }): Promise<AuditLog> {
     return prisma.auditLog.create({
-      data,
+      data: {
+        ...data,
+        userId: data.userId ? Number(data.userId) : undefined,
+      },
     });
   }
 
   async createActivityLog(data: {
-    userId?: string;
+    userId?: any;
     activity: string;
     entityType?: string;
     entityId?: string;
@@ -172,11 +175,14 @@ export class AuthRepository {
     metadata?: any;
   }): Promise<ActivityLog> {
     return prisma.activityLog.create({
-      data,
+      data: {
+        ...data,
+        userId: data.userId ? Number(data.userId) : undefined,
+      },
     });
   }
 
-  async findRefreshToken(token: string): Promise<RefreshToken | null> {
+  async findRefreshToken(token: string): Promise<any> {
     return prisma.refreshToken.findUnique({
       where: { tokenHash: token },
       include: { user: true, session: true },
@@ -190,23 +196,23 @@ export class AuthRepository {
     });
   }
 
-  async revokeAllUserTokens(userId: string): Promise<void> {
+  async revokeAllUserTokens(userId: any): Promise<void> {
     await prisma.refreshToken.updateMany({
       where: { userId, revoked: false },
       data: { revoked: true },
     });
   }
 
-  async deleteAccount(userId: string): Promise<void> {
+  async deleteAccount(userId: any): Promise<void> {
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: { deletedAt: new Date() },
     });
   }
 
-  async updateLastLogin(userId: string): Promise<void> {
+  async updateLastLogin(userId: any): Promise<void> {
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: Number(userId) },
       data: { lastLoginAt: new Date() },
     });
   }

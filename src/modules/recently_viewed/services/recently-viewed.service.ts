@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class RecentlyViewedService {
-  async getRecentlyViewed(userId: string) {
+  async getRecentlyViewed(userId: any) {
     const recentlyViewed = await prisma.recentlyViewed.findMany({
       where: { userId },
       include: {
@@ -25,10 +25,10 @@ export class RecentlyViewedService {
     return recentlyViewed;
   }
 
-  async recordView(userId: string, productId: string): Promise<void> {
+  async recordView(userId: any, productId: any): Promise<void> {
     // Check if product exists
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
     });
 
     if (!product) {
@@ -56,7 +56,7 @@ export class RecentlyViewedService {
     logger.info(`Product view recorded: ${productId} by user: ${userId}`);
   }
 
-  async clearRecentlyViewed(userId: string): Promise<void> {
+  async clearRecentlyViewed(userId: any): Promise<void> {
     await prisma.recentlyViewed.deleteMany({
       where: { userId },
     });

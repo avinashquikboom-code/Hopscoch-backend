@@ -67,9 +67,9 @@ export class ContentService {
     return content;
   }
 
-  async getStaticContentById(contentId: string) {
+  async getStaticContentById(contentId: any) {
     const content = await prisma.staticContent.findUnique({
-      where: { id: contentId },
+      where: { id: Number(contentId) },
     });
 
     if (!content) {
@@ -79,7 +79,7 @@ export class ContentService {
     return content;
   }
 
-  async updateStaticContent(contentId: string, data: {
+  async updateStaticContent(contentId: any, data: {
     key?: string;
     type?: 'PAGE' | 'FAQ' | 'BLOG' | 'POLICY';
     title?: string;
@@ -91,7 +91,7 @@ export class ContentService {
     const { key, type, title, content, metaTitle, metaDescription, isActive } = data;
 
     const existingContent = await prisma.staticContent.findUnique({
-      where: { id: contentId },
+      where: { id: Number(contentId) },
     });
 
     if (!existingContent) {
@@ -109,7 +109,7 @@ export class ContentService {
     }
 
     const updatedContent = await prisma.staticContent.update({
-      where: { id: contentId },
+      where: { id: Number(contentId) },
       data: {
         key,
         type,
@@ -125,9 +125,9 @@ export class ContentService {
     return updatedContent;
   }
 
-  async deleteStaticContent(contentId: string) {
+  async deleteStaticContent(contentId: any) {
     const content = await prisma.staticContent.findUnique({
-      where: { id: contentId },
+      where: { id: Number(contentId) },
     });
 
     if (!content) {
@@ -135,7 +135,7 @@ export class ContentService {
     }
 
     await prisma.staticContent.update({
-      where: { id: contentId },
+      where: { id: Number(contentId) },
       data: {
         isActive: false,
       },
@@ -202,9 +202,9 @@ export class ContentService {
     };
   }
 
-  async getContactRequestById(requestId: string) {
+  async getContactRequestById(requestId: any) {
     const request = await prisma.contactRequest.findUnique({
-      where: { id: requestId },
+      where: { id: Number(requestId) },
     });
 
     if (!request) {
@@ -214,14 +214,14 @@ export class ContentService {
     return request;
   }
 
-  async updateContactRequest(requestId: string, data: {
+  async updateContactRequest(requestId: any, data: {
     status?: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
     response?: string;
   }) {
     const { status, response } = data;
 
     const request = await prisma.contactRequest.findUnique({
-      where: { id: requestId },
+      where: { id: Number(requestId) },
     });
 
     if (!request) {
@@ -229,7 +229,7 @@ export class ContentService {
     }
 
     const updatedRequest = await prisma.contactRequest.update({
-      where: { id: requestId },
+      where: { id: Number(requestId) },
       data: {
         status,
         response,

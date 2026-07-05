@@ -3,8 +3,8 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class PaymentService {
-  async createPayment(userId: string, data: {
-    orderId: string;
+  async createPayment(userId: any, data: {
+    orderId: any;
     method: 'RAZORPAY' | 'STRIPE' | 'UPI' | 'CARD' | 'WALLET' | 'COD';
     providerRef?: string;
   }) {
@@ -12,7 +12,7 @@ export class PaymentService {
 
     // Validate order exists and belongs to user
     const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: { id: Number(orderId), userId },
       include: { payment: true },
     });
 
@@ -52,9 +52,9 @@ export class PaymentService {
     return payment;
   }
 
-  async updatePaymentStatus(paymentId: string, status: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED', providerRef?: string) {
+  async updatePaymentStatus(paymentId: any, status: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED', providerRef?: string) {
     const payment = await prisma.payment.findUnique({
-      where: { id: paymentId },
+      where: { id: Number(paymentId) },
       include: { order: true },
     });
 
@@ -64,7 +64,7 @@ export class PaymentService {
 
     // Update payment status
     const updatedPayment = await prisma.payment.update({
-      where: { id: paymentId },
+      where: { id: Number(paymentId) },
       data: {
         status,
         providerRef: providerRef || payment.providerRef,
@@ -126,14 +126,14 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async processRefund(paymentId: string, data: {
+  async processRefund(paymentId: any, data: {
     refundAmount: number;
     refundReason: string;
   }) {
     const { refundAmount, refundReason } = data;
 
     const payment = await prisma.payment.findUnique({
-      where: { id: paymentId },
+      where: { id: Number(paymentId) },
       include: { order: true },
     });
 
@@ -151,7 +151,7 @@ export class PaymentService {
 
     // Update payment with refund
     const updatedPayment = await prisma.payment.update({
-      where: { id: paymentId },
+      where: { id: Number(paymentId) },
       data: {
         refundedAmount: {
           increment: refundAmount,
@@ -176,7 +176,7 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async getPaymentByOrderId(orderId: string) {
+  async getPaymentByOrderId(orderId: any) {
     const payment = await prisma.payment.findUnique({
       where: { orderId },
       include: {
@@ -204,7 +204,7 @@ export class PaymentService {
     return payment;
   }
 
-  async getPaymentsForUser(userId: string, filters: {
+  async getPaymentsForUser(userId: any, filters: {
     page: number;
     limit: number;
     status?: string;

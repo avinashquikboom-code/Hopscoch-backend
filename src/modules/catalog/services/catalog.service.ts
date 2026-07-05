@@ -72,9 +72,9 @@ export class CatalogService {
     };
   }
 
-  async getProductById(productId: string) {
+  async getProductById(productId: any) {
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
       include: {
         category: true,
         brand: true,
@@ -94,9 +94,9 @@ export class CatalogService {
     return product;
   }
 
-  async getProductImages(productId: string) {
+  async getProductImages(productId: any) {
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
       select: { id: true },
     });
 
@@ -112,9 +112,9 @@ export class CatalogService {
     return images;
   }
 
-  async getProductVariants(productId: string) {
+  async getProductVariants(productId: any) {
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
       select: { id: true },
     });
 
@@ -130,9 +130,9 @@ export class CatalogService {
     return variants;
   }
 
-  async getRelatedProducts(productId: string) {
+  async getRelatedProducts(productId: any) {
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
       select: { categoryId: true, brandId: true },
     });
 

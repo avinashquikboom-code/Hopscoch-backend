@@ -1,10 +1,13 @@
+import dotenv from 'dotenv';
+// Load environment variables early
+dotenv.config({ path: './env/env.local' });
+
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import dotenv from 'dotenv';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
@@ -35,16 +38,28 @@ import adminRoutes from './modules/admin/routes';
 import settingsRoutes from './modules/settings/routes';
 import './workers';
 
-// Load environment variables
-dotenv.config({ path: './env/env.local' });
-
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet());
+
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:4000',
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 app.use(compression());

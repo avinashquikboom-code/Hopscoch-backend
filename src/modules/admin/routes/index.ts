@@ -207,9 +207,97 @@ router.get('/activity-logs', authenticate, adminController.getActivityLogs.bind(
  *     responses:
  *       200:
  *         description: Dashboard stats retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalUsers:
+ *                       type: integer
+ *                     activeUsers:
+ *                       type: integer
+ *                     totalOrders:
+ *                       type: integer
+ *                     totalRevenue:
+ *                       type: number
+ *                     pendingReturns:
+ *                       type: integer
+ *                     lowStockItems:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *                 recentOrders:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 recentActivity:
+ *                   type: array
+ *                   items:
+ *                     type: object
  *       401:
  *         description: Authentication required
  */
 router.get('/dashboard', authenticate, adminController.getDashboardStats.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/profile:
+ *   get:
+ *     summary: Get current admin profile (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 firstName:
+ *                   type: string
+ *                 lastName:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                 isActive:
+ *                   type: boolean
+ *                 isEmailVerified:
+ *                   type: boolean
+ *                 lastLoginAt:
+ *                   type: string
+ *                   format: date-time
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/profile', authenticate, adminController.getAdminProfile.bind(adminController));
+router.put('/profile', authenticate, adminController.updateAdminProfile.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/logout:
+ *   post:
+ *     summary: Logout admin (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/logout', authenticate, adminController.logoutAdmin.bind(adminController));
 
 export default router;

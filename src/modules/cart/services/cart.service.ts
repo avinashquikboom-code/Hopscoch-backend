@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class CartService {
-  async getCart(userId: string) {
+  async getCart(userId: any) {
     let cart = await prisma.cart.findUnique({
       where: { userId },
       include: {
@@ -53,12 +53,12 @@ export class CartService {
     return cart;
   }
 
-  async addToCart(userId: string, data: { productId: string; variantId: string; quantity: number }) {
+  async addToCart(userId: any, data: { productId: any; variantId: any; quantity: number }) {
     const { productId, variantId, quantity } = data;
 
     // Check if product exists
     const product = await prisma.product.findUnique({
-      where: { id: productId, deletedAt: null },
+      where: { id: Number(productId), deletedAt: null },
     });
 
     if (!product) {
@@ -67,7 +67,7 @@ export class CartService {
 
     // Check if variant exists
     const variant = await prisma.productVariant.findUnique({
-      where: { id: variantId, deletedAt: null },
+      where: { id: Number(variantId), deletedAt: null },
     });
 
     if (!variant) {
@@ -151,7 +151,7 @@ export class CartService {
     return cartItem;
   }
 
-  async updateCartItem(userId: string, cartItemId: string, data: { quantity?: number; savedForLater?: boolean }) {
+  async updateCartItem(userId: any, cartItemId: any, data: { quantity?: number; savedForLater?: boolean }) {
     const cart = await prisma.cart.findUnique({
       where: { userId },
     });
@@ -161,7 +161,7 @@ export class CartService {
     }
 
     const cartItem = await prisma.cartItem.findFirst({
-      where: { id: cartItemId, cartId: cart.id },
+      where: { id: Number(cartItemId), cartId: cart.id },
       include: { variant: true },
     });
 
@@ -171,13 +171,13 @@ export class CartService {
 
     if (data.quantity !== undefined) {
       // Check stock
-      if (data.quantity > cartItem.variant!.stock) {
+      if (data.quantity > (cartItem as any).variant!.stock) {
         throw new AppError('Insufficient stock', 400);
       }
     }
 
     const updatedItem = await prisma.cartItem.update({
-      where: { id: cartItemId },
+      where: { id: Number(cartItemId) },
       data,
       include: {
         product: {
@@ -196,7 +196,7 @@ export class CartService {
     return updatedItem;
   }
 
-  async removeFromCart(userId: string, cartItemId: string): Promise<void> {
+  async removeFromCart(userId: any, cartItemId: any): Promise<void> {
     const cart = await prisma.cart.findUnique({
       where: { userId },
     });
@@ -206,7 +206,7 @@ export class CartService {
     }
 
     const deleted = await prisma.cartItem.deleteMany({
-      where: { id: cartItemId, cartId: cart.id },
+      where: { id: Number(cartItemId), cartId: cart.id },
     });
 
     if (deleted.count === 0) {
@@ -216,7 +216,7 @@ export class CartService {
     logger.info(`Cart item removed: ${cartItemId} by user: ${userId}`);
   }
 
-  async clearCart(userId: string): Promise<void> {
+  async clearCart(userId: any): Promise<void> {
     const cart = await prisma.cart.findUnique({
       where: { userId },
     });

@@ -69,7 +69,7 @@ export class InventoryController {
       const movements = await InventoryService.getStockMovements({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        inventoryItemId: inventoryItemId as string,
+        inventoryItemId: inventoryItemId ? Number(inventoryItemId) : undefined,
         type: type as string,
       });
       ResponseFormatter.success(res, 'Stock movements retrieved successfully', movements);

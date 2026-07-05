@@ -10,7 +10,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // =====================================================================
@@ -143,22 +142,22 @@ enum StockMovementType {
 // =====================================================================
 
 model User {
-  id                 String    @id @default(uuid())
+  id                 Int    @id @default(autoincrement())
   email              String    @unique
   phone              String?   @unique
-  passwordHash       String
+  passwordHash       String @map("password_hash")
   role               Role      @default(CUSTOMER)
-  firstName          String
-  lastName           String?
-  avatarUrl          String?
-  isEmailVerified    Boolean   @default(false)
-  isPhoneVerified    Boolean   @default(false)
-  isActive           Boolean   @default(true)
-  deletedAt          DateTime? // soft delete, 30-day grace period per backlog
-  lastLoginAt        DateTime?
+  firstName          String @map("first_name")
+  lastName           String? @map("last_name")
+  avatarUrl          String? @map("avatar_url")
+  isEmailVerified    Boolean   @default(false) @map("is_email_verified")
+  isPhoneVerified    Boolean   @default(false) @map("is_phone_verified")
+  isActive           Boolean   @default(true) @map("is_active")
+  deletedAt          DateTime? @map("deleted_at") // soft delete, 30-day grace period per backlog
+  lastLoginAt        DateTime? @map("last_login_at")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   refreshTokens      RefreshToken[]
   sessions           Session[]
@@ -181,61 +180,65 @@ model User {
 
   @@index([email])
   @@index([deletedAt])
+  @@map("users")
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
+  id        Int   @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
-  sessionId String
+  tokenHash String   @unique @map("token_hash")
+  sessionId Int @map("session_id")
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   revoked   Boolean  @default(false)
-  replacedByTokenHash String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  replacedByTokenHash String? @map("replaced_by_token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([tokenHash])
+  @@map("refresh_tokens")
 }
 
 model Session {
-  id              String   @id @default(uuid())
-  userId          String
+  id              Int   @id @default(autoincrement())
+  userId          Int @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceName      String?
-  deviceId        String?
-  deviceType      String?  // mobile, web, admin
+  deviceName      String? @map("device_name")
+  deviceId        String? @map("device_id")
+  deviceType      String? @map("device_type") // mobile, web, admin
   platform        String?  // android, ios, web
   browser         String?
   os              String?
-  fcmToken        String?
-  userAgent       String?
-  ipAddress       String?
-  accessTokenHash String?
-  isActive        Boolean  @default(true)
-  lastLoginAt     DateTime @default(now())
-  lastActivityAt  DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  fcmToken        String? @map("fcm_token")
+  userAgent       String? @map("user_agent")
+  ipAddress       String? @map("ip_address")
+  accessTokenHash String? @map("access_token_hash")
+  isActive        Boolean  @default(true) @map("is_active")
+  lastLoginAt     DateTime @default(now()) @map("last_login_at")
+  lastActivityAt  DateTime @default(now()) @map("last_activity_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
 
   @@index([userId])
   @@index([deviceId])
   @@index([isActive])
+  @@map("sessions")
 }
 
 model UserPreference {
-  id                   String   @id @default(uuid())
-  userId               String   @unique
+  id                   Int   @id @default(autoincrement())
+  userId               Int   @unique @map("user_id")
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   currency             String   @default("INR")
   language             String   @default("en")
-  pushOptIn            Boolean  @default(true)
-  emailOptIn           Boolean  @default(true)
-  smsOptIn             Boolean  @default(false)
-  updatedAt            DateTime @updatedAt
+  pushOptIn            Boolean  @default(true) @map("push_opt_in")
+  emailOptIn           Boolean  @default(true) @map("email_opt_in")
+  smsOptIn             Boolean  @default(false) @map("sms_opt_in")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  @@map("user_preferences")
 }
 
 // =====================================================================
@@ -243,45 +246,47 @@ model UserPreference {
 // =====================================================================
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
+  id          Int   @id @default(autoincrement())
+  userId      Int? @map("user_id")
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action      String   // LOGIN, LOGOUT, PASSWORD_CHANGE, ACCOUNT_DELETE, SESSION_REVOKED, etc.
-  entityType  String?  // USER, SESSION, REFRESH_TOKEN
-  entityId    String?
-  ipAddress   String?
-  userAgent   String?
+  entityType  String? @map("entity_type") // USER, SESSION, REFRESH_TOKEN
+  entityId    String? @map("entity_id")
+  ipAddress   String? @map("ip_address")
+  userAgent   String? @map("user_agent")
   metadata    Json?    // Additional context
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model ActivityLog {
-  id          String   @id @default(uuid())
-  userId      String?
+  id          Int   @id @default(autoincrement())
+  userId      Int? @map("user_id")
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   activity    String   // PRODUCT_VIEW, CART_ADD, ORDER_PLACED, SEARCH, etc.
-  entityType  String?  // PRODUCT, ORDER, CART, etc.
-  entityId    String?
-  ipAddress   String?
-  userAgent   String?
+  entityType  String? @map("entity_type") // PRODUCT, ORDER, CART, etc.
+  entityId    String? @map("entity_id")
+  ipAddress   String? @map("ip_address")
+  userAgent   String? @map("user_agent")
   metadata    Json?    // Additional context
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([activity])
   @@index([createdAt])
+  @@map("activity_logs")
 }
 
 model Address {
-  id          String   @id @default(uuid())
-  userId      String
+  id          Int   @id @default(autoincrement())
+  userId      Int @map("user_id")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   label       String? // Home / Work / Other
-  fullName    String
+  fullName    String @map("full_name")
   phone       String
   line1       String
   line2       String?
@@ -291,16 +296,17 @@ model Address {
   pincode     String
   latitude    Float?
   longitude   Float?
-  isDefault   Boolean  @default(false)
-  deletedAt   DateTime?
+  isDefault   Boolean  @default(false) @map("is_default")
+  deletedAt   DateTime? @map("deleted_at")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   orders Order[]
 
   @@index([userId])
   @@index([pincode])
+  @@map("addresses")
 }
 
 // =====================================================================
@@ -308,81 +314,83 @@ model Address {
 // =====================================================================
 
 model Category {
-  id          String     @id @default(uuid())
+  id          Int     @id @default(autoincrement())
   name        String
   slug        String     @unique
   description String?
-  iconUrl     String?
-  bannerUrl   String?
-  isFeatured  Boolean    @default(false)
-  sortOrder   Int        @default(0)
-  seoTitle    String?
-  seoDescription String?
+  iconUrl     String? @map("icon_url")
+  bannerUrl   String? @map("banner_url")
+  isFeatured  Boolean    @default(false) @map("is_featured")
+  sortOrder   Int        @default(0) @map("sort_order")
+  seoTitle    String? @map("seo_title")
+  seoDescription String? @map("seo_description")
 
-  parentId String?
+  parentId Int? @map("parent_id")
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Category[] @relation("CategoryTree")
 
   products Product[]
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([parentId])
   @@index([slug])
+  @@map("categories")
 }
 
 model Brand {
-  id          String   @id @default(uuid())
+  id          Int   @id @default(autoincrement())
   name        String   @unique
   slug        String   @unique
   description String?
-  logoUrl     String?
-  bannerUrl   String?
-  isFeatured  Boolean  @default(false)
+  logoUrl     String? @map("logo_url")
+  bannerUrl   String? @map("banner_url")
+  isFeatured  Boolean  @default(false) @map("is_featured")
 
   products Product[]
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([slug])
+  @@map("brands")
 }
 
 model Product {
-  id            String        @id @default(uuid())
+  id            Int        @id @default(autoincrement())
   name          String
   slug          String        @unique
   description   String
   status        ProductStatus @default(DRAFT)
 
-  categoryId String
+  categoryId Int @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])
-  brandId    String
+  brandId    Int @map("brand_id")
   brand      Brand    @relation(fields: [brandId], references: [id])
 
-  thumbnailUrl String?
+  thumbnailUrl String? @map("thumbnail_url")
   gender       Gender?
-  ageGroup     AgeGroup?
+  ageGroup     AgeGroup? @map("age_group")
 
-  basePrice     Decimal  @db.Decimal(10, 2)
-  discountType  DiscountType?
-  discountValue Decimal? @db.Decimal(10, 2)
-  discountStartsAt DateTime?
-  discountEndsAt   DateTime?
+  basePrice     Decimal  @db.Decimal(10, 2) @map("base_price")
+  discountType  DiscountType? @map("discount_type")
+  discountValue Decimal? @db.Decimal(10, 2) @map("discount_value")
+  discountStartsAt DateTime? @map("discount_starts_at")
+  discountEndsAt   DateTime? @map("discount_ends_at")
 
-  isFeatured  Boolean @default(false)
-  isTrending  Boolean @default(false)
-  isNewArrival Boolean @default(false)
-  isBestSeller Boolean @default(false)
+  isFeatured  Boolean @default(false) @map("is_featured")
+  isTrending  Boolean @default(false) @map("is_trending")
+  isNewArrival Boolean @default(false) @map("is_new_arrival")
+  isBestSeller Boolean @default(false) @map("is_best_seller")
 
-  avgRating   Decimal @default(0) @db.Decimal(2, 1) // denormalized, updated in service layer
-  reviewCount Int     @default(0)
+  avgRating   Decimal @default(0) @db.Decimal(2, 1) @map("avg_rating") // denormalized, updated in service layer
+  reviewCount Int     @default(0) @map("review_count")
 
-  seoTitle       String?
-  seoDescription String?
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description")
 
   // Full-text search vector, maintained via migration-level trigger or app-level update.
   searchVector Unsupported("tsvector")?
@@ -399,9 +407,9 @@ model Product {
   relatedTo   RelatedProduct[] @relation("ProductRelatedFrom")
   relatedFrom RelatedProduct[] @relation("ProductRelatedTo")
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([categoryId])
   @@index([brandId])
@@ -410,44 +418,48 @@ model Product {
   @@index([isTrending])
   @@index([isNewArrival])
   @@index([isBestSeller])
+  @@map("products")
 }
 
 model RelatedProduct {
-  id              String  @id @default(uuid())
-  productId       String
+  id              Int  @id @default(autoincrement())
+  productId       Int @map("product_id")
   product         Product @relation("ProductRelatedFrom", fields: [productId], references: [id], onDelete: Cascade)
-  relatedProductId String
+  relatedProductId Int @map("related_product_id")
   relatedProduct  Product @relation("ProductRelatedTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
 
   @@unique([productId, relatedProductId])
+  @@map("related_products")
 }
 
 model ProductImage {
-  id        String  @id @default(uuid())
-  productId String
+  id        Int  @id @default(autoincrement())
+  productId Int @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
-  altText   String?
-  sortOrder Int     @default(0)
+  altText   String? @map("alt_text")
+  sortOrder Int     @default(0) @map("sort_order")
 
   @@index([productId])
+  @@map("product_images")
 }
 
 model ProductVideo {
-  id        String  @id @default(uuid())
-  productId String
+  id        Int  @id @default(autoincrement())
+  productId Int @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
-  thumbnailUrl String?
-  sortOrder Int     @default(0)
+  thumbnailUrl String? @map("thumbnail_url")
+  sortOrder Int     @default(0) @map("sort_order")
 
   @@index([productId])
+  @@map("product_videos")
 }
 
 // A variant is a concrete purchasable unit: size + color + material combination.
 model ProductVariant {
-  id        String  @id @default(uuid())
-  productId String
+  id        Int  @id @default(autoincrement())
+  productId Int @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   sku       String  @unique
@@ -460,9 +472,9 @@ model ProductVariant {
   price     Decimal @db.Decimal(10, 2)
   stock     Int     @default(0) // authoritative count is maintained via Inventory module movements
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   cartItems      CartItem[]
   orderItems     OrderItem[]
@@ -471,6 +483,7 @@ model ProductVariant {
 
   @@index([productId])
   @@index([sku])
+  @@map("product_variants")
 }
 
 // =====================================================================
@@ -478,60 +491,64 @@ model ProductVariant {
 // =====================================================================
 
 model RecentSearch {
-  id        String   @id @default(uuid())
-  userId    String
+  id        Int   @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   query     String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@map("recent_searches")
 }
 
 model SearchLog {
-  id           String   @id @default(uuid())
-  userId       String?
+  id           Int   @id @default(autoincrement())
+  userId       String? @map("user_id")
   query        String
-  resultCount  Int
-  createdAt    DateTime @default(now())
+  resultCount  Int @map("result_count")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([query])
   @@index([createdAt])
+  @@map("search_logs")
 }
 
 model AIImageSearchLog {
-  id               String   @id @default(uuid())
-  userId           String?
+  id               Int   @id @default(autoincrement())
+  userId           Int? @map("user_id")
   user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  imageUrl         String?  // only populated if the search image is explicitly persisted
-  extractedCategory String?
-  extractedColor    String?
-  extractedMaterial String?
-  extractedPattern  String?
-  extractedBrand    String?
-  extractedStyle    String?
-  extractedGender   Gender?
-  extractedAgeGroup AgeGroup?
-  resultCount      Int
-  wasFallback      Boolean  @default(false) // true if exact match failed, similar-results path used
-  providerLatencyMs Int?
+  imageUrl         String? @map("image_url") // only populated if the search image is explicitly persisted
+  extractedCategory String? @map("extracted_category")
+  extractedColor    String? @map("extracted_color")
+  extractedMaterial String? @map("extracted_material")
+  extractedPattern  String? @map("extracted_pattern")
+  extractedBrand    String? @map("extracted_brand")
+  extractedStyle    String? @map("extracted_style")
+  extractedGender   Gender? @map("extracted_gender")
+  extractedAgeGroup AgeGroup? @map("extracted_age_group")
+  resultCount      Int @map("result_count")
+  wasFallback      Boolean  @default(false) @map("was_fallback") // true if exact match failed, similar-results path used
+  providerLatencyMs Int? @map("provider_latency_ms")
   status           String   // success | timeout | quota_exceeded | malformed_response
-  createdAt        DateTime @default(now())
+  createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([createdAt])
   @@index([status])
+  @@map("a_i_image_search_logs")
 }
 
 model RecentlyViewed {
-  id        String   @id @default(uuid())
-  userId    String
+  id        Int   @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
+  productId Int @map("product_id")
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  viewedAt  DateTime @default(now())
+  viewedAt  DateTime @default(now()) @map("viewed_at")
 
   @@unique([userId, productId])
   @@index([userId])
+  @@map("recently_viewed")
 }
 
 // =====================================================================
@@ -539,47 +556,50 @@ model RecentlyViewed {
 // =====================================================================
 
 model Cart {
-  id     String @id @default(uuid())
-  userId String @unique
+  id     Int @id @default(autoincrement())
+  userId Int @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   items CartItem[]
 
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("carts")
 }
 
 model CartItem {
-  id        String  @id @default(uuid())
-  cartId    String
+  id        Int  @id @default(autoincrement())
+  cartId    Int @map("cart_id")
   cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
+  productId Int @map("product_id")
   product   Product @relation(fields: [productId], references: [id])
-  variantId String
+  variantId Int @map("variant_id")
   variant   ProductVariant @relation(fields: [variantId], references: [id])
   quantity  Int     @default(1)
-  savedForLater Boolean @default(false)
+  savedForLater Boolean @default(false) @map("saved_for_later")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([cartId, variantId])
   @@index([cartId])
+  @@map("cart_items")
 }
 
 model WishlistItem {
-  id        String  @id @default(uuid())
-  userId    String
+  id        Int  @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
+  productId Int @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId String?
+  variantId Int? @map("variant_id")
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([userId, productId, variantId])
   @@index([userId])
+  @@map("wishlist_items")
 }
 
 // =====================================================================
@@ -587,39 +607,41 @@ model WishlistItem {
 // =====================================================================
 
 model Coupon {
-  id              String       @id @default(uuid())
+  id              Int       @id @default(autoincrement())
   code            String       @unique
   type            CouponType
   value           Decimal      @db.Decimal(10, 2)
-  minOrderValue   Decimal?     @db.Decimal(10, 2)
-  maxDiscount     Decimal?     @db.Decimal(10, 2)
-  usageLimit      Int?         // total across all users
-  perUserLimit    Int?         @default(1)
-  isActive        Boolean      @default(true)
-  startsAt        DateTime
-  expiresAt       DateTime
+  minOrderValue   Decimal?     @db.Decimal(10, 2) @map("min_order_value")
+  maxDiscount     Decimal?     @db.Decimal(10, 2) @map("max_discount")
+  usageLimit      Int? @map("usage_limit") // total across all users
+  perUserLimit    Int?         @default(1) @map("per_user_limit")
+  isActive        Boolean      @default(true) @map("is_active")
+  startsAt        DateTime @map("starts_at")
+  expiresAt       DateTime @map("expires_at")
 
   usages CouponUsage[]
   orders Order[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([code])
   @@index([isActive])
+  @@map("coupons")
 }
 
 model CouponUsage {
-  id        String   @id @default(uuid())
-  couponId  String
+  id        Int   @id @default(autoincrement())
+  couponId  Int @map("coupon_id")
   coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  userId    String
+  userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orderId   String?  @unique
-  usedAt    DateTime @default(now())
+  orderId   String?  @unique @map("order_id")
+  usedAt    DateTime @default(now()) @map("used_at")
 
   @@index([couponId])
   @@index([userId])
+  @@map("coupon_usages")
 }
 
 // =====================================================================
@@ -627,22 +649,22 @@ model CouponUsage {
 // =====================================================================
 
 model Order {
-  id            String      @id @default(uuid())
-  orderNumber   String      @unique
-  userId        String
+  id            Int      @id @default(autoincrement())
+  orderNumber   String      @unique @map("order_number")
+  userId        Int @map("user_id")
   user          User        @relation(fields: [userId], references: [id])
-  addressId     String
+  addressId     Int @map("address_id")
   address       Address     @relation(fields: [addressId], references: [id])
 
   status        OrderStatus @default(PENDING)
 
   subtotal      Decimal     @db.Decimal(10, 2)
-  taxAmount     Decimal     @db.Decimal(10, 2) @default(0)
-  shippingAmount Decimal    @db.Decimal(10, 2) @default(0)
-  discountAmount Decimal    @db.Decimal(10, 2) @default(0)
-  totalAmount   Decimal     @db.Decimal(10, 2)
+  taxAmount     Decimal     @db.Decimal(10, 2) @default(0) @map("tax_amount")
+  shippingAmount Decimal    @db.Decimal(10, 2) @default(0) @map("shipping_amount")
+  discountAmount Decimal    @db.Decimal(10, 2) @default(0) @map("discount_amount")
+  totalAmount   Decimal     @db.Decimal(10, 2) @map("total_amount")
 
-  couponId String?
+  couponId Int? @map("coupon_id")
   coupon   Coupon? @relation(fields: [couponId], references: [id])
 
   items    OrderItem[]
@@ -650,72 +672,77 @@ model Order {
   timeline OrderTimelineEvent[]
   returnRequest ReturnRequest?
 
-  invoiceUrl String?
+  invoiceUrl String? @map("invoice_url")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([status])
   @@index([orderNumber])
+  @@map("orders")
 }
 
 // Price/product data is snapshotted at order time — never joined live to Product for historical accuracy.
 model OrderItem {
-  id          String  @id @default(uuid())
-  orderId     String
+  id          Int  @id @default(autoincrement())
+  orderId     Int @map("order_id")
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String
+  productId   Int @map("product_id")
   product     Product @relation(fields: [productId], references: [id])
-  variantId   String
+  variantId   Int @map("variant_id")
   variant     ProductVariant @relation(fields: [variantId], references: [id])
 
-  productNameSnapshot String
-  variantSnapshot     Json    // size/color/material/sku at time of order
-  priceSnapshot       Decimal @db.Decimal(10, 2)
+  productNameSnapshot String @map("product_name_snapshot")
+  variantSnapshot     Json @map("variant_snapshot") // size/color/material/sku at time of order
+  priceSnapshot       Decimal @db.Decimal(10, 2) @map("price_snapshot")
   quantity            Int
 
   @@index([orderId])
+  @@map("order_items")
 }
 
 model OrderTimelineEvent {
-  id        String      @id @default(uuid())
-  orderId   String
+  id        Int      @id @default(autoincrement())
+  orderId   Int @map("order_id")
   order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   status    OrderStatus
   note      String?
-  createdAt DateTime    @default(now())
+  createdAt DateTime    @default(now()) @map("created_at")
 
   @@index([orderId])
+  @@map("order_timeline_events")
 }
 
 model ReturnRequest {
-  id        String       @id @default(uuid())
-  orderId   String       @unique
+  id        Int       @id @default(autoincrement())
+  orderId   Int       @unique @map("order_id")
   order     Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   status    ReturnStatus @default(REQUESTED)
   reason    String
-  isReplacement Boolean  @default(false) // false = return/refund, true = replace
+  isReplacement Boolean  @default(false) @map("is_replacement") // false = return/refund, true = replace
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("return_requests")
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  orderId       String        @unique
+  id            Int        @id @default(autoincrement())
+  orderId       Int        @unique @map("order_id")
   order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
-  providerRef   String?       // Razorpay/Stripe transaction id
+  providerRef   String? @map("provider_ref") // Razorpay/Stripe transaction id
   amount        Decimal       @db.Decimal(10, 2)
-  refundedAmount Decimal      @default(0) @db.Decimal(10, 2)
+  refundedAmount Decimal      @default(0) @db.Decimal(10, 2) @map("refunded_amount")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orderId])
   @@index([status])
+  @@map("payments")
 }
 
 // =====================================================================
@@ -723,37 +750,39 @@ model Payment {
 // =====================================================================
 
 model Review {
-  id        String   @id @default(uuid())
-  productId String
+  id        Int   @id @default(autoincrement())
+  productId Int @map("product_id")
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId    String
+  userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   rating    Int      // 1-5, validated in Zod layer
   title     String?
   comment   String?
-  isVerifiedPurchase Boolean @default(false)
-  helpfulCount Int   @default(0)
-  isReported   Boolean @default(false)
+  isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
+  helpfulCount Int   @default(0) @map("helpful_count")
+  isReported   Boolean @default(false) @map("is_reported")
 
   images ReviewMedia[]
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@unique([productId, userId])
   @@index([productId])
+  @@map("reviews")
 }
 
 model ReviewMedia {
-  id       String @id @default(uuid())
-  reviewId String
+  id       Int @id @default(autoincrement())
+  reviewId Int @map("review_id")
   review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   url      String
   type     String // image | video
 
   @@index([reviewId])
+  @@map("review_media")
 }
 
 // =====================================================================
@@ -761,19 +790,20 @@ model ReviewMedia {
 // =====================================================================
 
 model Notification {
-  id        String              @id @default(uuid())
-  userId    String
+  id        Int              @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
   channel   NotificationChannel
   title     String
   body      String
   data      Json?
-  isRead    Boolean             @default(false)
-  createdAt DateTime            @default(now())
+  isRead    Boolean             @default(false) @map("is_read")
+  createdAt DateTime            @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([isRead])
+  @@map("notifications")
 }
 
 // =====================================================================
@@ -781,17 +811,18 @@ model Notification {
 // =====================================================================
 
 model AnalyticsEvent {
-  id        String             @id @default(uuid())
-  userId    String?
+  id        Int             @id @default(autoincrement())
+  userId    Int? @map("user_id")
   user      User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-  eventType AnalyticsEventType
-  entityId  String?            // productId, categoryId, searchQuery id, etc — polymorphic by eventType
+  eventType AnalyticsEventType @map("event_type")
+  entityId  String? @map("entity_id") // productId, categoryId, searchQuery id, etc — polymorphic by eventType
   metadata  Json?
-  createdAt DateTime           @default(now())
+  createdAt DateTime           @default(now()) @map("created_at")
 
   @@index([eventType])
   @@index([userId])
   @@index([createdAt])
+  @@map("analytics_events")
 }
 
 // =====================================================================
@@ -799,8 +830,8 @@ model AnalyticsEvent {
 // =====================================================================
 
 model SupportTicket {
-  id        String       @id @default(uuid())
-  userId    String?
+  id        Int       @id @default(autoincrement())
+  userId    Int? @map("user_id")
   user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   name      String       // for unauthenticated contact-form submissions
   email     String
@@ -808,25 +839,27 @@ model SupportTicket {
   message   String
   status    TicketStatus @default(OPEN)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([userId])
+  @@map("support_tickets")
 }
 
 model FAQ {
-  id        String   @id @default(uuid())
+  id        Int   @id @default(autoincrement())
   category  String
   question  String
   answer    String
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([category])
+  @@map("f_a_qs")
 }
 
 // =====================================================================
@@ -834,20 +867,21 @@ model FAQ {
 // =====================================================================
 
 model DeliveryZone {
-  id            String   @id @default(uuid())
+  id            Int   @id @default(autoincrement())
   pincode       String   @unique
   city          String
   state         String
-  isServiceable Boolean  @default(true)
-  baseCharge    Decimal  @db.Decimal(10, 2) @default(0)
-  freeShippingThreshold Decimal? @db.Decimal(10, 2)
-  estimatedDaysMin Int   @default(3)
-  estimatedDaysMax Int   @default(7)
+  isServiceable Boolean  @default(true) @map("is_serviceable")
+  baseCharge    Decimal  @db.Decimal(10, 2) @default(0) @map("base_charge")
+  freeShippingThreshold Decimal? @db.Decimal(10, 2) @map("free_shipping_threshold")
+  estimatedDaysMin Int   @default(3) @map("estimated_days_min")
+  estimatedDaysMax Int   @default(7) @map("estimated_days_max")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([pincode])
+  @@map("delivery_zones")
 }
 
 // =====================================================================
@@ -855,52 +889,55 @@ model DeliveryZone {
 // =====================================================================
 
 model Warehouse {
-  id       String @id @default(uuid())
+  id       Int @id @default(autoincrement())
   name     String
   city     String
   state    String
   pincode  String
-  isActive Boolean @default(true)
+  isActive Boolean @default(true) @map("is_active")
 
   inventoryItems InventoryItem[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("warehouses")
 }
 
 model InventoryItem {
-  id              String         @id @default(uuid())
-  variantId       String
+  id              Int         @id @default(autoincrement())
+  variantId       Int @map("variant_id")
   variant         ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  warehouseId     String
+  warehouseId     Int @map("warehouse_id")
   warehouse       Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
   quantity        Int            @default(0)
-  lowStockThreshold Int          @default(5)
+  lowStockThreshold Int          @default(5) @map("low_stock_threshold")
 
   movements StockMovement[]
 
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([variantId, warehouseId])
   @@index([variantId])
   @@index([warehouseId])
+  @@map("inventory_items")
 }
 
 // Append-only — every stock change must be traceable to an order or admin action.
 model StockMovement {
-  id              String            @id @default(uuid())
-  inventoryItemId String
+  id              Int            @id @default(autoincrement())
+  inventoryItemId Int @map("inventory_item_id")
   inventoryItem   InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   type            StockMovementType
-  quantityChange  Int               // positive or negative
+  quantityChange  Int @map("quantity_change") // positive or negative
   reason          String?
-  referenceOrderId String?
-  createdByUserId String?           // admin user id, if manual
-  createdAt       DateTime          @default(now())
+  referenceOrderId String? @map("reference_order_id")
+  createdByUserId String? @map("created_by_user_id") // admin user id, if manual
+  createdAt       DateTime          @default(now()) @map("created_at")
 
   @@index([inventoryItemId])
   @@index([createdAt])
+  @@map("stock_movements")
 }
 
 // =====================================================================
@@ -908,17 +945,18 @@ model StockMovement {
 // =====================================================================
 
 model RewardPointsTransaction {
-  id        String                @id @default(uuid())
-  userId    String
+  id        Int                @id @default(autoincrement())
+  userId    Int @map("user_id")
   user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      RewardTransactionType
   points    Int                   // positive or negative depending on type
   reason    String?
-  orderId   String?
-  expiresAt DateTime?
-  createdAt DateTime              @default(now())
+  orderId   String? @map("order_id")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime              @default(now()) @map("created_at")
 
   @@index([userId])
+  @@map("reward_points_transactions")
 }
 
 // =====================================================================
@@ -926,10 +964,74 @@ model RewardPointsTransaction {
 // =====================================================================
 
 model StaticPage {
-  id        String   @id @default(uuid())
+  id        Int   @id @default(autoincrement())
   slug      String   @unique // about, contact, privacy-policy, terms, faq
   title     String
   content   String   // markdown or HTML, rendered client-side
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("static_pages")
+}
+
+model StaticContent {
+  id              Int      @id @default(autoincrement())
+  key             String   @unique
+  type            String   // 'PAGE' | 'FAQ' | 'BLOG' | 'POLICY'
+  title           String
+  content         String
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("static_contents")
+}
+
+model ContactRequest {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED
+  response  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("contact_requests")
+}
+
+model Banner {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  imageUrl    String    @map("image_url")
+  link        String?
+  position    String    // 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL'
+  isActive    Boolean   @default(true) @map("is_active")
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model Campaign {
+  id             Int       @id @default(autoincrement())
+  name           String
+  description    String?
+  type           String    // 'EMAIL' | 'PUSH' | 'SMS' | 'ALL'
+  message        String
+  targetAudience String    @map("target_audience") // 'ALL' | 'CUSTOMERS' | 'NEW_USERS' | 'INACTIVE'
+  scheduledDate  DateTime? @map("scheduled_date")
+  isActive       Boolean   @default(true) @map("is_active")
+  sentAt         DateTime? @map("sent_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("campaigns")
 }

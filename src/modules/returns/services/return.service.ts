@@ -3,8 +3,8 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
 export class ReturnService {
-  async createReturnRequest(userId: string, data: {
-    orderId: string;
+  async createReturnRequest(userId: any, data: {
+    orderId: any;
     reason: string;
     isReplacement: boolean;
     images?: string[];
@@ -14,7 +14,7 @@ export class ReturnService {
 
     // Validate order exists and belongs to user
     const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: { id: Number(orderId), userId },
       include: {
         items: true,
         timeline: true,
@@ -76,7 +76,7 @@ export class ReturnService {
     return returnRequest;
   }
 
-  async getReturns(userId: string, filters: {
+  async getReturns(userId: any, filters: {
     page: number;
     limit: number;
     status?: string;
@@ -132,11 +132,11 @@ export class ReturnService {
     };
   }
 
-  async getReturnById(userId: string, returnId: string) {
+  async getReturnById(userId: any, returnId: any) {
     const returnRequest = await prisma.returnRequest.findFirst({
       where: {
-        id: returnId,
-        order: { userId },
+        id: Number(returnId),
+        order: { userId: Number(userId) },
       },
       include: {
         order: {
@@ -170,14 +170,14 @@ export class ReturnService {
     return returnRequest;
   }
 
-  async updateReturnStatus(returnId: string, data: {
+  async updateReturnStatus(returnId: any, data: {
     status: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'PICKED_UP' | 'RECEIVED' | 'REFUND_INITIATED' | 'REFUND_COMPLETED';
     adminNotes?: string;
   }) {
     const { status, adminNotes } = data;
 
     const returnRequest = await prisma.returnRequest.findUnique({
-      where: { id: returnId },
+      where: { id: Number(returnId) },
       include: {
         order: {
           include: {
@@ -209,7 +209,7 @@ export class ReturnService {
 
     // Update return status
     const updatedReturn = await prisma.returnRequest.update({
-      where: { id: returnId },
+      where: { id: Number(returnId) },
       data: { status },
       include: {
         order: {
@@ -224,14 +224,14 @@ export class ReturnService {
     await prisma.orderTimelineEvent.create({
       data: {
         orderId: returnRequest.orderId,
-        status: returnRequest.order.status,
+        status: (returnRequest as any).order.status,
         note: `Return status updated to ${status}${adminNotes ? ': ' + adminNotes : ''}`,
       },
     });
 
     // If refund completed, restore stock
     if (status === 'REFUND_COMPLETED') {
-      for (const item of returnRequest.order.items) {
+      for (const item of (returnRequest as any).order.items) {
         await prisma.productVariant.update({
           where: { id: item.variantId },
           data: { stock: { increment: item.quantity } },
