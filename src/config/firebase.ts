@@ -1,22 +1,41 @@
-import { initializeApp } from "firebase/app";
-import { getMessaging, getToken } from "firebase/messaging";
+import admin from 'firebase-admin';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "your-firebase-api-key",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "shopping-70c5d.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "shopping-70c5d",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "shopping-70c5d.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "556594786143",
-  appId: process.env.FIREBASE_APP_ID || "1:556594786143:web:ea9b2ce63e6a15971010ea"
+// Firebase Admin configuration for server-side notifications
+const firebaseAdminConfig = {
+  projectId: process.env.FIREBASE_PROJECT_ID || 'shopping-70c5d',
+  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk@shopping-70c5d.iam.gserviceaccount.com',
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase Admin for server-side notifications
+let firebaseAdmin: admin.app.App | null = null;
 
-// Initialize Firebase Cloud Messaging
-const messaging = getMessaging(app);
+export const initializeFirebaseAdmin = () => {
+  if (!firebaseAdmin) {
+    try {
+      if (firebaseAdminConfig.projectId) {
+        firebaseAdmin = admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: firebaseAdminConfig.projectId,
+            privateKey: firebaseAdminConfig.privateKey || '',
+            clientEmail: firebaseAdminConfig.clientEmail,
+          }),
+        });
+      }
+    } catch (error) {
+      // Firebase already initialized or missing credentials
+      if (!firebaseAdmin) {
+        firebaseAdmin = admin.initializeApp();
+      }
+    }
+  }
+  return firebaseAdmin;
+};
 
-export { app, messaging, getToken };
+export const getFirebaseMessaging = () => {
+  const app = initializeFirebaseAdmin();
+  if (!app) throw new Error('Firebase Admin not initialized');
+  return admin.messaging(app);
+};
 
-export default firebaseConfig;
+export default initializeFirebaseAdmin;

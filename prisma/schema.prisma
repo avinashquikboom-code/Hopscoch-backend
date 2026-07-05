@@ -407,6 +407,8 @@ model Product {
   relatedTo   RelatedProduct[] @relation("ProductRelatedFrom")
   relatedFrom RelatedProduct[] @relation("ProductRelatedTo")
 
+  productCollections ProductCollection[]
+
   deletedAt DateTime? @map("deleted_at")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -1034,4 +1036,88 @@ model Campaign {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@map("campaigns")
+}
+
+// =====================================================================
+// ADMIN & CONFIGURATION
+// =====================================================================
+
+model SystemSettings {
+  id             String  @id @default("default")
+  siteName       String  @map("site_name")
+  siteDescription String @map("site_description")
+  contactEmail   String  @map("contact_email")
+  contactPhone   String  @map("contact_phone")
+  currency       String  @default("USD")
+  logoUrl        String? @map("logo_url")
+  faviconUrl     String? @map("favicon_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model Tax {
+  id        Int    @id @default(autoincrement())
+  name      String
+  rate      Decimal @db.Decimal(10, 2)
+  type      String  // 'PERCENTAGE' | 'FIXED'
+  country   String?
+  state     String?
+  zipCode   String? @map("zip_code")
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("taxes")
+}
+
+model Shipping {
+  id             Int    @id @default(autoincrement())
+  name           String  // 'FLAT_RATE' | 'FREE' | 'WEIGHT_BASED' | 'PRICE_BASED'
+  type           String  // 'FLAT_RATE' | 'FREE' | 'WEIGHT_BASED' | 'PRICE_BASED'
+  cost           Decimal @db.Decimal(10, 2)
+  minOrderAmount Decimal? @db.Decimal(10, 2) @map("min_order_amount")
+  countries      String? // JSON array of country codes
+  isActive       Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("shipping")
+}
+
+model Collection {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  imageUrl    String? @map("image_url")
+  isFeatured  Boolean @default(false) @map("is_featured")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  products ProductCollection[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@map("collections")
+}
+
+model ProductCollection {
+  id           Int      @id @default(autoincrement())
+  collectionId Int      @map("collection_id")
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    Int      @map("product_id")
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, productId])
+  @@index([collectionId])
+  @@index([productId])
+  @@map("product_collections")
 }

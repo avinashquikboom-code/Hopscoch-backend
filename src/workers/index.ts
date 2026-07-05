@@ -1,5 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { queueConfig, QUEUE_NAMES, JobProcessor } from '../config/queue';
+import { initializeNotificationWorker } from '../config/queue';
 
 // Worker configuration
 export const workerConfig = {
@@ -12,13 +13,6 @@ const emailProcessor: JobProcessor = async (job: Job) => {
   console.log(`Processing email job: ${job.id}`, job.data);
   // Implement email sending logic here
   // This would integrate with your email service (e.g., SendGrid, AWS SES, etc.)
-};
-
-// Notification job processor
-const notificationProcessor: JobProcessor = async (job: Job) => {
-  console.log(`Processing notification job: ${job.id}`, job.data);
-  // Implement notification sending logic here
-  // This would integrate with Firebase Cloud Messaging or other push notification service
 };
 
 // Order job processor
@@ -47,7 +41,7 @@ const reportProcessor: JobProcessor = async (job: Job) => {
 
 // Create workers
 export const emailWorker = new Worker(QUEUE_NAMES.EMAIL, emailProcessor, workerConfig);
-export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATION, notificationProcessor, workerConfig);
+export const notificationWorker = initializeNotificationWorker();
 export const orderWorker = new Worker(QUEUE_NAMES.ORDER, orderProcessor, workerConfig);
 export const paymentWorker = new Worker(QUEUE_NAMES.PAYMENT, paymentProcessor, workerConfig);
 export const inventoryWorker = new Worker(QUEUE_NAMES.INVENTORY, inventoryProcessor, workerConfig);
@@ -68,9 +62,8 @@ const setupWorkerEvents = (worker: Worker, queueName: string) => {
   });
 };
 
-// Setup event handlers for all workers
+// Setup event handlers for all workers (except notification which has its own)
 setupWorkerEvents(emailWorker, QUEUE_NAMES.EMAIL);
-setupWorkerEvents(notificationWorker, QUEUE_NAMES.NOTIFICATION);
 setupWorkerEvents(orderWorker, QUEUE_NAMES.ORDER);
 setupWorkerEvents(paymentWorker, QUEUE_NAMES.PAYMENT);
 setupWorkerEvents(inventoryWorker, QUEUE_NAMES.INVENTORY);
@@ -90,7 +83,7 @@ export const workers = {
 const closeWorkers = async () => {
   await Promise.all([
     emailWorker.close(),
-    notificationWorker.close(),
+    notificationWorker?.close(),
     orderWorker.close(),
     paymentWorker.close(),
     inventoryWorker.close(),

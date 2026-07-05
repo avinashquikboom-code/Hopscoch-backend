@@ -29,6 +29,18 @@ export class AuthController {
         fcmToken: validatedData.fcmToken,
       };
       const result = await AuthService.register({ ...validatedData, ...deviceInfo });
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: false,
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/'
+      });
       ResponseFormatter.created(res, 'Registration successful', result);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -54,6 +66,18 @@ export class AuthController {
         fcmToken: validatedData.fcmToken,
       };
       const result = await AuthService.login(validatedData.email, validatedData.password, deviceInfo);
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: false,
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/'
+      });
       ResponseFormatter.success(res, 'Login successful', result);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -69,6 +93,18 @@ export class AuthController {
       const validatedData = refreshTokenSchema.parse(req.body);
       const deviceType = req.body.deviceType || 'web';
       const result = await AuthService.refreshAccessToken(validatedData.refreshToken, deviceType);
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: false,
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/'
+      });
       ResponseFormatter.success(res, 'Token refreshed successfully', result);
     } catch (error) {
       if (error instanceof ZodError) {

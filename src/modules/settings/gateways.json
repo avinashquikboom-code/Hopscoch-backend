@@ -1,0 +1,4 @@
+[
+  { "id": "razorpay", "name": "Razorpay", "icon": "⚡", "color": "text-blue-500 bg-blue-500/10", "apiKey": "rzp_live_xxxxxxxxxx", "secret": "••••••••••••••••", "webhook": "https://yourdomain.com/api/razorpay", "sandbox": false, "active": true, "features": ["UPI", "Cards", "Net Banking", "Wallets", "EMI"] },
+  { "id": "stripe", "name": "Stripe", "icon": "🔷", "color": "text-indigo-500 bg-indigo-500/10", "apiKey": "pk_live_xxxxxxxxxx", "secret": "••••••••••••••••", "webhook": "https://yourdomain.com/api/stripe", "sandbox": true, "active": false, "features": ["Cards", "Apple Pay", "Google Pay", "SEPA"] }
+]

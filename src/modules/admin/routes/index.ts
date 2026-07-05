@@ -300,4 +300,1711 @@ router.put('/profile', authenticate, adminController.updateAdminProfile.bind(adm
  */
 router.post('/logout', authenticate, adminController.logoutAdmin.bind(adminController));
 
+/**
+ * @swagger
+ * /admin/customers:
+ *   get:
+ *     summary: Get all customers (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: Customers retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/customers', authenticate, adminController.getCustomers.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/customers/{customerId}:
+ *   get:
+ *     summary: Get customer details (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Customer details retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Customer not found
+ */
+router.get('/customers/:customerId', authenticate, adminController.getCustomerDetails.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/customers/{customerId}:
+ *   patch:
+ *     summary: Update customer (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               isActive:
+ *                 type: boolean
+ *               isEmailVerified:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Customer updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Customer not found
+ */
+router.patch('/customers/:customerId', authenticate, adminController.updateCustomer.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/customers/{customerId}:
+ *   delete:
+ *     summary: Delete/Suspend customer (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Customer deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Customer not found
+ */
+router.delete('/customers/:customerId', authenticate, adminController.deleteCustomer.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products:
+ *   get:
+ *     summary: Get all products (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: brandId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/products', authenticate, adminController.getProducts.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products:
+ *   post:
+ *     summary: Create product (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *               - description
+ *               - categoryId
+ *               - brandId
+ *               - basePrice
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               categoryId:
+ *                 type: string
+ *               brandId:
+ *                 type: string
+ *               basePrice:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *               gender:
+ *                 type: string
+ *                 enum: [MALE, FEMALE, UNISEX]
+ *               ageGroup:
+ *                 type: string
+ *                 enum: [ADULT, KID, INFANT]
+ *               isFeatured:
+ *                 type: boolean
+ *               isTrending:
+ *                 type: boolean
+ *               isNewArrival:
+ *                 type: boolean
+ *               isBestSeller:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Product created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/products', authenticate, adminController.createProduct.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}:
+ *   get:
+ *     summary: Get product details (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Product details retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.get('/products/:productId', authenticate, adminController.getProductDetails.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}:
+ *   put:
+ *     summary: Update product (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               basePrice:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *               isFeatured:
+ *                 type: boolean
+ *               isTrending:
+ *                 type: boolean
+ *               isNewArrival:
+ *                 type: boolean
+ *               isBestSeller:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Product updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.put('/products/:productId', authenticate, adminController.updateProduct.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}:
+ *   delete:
+ *     summary: Delete product (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.delete('/products/:productId', authenticate, adminController.deleteProduct.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories:
+ *   get:
+ *     summary: Get all categories (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Categories retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/categories', authenticate, adminController.getCategories.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories:
+ *   post:
+ *     summary: Create category (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               parentId:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Category created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/categories', authenticate, adminController.createCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{categoryId}:
+ *   put:
+ *     summary: Update category (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Category updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Category not found
+ */
+router.put('/categories/:categoryId', authenticate, adminController.updateCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{categoryId}:
+ *   delete:
+ *     summary: Delete category (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Category deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Category not found
+ */
+router.delete('/categories/:categoryId', authenticate, adminController.deleteCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands:
+ *   get:
+ *     summary: Get all brands (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Brands retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/brands', authenticate, adminController.getBrands.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands:
+ *   post:
+ *     summary: Create brand (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Brand created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/brands', authenticate, adminController.createBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands/{brandId}:
+ *   put:
+ *     summary: Update brand (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Brand updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Brand not found
+ */
+router.put('/brands/:brandId', authenticate, adminController.updateBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands/{brandId}:
+ *   delete:
+ *     summary: Delete brand (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Brand deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Brand not found
+ */
+router.delete('/brands/:brandId', authenticate, adminController.deleteBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/orders:
+ *   get:
+ *     summary: Get all orders (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, RETURNED, REPLACED, REFUNDED]
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/orders', authenticate, adminController.getOrders.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/orders/{orderId}:
+ *   get:
+ *     summary: Get order details (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Order details retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Order not found
+ */
+router.get('/orders/:orderId', authenticate, adminController.getOrderDetails.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/orders/{orderId}:
+ *   patch:
+ *     summary: Update order status (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, RETURNED, REPLACED, REFUNDED]
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Order not found
+ */
+router.patch('/orders/:orderId', authenticate, adminController.updateOrderStatus.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/orders/{orderId}/timeline:
+ *   get:
+ *     summary: Get order timeline (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Order timeline retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Order not found
+ */
+router.get('/orders/:orderId/timeline', authenticate, adminController.getOrderTimeline.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/inventory:
+ *   get:
+ *     summary: Get all inventory (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: lowStock
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: Inventory retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/inventory', authenticate, adminController.getInventory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/inventory:
+ *   post:
+ *     summary: Add inventory (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *               - variantId
+ *               - quantity
+ *             properties:
+ *               productId:
+ *                 type: string
+ *               variantId:
+ *                 type: string
+ *               quantity:
+ *                 type: integer
+ *               lowStockThreshold:
+ *                 type: integer
+ *               location:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Inventory added successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/inventory', authenticate, adminController.addInventory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/inventory/{inventoryId}:
+ *   patch:
+ *     summary: Update inventory (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: inventoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quantity:
+ *                 type: integer
+ *               lowStockThreshold:
+ *                 type: integer
+ *               location:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Inventory updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Inventory not found
+ */
+router.patch('/inventory/:inventoryId', authenticate, adminController.updateInventory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/returns:
+ *   get:
+ *     summary: Get all return requests (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [REQUESTED, APPROVED, REJECTED, PROCESSING, COMPLETED, REFUNDED]
+ *     responses:
+ *       200:
+ *         description: Return requests retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/returns', authenticate, adminController.getReturns.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/returns/{returnId}:
+ *   get:
+ *     summary: Get return details (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Return details retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Return not found
+ */
+router.get('/returns/:returnId', authenticate, adminController.getReturnDetails.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/returns/{returnId}:
+ *   patch:
+ *     summary: Update return status (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [APPROVED, REJECTED, PROCESSING, COMPLETED, REFUNDED]
+ *               refundAmount:
+ *                 type: number
+ *               adminNote:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Return status updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Return not found
+ */
+router.patch('/returns/:returnId', authenticate, adminController.updateReturnStatus.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/analytics/sales:
+ *   get:
+ *     summary: Get sales analytics (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: Sales analytics retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/analytics/sales', authenticate, adminController.getSalesAnalytics.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/analytics/products:
+ *   get:
+ *     summary: Get product analytics (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: Product analytics retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/analytics/products', authenticate, adminController.getProductAnalytics.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/analytics/users:
+ *   get:
+ *     summary: Get user analytics (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: User analytics retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/analytics/users', authenticate, adminController.getUserAnalytics.bind(adminController));
+
+router.get('/analytics/full', authenticate, adminController.getFullAnalytics.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/settings:
+ *   get:
+ *     summary: Get settings (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Settings retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/settings', authenticate, adminController.getSettings.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/settings:
+ *   put:
+ *     summary: Update settings (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               siteName:
+ *                 type: string
+ *               siteDescription:
+ *                 type: string
+ *               contactEmail:
+ *                 type: string
+ *               contactPhone:
+ *                 type: string
+ *               currency:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Settings updated successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.put('/settings', authenticate, adminController.updateSettings.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/images:
+ *   post:
+ *     summary: Upload image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               altText:
+ *                 type: string
+ *               entityType:
+ *                 type: string
+ *               entityId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Image uploaded successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/images', authenticate, adminController.uploadImage.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/images/{imageId}:
+ *   delete:
+ *     summary: Delete image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Image deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Image not found
+ */
+router.delete('/images/:imageId', authenticate, adminController.deleteImage.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/coupons:
+ *   get:
+ *     summary: Get all coupons (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, INACTIVE, EXPIRED]
+ *     responses:
+ *       200:
+ *         description: Coupons retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/coupons', authenticate, adminController.getCoupons.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/coupons:
+ *   post:
+ *     summary: Create coupon (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *               - discountType
+ *               - discountValue
+ *             properties:
+ *               code:
+ *                 type: string
+ *               discountType:
+ *                 type: string
+ *                 enum: [PERCENTAGE, FIXED]
+ *               discountValue:
+ *                 type: number
+ *               maxDiscount:
+ *                 type: number
+ *               minPurchase:
+ *                 type: number
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               usageLimit:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Coupon created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/coupons', authenticate, adminController.createCoupon.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/coupons/{couponId}:
+ *   put:
+ *     summary: Update coupon (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: couponId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               discountValue:
+ *                 type: number
+ *               maxDiscount:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, INACTIVE, EXPIRED]
+ *     responses:
+ *       200:
+ *         description: Coupon updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Coupon not found
+ */
+router.put('/coupons/:couponId', authenticate, adminController.updateCoupon.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/coupons/{couponId}:
+ *   delete:
+ *     summary: Delete coupon (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: couponId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Coupon deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Coupon not found
+ */
+router.delete('/coupons/:couponId', authenticate, adminController.deleteCoupon.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/taxes:
+ *   get:
+ *     summary: Get all tax configurations (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Tax configurations retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/taxes', authenticate, adminController.getTaxes.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/taxes:
+ *   post:
+ *     summary: Create tax configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - rate
+ *               - type
+ *             properties:
+ *               name:
+ *                 type: string
+ *               rate:
+ *                 type: number
+ *               type:
+ *                 type: string
+ *                 enum: [PERCENTAGE, FIXED]
+ *               country:
+ *                 type: string
+ *               state:
+ *                 type: string
+ *               zipCode:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Tax configuration created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/taxes', authenticate, adminController.createTax.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/taxes/{taxId}:
+ *   put:
+ *     summary: Update tax configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taxId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rate:
+ *                 type: number
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Tax configuration updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Tax not found
+ */
+router.put('/taxes/:taxId', authenticate, adminController.updateTax.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/taxes/{taxId}:
+ *   delete:
+ *     summary: Delete tax configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taxId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Tax configuration deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Tax not found
+ */
+router.delete('/taxes/:taxId', authenticate, adminController.deleteTax.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/shipping:
+ *   get:
+ *     summary: Get all shipping configurations (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Shipping configurations retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/shipping', authenticate, adminController.getShippingConfigs.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/shipping:
+ *   post:
+ *     summary: Create shipping configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - type
+ *               - cost
+ *             properties:
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [FLAT_RATE, FREE, WEIGHT_BASED, PRICE_BASED]
+ *               cost:
+ *                 type: number
+ *               minOrderAmount:
+ *                 type: number
+ *               countries:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Shipping configuration created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/shipping', authenticate, adminController.createShippingConfig.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/shipping/{shippingId}:
+ *   put:
+ *     summary: Update shipping configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: shippingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cost:
+ *                 type: number
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Shipping configuration updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Shipping not found
+ */
+router.put('/shipping/:shippingId', authenticate, adminController.updateShippingConfig.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/shipping/{shippingId}:
+ *   delete:
+ *     summary: Delete shipping configuration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: shippingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Shipping configuration deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Shipping not found
+ */
+router.delete('/shipping/:shippingId', authenticate, adminController.deleteShippingConfig.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/notifications:
+ *   get:
+ *     summary: Get all notifications (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Notifications retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/notifications', authenticate, adminController.getNotifications.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/notifications:
+ *   post:
+ *     summary: Send notification (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - message
+ *               - type
+ *             properties:
+ *               title:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [ORDER_UPDATE, PROMOTION, SYSTEM, ANNOUNCEMENT]
+ *               targetAudience:
+ *                 type: string
+ *                 enum: [ALL, CUSTOMERS, ADMINS]
+ *     responses:
+ *       200:
+ *         description: Notification sent successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/notifications', authenticate, adminController.sendNotification.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/collections:
+ *   get:
+ *     summary: Get all collections (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Collections retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/collections', authenticate, adminController.getCollections.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/collections:
+ *   post:
+ *     summary: Create collection (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               imageUrl:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Collection created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/collections', authenticate, adminController.createCollection.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/collections/{collectionId}:
+ *   put:
+ *     summary: Update collection (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: collectionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               imageUrl:
+ *                 type: string
+ *               isFeatured:
+ *                 type: boolean
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Collection updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Collection not found
+ */
+router.put('/collections/:collectionId', authenticate, adminController.updateCollection.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/collections/{collectionId}:
+ *   delete:
+ *     summary: Delete collection (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: collectionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Collection deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Collection not found
+ */
+router.delete('/collections/:collectionId', authenticate, adminController.deleteCollection.bind(adminController));
+
 export default router;

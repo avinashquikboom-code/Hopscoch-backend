@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import PaymentController from '../controllers/payment.controller';
 import { authenticate } from '../../../middleware/auth';
+import prisma from '../../../utils/prisma';
+import { ResponseFormatter } from '../../../utils/responseFormatter';
 
 const router = Router();
 const paymentController = PaymentController;
@@ -219,5 +221,75 @@ router.get('/', authenticate, paymentController.getPaymentsForUser.bind(paymentC
  *         description: Authentication required
  */
 router.get('/admin/all', authenticate, paymentController.getAllPaymentsForAdmin.bind(paymentController));
+
+// Refunds endpoints for admin ledger
+router.get('/refunds', authenticate, async (req, res, next) => {
+  try {
+    const returnRequests = await prisma.returnRequest.findMany({
+      include: {
+        order: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              }
+            },
+            payment: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const refunds = returnRequests.map(r => {
+      const payment = r.order.payment;
+      return {
+        id: r.id,
+        orderId: r.orderId,
+        customerName: `${r.order.user.firstName} ${r.order.user.lastName || ''}`.trim(),
+        email: r.order.user.email,
+        amount: payment ? Number(payment.amount) : 0,
+        type: r.isReplacement ? 'replacement' : 'full',
+        reason: r.reason,
+        status: r.status === 'REQUESTED' ? 'pending' : r.status === 'APPROVED' ? 'approved' : r.status === 'REJECTED' ? 'rejected' : 'completed',
+        paymentMethod: payment ? payment.method : 'COD',
+        paymentGateway: payment ? (payment.providerRef ? 'Razorpay' : 'Manual') : 'Manual',
+        transactionId: payment ? String(payment.id) : '',
+        gatewayTransactionId: payment ? payment.providerRef || '' : '',
+        createdAt: r.createdAt
+      };
+    });
+
+    return ResponseFormatter.success(res, 'Refunds retrieved successfully', refunds);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/refunds/:id/status', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    let returnStatus: any = 'REQUESTED';
+    if (status === 'approved') returnStatus = 'APPROVED';
+    if (status === 'rejected') returnStatus = 'REJECTED';
+    if (status === 'completed') returnStatus = 'RECEIVED';
+
+    const updatedRequest = await prisma.returnRequest.update({
+      where: { id: Number(id) },
+      data: {
+        status: returnStatus
+      }
+    });
+
+    return ResponseFormatter.success(res, 'Refund status updated successfully', updatedRequest);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 export default router;

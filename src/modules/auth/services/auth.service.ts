@@ -10,7 +10,7 @@ export class AuthService {
   private readonly jwtExpiresIn: string;
 
   constructor() {
-    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
+    this.jwtExpiresIn = '1d';
   }
 
   private getJwtSecret(deviceType?: string): string {
@@ -48,9 +48,9 @@ export class AuthService {
     if (deviceType === 'web') {
       return 30 * 24 * 60 * 60 * 1000;
     }
-    // Admin Panel: 12 hours
+    // Admin Panel: 7 days (updated from 12h)
     if (deviceType === 'admin') {
-      return 12 * 60 * 60 * 1000;
+      return 7 * 24 * 60 * 60 * 1000;
     }
     // Default: 7 days
     return 7 * 24 * 60 * 60 * 1000;
@@ -249,12 +249,15 @@ export class AuthService {
     }
 
     // Check if session is still active
-    if (!tokenRecord.session.isActive) {
+    if (!tokenRecord.session || !tokenRecord.session.isActive) {
       throw new AppError('Session has been revoked', 401, true, 'SESSION_REVOKED');
     }
 
+    // Auto-detect correct device type from session configuration
+    const sessionDeviceType = tokenRecord.session.deviceType || deviceType || 'web';
+
     // Verify refresh token with device-specific secret
-    const decoded = jwt.verify(refreshToken, this.getRefreshSecret(deviceType)) as TokenPayload;
+    const decoded = jwt.verify(refreshToken, this.getRefreshSecret(sessionDeviceType)) as TokenPayload;
 
     // Check if user is still active
     const user = await authRepository.findById(decoded.userId);
@@ -265,8 +268,8 @@ export class AuthService {
     // Revoke old refresh token
     await authRepository.revokeRefreshToken(refreshToken);
 
-    // Generate new tokens
-    const tokens = await this.generateTokens(decoded.userId, decoded.email, decoded.role, deviceType);
+    // Generate new tokens with the correct device type
+    const tokens = await this.generateTokens(decoded.userId, decoded.email, decoded.role, sessionDeviceType);
 
     // Hash new access token and update session
     const accessTokenHash = crypto.createHash('sha256').update(tokens.accessToken).digest('hex');
@@ -284,7 +287,7 @@ export class AuthService {
       action: 'TOKEN_REFRESH',
       entityType: 'SESSION',
       entityId: String(tokenRecord.sessionId),
-      metadata: { previousTokenRevoked: true, deviceType },
+      metadata: { previousTokenRevoked: true, deviceType: sessionDeviceType },
     });
 
     return tokens;
@@ -447,11 +450,11 @@ export class AuthService {
     const payload: TokenPayload = { userId, email, role };
 
     const accessToken = jwt.sign(payload, this.getJwtSecret(deviceType), {
-      expiresIn: this.jwtExpiresIn as any,
+      expiresIn: '1d',
     });
 
     const refreshToken = jwt.sign(payload, this.getRefreshSecret(deviceType), {
-      expiresIn: '30d', // Default 30 days, actual expiry handled by database
+      expiresIn: '7d',
     });
 
     return { accessToken, refreshToken };

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import prisma from '../utils/prisma';
+import AuthService from '../modules/auth/services/auth.service';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -11,19 +12,35 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Helper to manually parse cookies since cookie-parser is not installed
+const parseCookies = (cookieHeader: string | undefined): Record<string, string> => {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    if (parts.length === 2) {
+      cookies[parts[0].trim()] = parts[1].trim();
+    }
+  });
+  return cookies;
+};
+
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const cookies = parseCookies(req.headers.cookie);
+    let token = '';
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AppError('Authentication token required', 401);
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      token = cookies.accessToken || cookies.auth_token || '';
     }
-
-    const token = authHeader.substring(7);
 
     if (!token) {
       throw new AppError('Authentication token required', 401);
@@ -38,13 +55,52 @@ export const authenticate = async (
     ];
 
     let verified = false;
+    let expired = false;
+
     for (const secret of secrets) {
       try {
         decoded = jwt.verify(token, secret);
         verified = true;
         break;
-      } catch (err) {
-        // try next secret
+      } catch (err: any) {
+        if (err.name === 'TokenExpiredError') {
+          expired = true;
+        }
+      }
+    }
+
+    // If access token is expired or verification failed, check for refresh token in cookies
+    if (!verified || expired) {
+      const refreshToken = cookies.refreshToken || cookies.refresh_token;
+      if (refreshToken) {
+        try {
+          // Attempt automatic token refresh
+          const tokens = await AuthService.refreshAccessToken(refreshToken, 'admin');
+          
+          // Set new cookies on response
+          res.cookie('accessToken', tokens.accessToken, {
+            httpOnly: false,
+            secure: false,
+            maxAge: 24 * 60 * 60 * 1000,
+            path: '/'
+          });
+          res.cookie('refreshToken', tokens.refreshToken, {
+            httpOnly: true,
+            secure: false,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/'
+          });
+
+          // Set custom header to notify client
+          res.setHeader('X-New-Access-Token', tokens.accessToken);
+          
+          decoded = jwt.decode(tokens.accessToken);
+          verified = true;
+        } catch (refreshErr) {
+          throw new AppError('Authentication failed: Invalid signature or expired token', 401);
+        }
+      } else {
+        throw new AppError('Authentication failed: Invalid signature or expired token', 401);
       }
     }
 

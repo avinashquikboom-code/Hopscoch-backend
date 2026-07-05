@@ -1,9 +1,23 @@
 import { Router } from 'express';
 import UserController from '../controllers/user.controller';
 import { authenticate } from '../../../middleware/auth';
+import prisma from '../../../utils/prisma';
+import { ResponseFormatter } from '../../../utils/responseFormatter';
 
 const router = Router();
 const userController = UserController;
+
+// GET all users (admin customer ledger)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { id: 'asc' }
+    });
+    return ResponseFormatter.success(res, 'Users retrieved successfully', users);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 /**
  * @swagger

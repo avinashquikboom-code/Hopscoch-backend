@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from 'bullmq';
+import { getFirebaseMessaging } from './firebase';
 
 // Queue configuration
 export const queueConfig = {
@@ -60,3 +61,74 @@ export interface JobData {
 
 // Generic job processor type
 export type JobProcessor = (job: Job<JobData>) => Promise<void>;
+
+// Notification queue processor
+export const initializeNotificationWorker = () => {
+  const worker = new Worker(
+    QUEUE_NAMES.NOTIFICATION,
+    async (job: Job) => {
+      const { type, data } = job.data;
+      
+      // Process notification based on type
+      switch (type) {
+        case 'PUSH':
+          return await sendPushNotification(data);
+        case 'EMAIL':
+          return await sendEmailNotification(data);
+        case 'SMS':
+          return await sendSMSNotification(data);
+        default:
+          throw new Error(`Unknown notification type: ${type}`);
+      }
+    },
+    {
+      connection: queueConfig.connection,
+      concurrency: 5,
+    }
+  );
+
+  worker.on('completed', (job) => {
+    console.log(`Notification job ${job.id} completed`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`Notification job ${job?.id} failed:`, err.message);
+  });
+
+  return worker;
+};
+
+// Send push notification via Firebase
+async function sendPushNotification(data: any) {
+  try {
+    const messaging = getFirebaseMessaging();
+
+    const message = {
+      notification: {
+        title: data.title,
+        body: data.body,
+      },
+      token: data.deviceToken,
+      data: data.additionalData || {},
+    };
+
+    await messaging.send(message);
+    return { success: true, message: 'Push notification sent' };
+  } catch (error: any) {
+    throw new Error(`Failed to send push notification: ${error.message}`);
+  }
+}
+
+// Send email notification (placeholder)
+async function sendEmailNotification(data: any) {
+  // Implement email sending logic here
+  console.log('Sending email notification:', data);
+  return { success: true, message: 'Email notification sent' };
+}
+
+// Send SMS notification (placeholder)
+async function sendSMSNotification(data: any) {
+  // Implement SMS sending logic here
+  console.log('Sending SMS notification:', data);
+  return { success: true, message: 'SMS notification sent' };
+}
