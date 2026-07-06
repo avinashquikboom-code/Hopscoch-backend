@@ -21,7 +21,7 @@ const writeNotifications = async (data: any[]): Promise<void> => {
 };
 
 // GET all broadcast notifications
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const notifications = await readNotifications();
     return ResponseFormatter.success(res, 'Notifications retrieved successfully', notifications);

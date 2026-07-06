@@ -513,6 +513,15 @@ export class AdminController {
     }
   }
 
+  async uploadFile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const result = await AdminService.uploadFile(req.file);
+      ResponseFormatter.success(res, 'File uploaded successfully', result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async deleteImage(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { imageId } = req.params;

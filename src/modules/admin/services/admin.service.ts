@@ -651,17 +651,82 @@ export class AdminService {
   }
 
   async createProduct(data: any) {
+    let categoryId = data.categoryId ? Number(data.categoryId) : undefined;
+    let brandId = data.brandId ? Number(data.brandId) : undefined;
+
+    // Resolve categoryId if missing
+    if (!categoryId) {
+      const categoryName = data.category || data.categoryName;
+      if (categoryName) {
+        const cat = await prisma.category.findFirst({
+          where: { name: { equals: categoryName, mode: 'insensitive' }, deletedAt: null }
+        });
+        if (cat) categoryId = cat.id;
+      }
+    }
+    // If still missing, fallback to the first category, or create a default category
+    if (!categoryId) {
+      let firstCat = await prisma.category.findFirst({ where: { deletedAt: null } });
+      if (!firstCat) {
+        firstCat = await prisma.category.create({
+          data: {
+            name: 'Default Category',
+            slug: 'default-category',
+            description: 'Default category for products',
+          }
+        });
+      }
+      categoryId = firstCat.id;
+    }
+
+    // Resolve brandId if missing
+    if (!brandId) {
+      const brandName = data.brand || data.brandName;
+      if (brandName) {
+        const b = await prisma.brand.findFirst({
+          where: { name: { equals: brandName, mode: 'insensitive' }, deletedAt: null }
+        });
+        if (b) brandId = b.id;
+      }
+    }
+    // If still missing, fallback to the first brand, or create a default brand
+    if (!brandId) {
+      let firstBrand = await prisma.brand.findFirst({ where: { deletedAt: null } });
+      if (!firstBrand) {
+        firstBrand = await prisma.brand.create({
+          data: {
+            name: 'Default Brand',
+            slug: 'default-brand',
+            description: 'Default brand for products',
+          }
+        });
+      }
+      brandId = firstBrand.id;
+    }
+
+    // Resolve price
+    const basePrice = data.basePrice !== undefined ? Number(data.basePrice) : (data.price !== undefined ? Number(data.price) : 0);
+    // Resolve slug
+    let slug = data.slug;
+    if (!slug && data.name) {
+      slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now();
+    } else if (slug) {
+      slug = slug.toLowerCase().replace(/\s+/g, '-');
+    } else {
+      slug = 'product-' + Date.now();
+    }
+
     const product = await prisma.product.create({
       data: {
         name: data.name,
-        slug: data.slug,
+        slug: slug,
         description: data.description,
-        categoryId: data.categoryId,
-        brandId: data.brandId,
-        basePrice: data.basePrice,
-        status: data.status || ProductStatus.DRAFT,
-        gender: data.gender,
-        ageGroup: data.ageGroup,
+        categoryId: categoryId!,
+        brandId: brandId!,
+        basePrice: basePrice,
+        status: data.status || ProductStatus.PUBLISHED,
+        gender: data.gender || 'UNISEX',
+        ageGroup: data.ageGroup || 'ADULT',
         isFeatured: data.isFeatured || false,
         isTrending: data.isTrending || false,
         isNewArrival: data.isNewArrival || false,
@@ -677,8 +742,85 @@ export class AdminService {
       },
     });
 
-    logger.info(`Product created: ${product.id}`);
+    const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
+    await prisma.productVariant.create({
+      data: {
+        productId: product.id,
+        sku: data.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
+        price: product.basePrice,
+        stock: stockVal,
+        color: 'Default',
+        size: 'One Size',
+      }
+    });
+
+    logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal}`);
     return product;
+  }
+
+  async updateProduct(productId: any, data: any) {
+    const id = Number(productId);
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    const updateData: any = { ...data };
+
+    // Resolve categoryId if category name string is passed
+    if (updateData.category) {
+      const cat = await prisma.category.findFirst({
+        where: { name: { equals: updateData.category, mode: 'insensitive' }, deletedAt: null }
+      });
+      if (cat) {
+        updateData.categoryId = cat.id;
+      }
+      delete updateData.category;
+    }
+
+    // Resolve brandId if brand name string is passed
+    if (updateData.brand) {
+      const b = await prisma.brand.findFirst({
+        where: { name: { equals: updateData.brand, mode: 'insensitive' }, deletedAt: null }
+      });
+      if (b) {
+        updateData.brandId = b.id;
+      }
+      delete updateData.brand;
+    }
+
+    // Clean up fields that might not be in Prisma schema or are passed as strings
+    if (updateData.categoryId !== undefined) {
+      updateData.categoryId = Number(updateData.categoryId);
+    }
+    if (updateData.brandId !== undefined) {
+      updateData.brandId = Number(updateData.brandId);
+    }
+    if (updateData.basePrice !== undefined) {
+      updateData.basePrice = Number(updateData.basePrice);
+    } else if (updateData.price !== undefined) {
+      updateData.basePrice = Number(updateData.price);
+      delete updateData.price;
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        basePrice: true,
+        updatedAt: true,
+      },
+    });
+
+    logger.info(`Product updated: ${id}`);
+    return updatedProduct;
   }
 
   async getProductDetails(productId: any) {
@@ -716,32 +858,7 @@ export class AdminService {
     return product;
   }
 
-  async updateProduct(productId: any, data: any) {
-    const id = Number(productId);
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
 
-    if (!product) {
-      throw new AppError('Product not found', 404);
-    }
-
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: data,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
-        basePrice: true,
-        updatedAt: true,
-      },
-    });
-
-    logger.info(`Product updated: ${id}`);
-    return updatedProduct;
-  }
 
   async deleteProduct(productId: any) {
     const id = Number(productId);
@@ -835,12 +952,16 @@ export class AdminService {
         parentId: data.parentId,
         isFeatured: data.isFeatured || false,
         sortOrder: data.sortOrder || 0,
+        iconUrl: data.iconUrl,
+        bannerUrl: data.bannerUrl,
       },
       select: {
         id: true,
         name: true,
         slug: true,
         isFeatured: true,
+        iconUrl: true,
+        bannerUrl: true,
         createdAt: true,
       },
     });
@@ -956,12 +1077,16 @@ export class AdminService {
         slug: data.slug,
         description: data.description,
         isFeatured: data.isFeatured || false,
+        logoUrl: data.logoUrl,
+        bannerUrl: data.bannerUrl,
       },
       select: {
         id: true,
         name: true,
         slug: true,
         isFeatured: true,
+        logoUrl: true,
+        bannerUrl: true,
         createdAt: true,
       },
     });
@@ -1754,18 +1879,34 @@ export class AdminService {
       throw new AppError('No file provided', 400);
     }
 
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: 'hopscotch',
-      resource_type: 'image',
-    });
+    let url: string;
+    const isCloudinaryConfigured = 
+      process.env.CLOUDINARY_CLOUD_NAME && 
+      process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name';
+
+    if (isCloudinaryConfigured) {
+      try {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'hopscotch',
+          resource_type: 'image',
+        });
+        url = result.secure_url;
+      } catch (err) {
+        logger.error(`Cloudinary upload failed, falling back to local: ${err}`);
+        const apiBase = process.env.API_URL || 'http://localhost:5001';
+        url = `${apiBase}/uploads/${file.filename}`;
+      }
+    } else {
+      const apiBase = process.env.API_URL || 'http://localhost:5001';
+      url = `${apiBase}/uploads/${file.filename}`;
+    }
 
     // Save image record to database
     const productId = Number(data.productId);
     const image = await prisma.productImage.create({
       data: {
         productId,
-        url: result.secure_url,
+        url,
         altText: data.altText || '',
         sortOrder: 0,
       },
@@ -1776,7 +1917,7 @@ export class AdminService {
       },
     });
 
-    logger.info(`Image uploaded: ${image.id}`);
+    logger.info(`Image uploaded: ${image.id} with URL: ${url}`);
     return image;
   }
 
@@ -2388,6 +2529,36 @@ export class AdminService {
 
     logger.info(`Collection deleted: ${collectionId}`);
     return { message: 'Collection deleted successfully' };
+  }
+
+  async uploadFile(file: any) {
+    if (!file) {
+      throw new AppError('No file provided', 400);
+    }
+
+    let url: string;
+    const isCloudinaryConfigured = 
+      process.env.CLOUDINARY_CLOUD_NAME && 
+      process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name';
+
+    if (isCloudinaryConfigured) {
+      try {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'hopscotch',
+          resource_type: 'image',
+        });
+        url = result.secure_url;
+      } catch (err) {
+        logger.error(`Cloudinary upload failed, falling back to local: ${err}`);
+        const apiBase = process.env.API_URL || 'http://localhost:5001';
+        url = `${apiBase}/uploads/${file.filename}`;
+      }
+    } else {
+      const apiBase = process.env.API_URL || 'http://localhost:5001';
+      url = `${apiBase}/uploads/${file.filename}`;
+    }
+
+    return { url };
   }
 }
 

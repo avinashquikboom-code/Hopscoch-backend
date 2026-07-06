@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 // Load environment variables early
 dotenv.config({ path: './env/env.local' });
 
+import path from 'path';
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -65,6 +66,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(compression());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(rateLimiter);

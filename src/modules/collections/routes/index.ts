@@ -7,7 +7,7 @@ import { ResponseFormatter } from '../../../utils/responseFormatter';
 const router = Router();
 
 // GET all collections
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const collections = await prisma.collection.findMany({
       include: {
@@ -24,7 +24,7 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 // GET single collection
-router.get('/:collectionId', authenticate, async (req, res, next) => {
+router.get('/:collectionId', async (req, res, next) => {
   try {
     const { collectionId } = req.params;
     const collection = await prisma.collection.findUnique({

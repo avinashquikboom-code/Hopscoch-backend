@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import AdminController from '../controllers/admin.controller';
 import { authenticate } from '../../../middleware/auth';
+import { upload } from '../../../middleware/upload';
 
 const router = Router();
 const adminController = AdminController;
@@ -1386,7 +1387,8 @@ router.put('/settings', authenticate, adminController.updateSettings.bind(adminC
  *       401:
  *         description: Authentication required
  */
-router.post('/images', authenticate, adminController.uploadImage.bind(adminController));
+router.post('/images', authenticate, upload.single('image'), adminController.uploadImage.bind(adminController));
+router.post('/upload', authenticate, upload.single('file'), adminController.uploadFile.bind(adminController));
 
 /**
  * @swagger
