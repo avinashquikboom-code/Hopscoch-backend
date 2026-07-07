@@ -259,5 +259,7 @@ router.get('/warehouses', authenticate, inventoryController.getWarehouses.bind(i
  *         description: Authentication required
  */
 router.get('/alerts/low-stock', authenticate, inventoryController.getLowStockAlerts.bind(inventoryController));
+router.put('/:inventoryItemId', authenticate, inventoryController.updateInventoryItem.bind(inventoryController));
+router.delete('/:inventoryItemId', authenticate, inventoryController.deleteInventoryItem.bind(inventoryController));
 
 export default router;

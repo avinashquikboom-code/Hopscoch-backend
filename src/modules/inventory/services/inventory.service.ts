@@ -347,16 +347,37 @@ export class InventoryService {
       });
     }
 
+    // Find or create default brand
+    let brand = await prisma.brand.findFirst();
+    if (!brand) {
+      brand = await prisma.brand.create({
+        data: {
+          name: 'Default Brand',
+          slug: 'default-brand',
+          description: 'Default brand for inventory items',
+        },
+      });
+    }
+
+    // Ensure unique product slug
+    const baseSlug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let slug = baseSlug || 'default-product';
+    let count = 1;
+    while (await prisma.product.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${count}`;
+      count++;
+    }
+
     // Create a default product
     const product = await prisma.product.create({
       data: {
         name,
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
+        slug,
         description: description || '',
         categoryId: categoryRecord.id,
         status: 'DRAFT',
         basePrice: 0,
-        brandId: 1, // Default brand ID
+        brandId: brand.id,
       },
     });
 
@@ -418,6 +439,105 @@ export class InventoryService {
 
     logger.info(`Inventory item created: ${inventoryItem.id} with SKU: ${sku}`);
     return inventoryItem;
+  }
+
+  async updateInventoryItem(id: number, data: { name?: string; sku?: string; stock?: number; minStock?: number; location?: string }) {
+    const item = await prisma.inventoryItem.findUnique({
+      where: { id },
+      include: { variant: { include: { product: true } } }
+    });
+
+    if (!item) {
+      throw new AppError('Inventory item not found', 404);
+    }
+
+    const updateData: any = {};
+
+    if (data.minStock !== undefined) {
+      updateData.lowStockThreshold = data.minStock;
+    }
+
+    if (data.location !== undefined) {
+      let warehouse = await prisma.warehouse.findFirst({
+        where: { name: data.location },
+      });
+
+      if (!warehouse) {
+        warehouse = await prisma.warehouse.create({
+          data: {
+            name: data.location,
+            city: data.location,
+            state: 'Default',
+            pincode: '000000',
+            isActive: true,
+          },
+        });
+      }
+      updateData.warehouseId = warehouse.id;
+    }
+
+    if (data.stock !== undefined) {
+      updateData.quantity = data.stock;
+    }
+
+    const updatedItem = await prisma.inventoryItem.update({
+      where: { id },
+      data: updateData,
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        warehouse: true,
+      },
+    });
+
+    // Also update the variant's stock / SKU if changed
+    const variantUpdateData: any = {};
+    if (data.stock !== undefined) {
+      variantUpdateData.stock = data.stock;
+    }
+    if (data.sku !== undefined) {
+      variantUpdateData.sku = data.sku;
+    }
+
+    if (Object.keys(variantUpdateData).length > 0) {
+      await prisma.productVariant.update({
+        where: { id: item.variantId },
+        data: variantUpdateData,
+      });
+    }
+
+    // Also update the product's name if changed
+    if (data.name !== undefined) {
+      await prisma.product.update({
+        where: { id: item.variant.productId },
+        data: { name: data.name },
+      });
+    }
+
+    return updatedItem;
+  }
+
+  async deleteInventoryItem(id: number) {
+    const item = await prisma.inventoryItem.findUnique({
+      where: { id },
+    });
+
+    if (!item) {
+      throw new AppError('Inventory item not found', 404);
+    }
+
+    await prisma.inventoryItem.delete({
+      where: { id },
+    });
+
+    return { message: 'Inventory item deleted successfully' };
   }
 }
 

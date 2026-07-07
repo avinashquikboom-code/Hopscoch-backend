@@ -113,6 +113,33 @@ export class InventoryController {
       throw error;
     }
   }
+
+  async updateInventoryItem(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { inventoryItemId } = req.params;
+      const { name, sku, stock, minStock, location } = req.body;
+      const inventoryItem = await InventoryService.updateInventoryItem(Number(inventoryItemId), {
+        name,
+        sku,
+        stock: stock !== undefined ? parseInt(stock) : undefined,
+        minStock: minStock !== undefined ? parseInt(minStock) : undefined,
+        location,
+      });
+      ResponseFormatter.success(res, 'Inventory item updated successfully', inventoryItem);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteInventoryItem(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { inventoryItemId } = req.params;
+      const result = await InventoryService.deleteInventoryItem(Number(inventoryItemId));
+      ResponseFormatter.success(res, 'Inventory item deleted successfully', result);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new InventoryController();
