@@ -54,6 +54,51 @@ router.post('/movements', authenticate, inventoryController.createStockMovement.
 /**
  * @swagger
  * /inventory:
+ *   post:
+ *     summary: Create inventory item (Admin)
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sku
+ *               - name
+ *               - category
+ *               - stock
+ *               - location
+ *             properties:
+ *               sku:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               stock:
+ *                 type: integer
+ *               minStock:
+ *                 type: integer
+ *               location:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Inventory item created successfully
+ *       401:
+ *         description: Authentication required
+ *       400:
+ *         description: Validation error
+ */
+router.post('/', authenticate, inventoryController.createInventoryItem.bind(inventoryController));
+
+/**
+ * @swagger
+ * /inventory:
  *   get:
  *     summary: Get inventory items with filters (Admin)
  *     tags: [Inventory]

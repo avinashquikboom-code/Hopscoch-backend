@@ -95,6 +95,24 @@ export class InventoryController {
       throw error;
     }
   }
+
+  async createInventoryItem(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { sku, name, category, stock, minStock, location, description } = req.body;
+      const inventoryItem = await InventoryService.createInventoryItem({
+        sku,
+        name,
+        category,
+        stock: parseInt(stock) || 0,
+        minStock: parseInt(minStock) || 5,
+        location,
+        description,
+      });
+      ResponseFormatter.success(res, 'Inventory item created successfully', inventoryItem);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new InventoryController();

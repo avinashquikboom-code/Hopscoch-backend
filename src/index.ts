@@ -66,7 +66,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(compression());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Use absolute path for uploads directory to work correctly from both src and dist
+const uploadsPath = path.resolve(process.cwd(), 'uploads');
+app.use('/uploads', express.static(uploadsPath));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(rateLimiter);

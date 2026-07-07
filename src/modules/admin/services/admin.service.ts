@@ -664,19 +664,8 @@ export class AdminService {
         if (cat) categoryId = cat.id;
       }
     }
-    // If still missing, fallback to the first category, or create a default category
     if (!categoryId) {
-      let firstCat = await prisma.category.findFirst({ where: { deletedAt: null } });
-      if (!firstCat) {
-        firstCat = await prisma.category.create({
-          data: {
-            name: 'Default Category',
-            slug: 'default-category',
-            description: 'Default category for products',
-          }
-        });
-      }
-      categoryId = firstCat.id;
+      throw new Error('Category is required and must exist in the database. Please create the category first.');
     }
 
     // Resolve brandId if missing
@@ -689,19 +678,8 @@ export class AdminService {
         if (b) brandId = b.id;
       }
     }
-    // If still missing, fallback to the first brand, or create a default brand
     if (!brandId) {
-      let firstBrand = await prisma.brand.findFirst({ where: { deletedAt: null } });
-      if (!firstBrand) {
-        firstBrand = await prisma.brand.create({
-          data: {
-            name: 'Default Brand',
-            slug: 'default-brand',
-            description: 'Default brand for products',
-          }
-        });
-      }
-      brandId = firstBrand.id;
+      throw new Error('Brand is required and must exist in the database. Please create the brand first.');
     }
 
     // Resolve price

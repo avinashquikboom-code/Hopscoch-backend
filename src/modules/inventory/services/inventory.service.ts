@@ -307,6 +307,100 @@ export class InventoryService {
 
     return lowStockItems;
   }
+
+  async createInventoryItem(data: {
+    sku: string;
+    name: string;
+    category: string;
+    stock: number;
+    minStock: number;
+    location: string;
+    description?: string;
+  }) {
+    const { sku, name, category, stock, minStock, location, description } = data;
+
+    // Find or create category
+    let categoryRecord = await prisma.category.findFirst({
+      where: { name: category },
+    });
+
+    if (!categoryRecord) {
+      categoryRecord = await prisma.category.create({
+        data: {
+          name: category,
+          slug: category.toLowerCase().replace(/\s+/g, '-'),
+          sortOrder: 1,
+          description: description || '',
+        },
+      });
+    }
+
+    // Create a default product
+    const product = await prisma.product.create({
+      data: {
+        name,
+        slug: name.toLowerCase().replace(/\s+/g, '-'),
+        description: description || '',
+        categoryId: categoryRecord.id,
+        status: 'DRAFT',
+        basePrice: 0,
+        brandId: 1, // Default brand ID
+      },
+    });
+
+    // Create a default variant
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId: product.id,
+        sku,
+        price: 0,
+        size: 'Default',
+        color: 'Default',
+      },
+    });
+
+    // Find or create warehouse
+    let warehouse = await prisma.warehouse.findFirst({
+      where: { name: location },
+    });
+
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.create({
+        data: {
+          name: location,
+          city: location,
+          state: 'Default',
+          pincode: '000000',
+          isActive: true,
+        },
+      });
+    }
+
+    // Create inventory item
+    const inventoryItem = await prisma.inventoryItem.create({
+      data: {
+        variantId: variant.id,
+        warehouseId: warehouse.id,
+        quantity: stock,
+        lowStockThreshold: minStock,
+      },
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        warehouse: true,
+      },
+    });
+
+    logger.info(`Inventory item created: ${inventoryItem.id} with SKU: ${sku}`);
+    return inventoryItem;
+  }
 }
 
 export default new InventoryService();
