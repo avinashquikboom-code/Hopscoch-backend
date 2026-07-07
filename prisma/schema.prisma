@@ -113,6 +113,12 @@ enum TicketStatus {
   CLOSED
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AnalyticsEventType {
   PAGE_VIEW
   PRODUCT_VIEW
@@ -764,6 +770,7 @@ model Review {
   isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
   helpfulCount Int   @default(0) @map("helpful_count")
   isReported   Boolean @default(false) @map("is_reported")
+  status    ReviewStatus @default(PENDING)
 
   images ReviewMedia[]
 

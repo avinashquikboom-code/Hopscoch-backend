@@ -2,7 +2,7 @@ import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import bcrypt from 'bcrypt';
-import { Role, ProductStatus, OrderStatus, ReturnStatus } from '@prisma/client';
+import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 
 export class AdminService {
@@ -709,15 +709,7 @@ export class AdminService {
         isTrending: data.isTrending || false,
         isNewArrival: data.isNewArrival || false,
         isBestSeller: data.isBestSeller || false,
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
-        basePrice: true,
-        createdAt: true,
-      },
+      }
     });
 
     const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
@@ -733,13 +725,28 @@ export class AdminService {
     });
 
     logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal}`);
-    return product;
+
+    const fullProduct = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: {
+        category: true,
+        brand: true,
+        variants: true,
+      }
+    });
+
+    if (!fullProduct) {
+      throw new Error('Failed to retrieve newly created product');
+    }
+
+    return fullProduct;
   }
 
   async updateProduct(productId: any, data: any) {
     const id = Number(productId);
     const product = await prisma.product.findUnique({
       where: { id },
+      include: { variants: true }
     });
 
     if (!product) {
@@ -747,6 +754,48 @@ export class AdminService {
     }
 
     const updateData: any = { ...data };
+
+    // If stock is passed directly, update the first/default variant's stock and associated inventory
+    if (updateData.stock !== undefined) {
+      const stockVal = parseInt(updateData.stock);
+      if (product.variants && product.variants.length > 0) {
+        await prisma.productVariant.update({
+          where: { id: product.variants[0].id },
+          data: { stock: stockVal },
+        });
+        await prisma.inventoryItem.updateMany({
+          where: { variantId: product.variants[0].id },
+          data: { quantity: stockVal },
+        });
+        logger.info(`Variant stock updated for product: ${id}, new stock: ${stockVal}`);
+      } else {
+        await prisma.productVariant.create({
+          data: {
+            productId: id,
+            sku: `${product.slug}-${Date.now().toString().slice(-4)}`,
+            price: product.basePrice,
+            stock: stockVal,
+            color: 'Default',
+            size: 'One Size',
+          }
+        });
+      }
+      delete updateData.stock;
+    }
+
+    // Handle variant stock updates
+    if (updateData.variants && Array.isArray(updateData.variants)) {
+      for (const variant of updateData.variants) {
+        if (variant.id && variant.stock !== undefined) {
+          await prisma.productVariant.update({
+            where: { id: Number(variant.id) },
+            data: { stock: parseInt(variant.stock) },
+          });
+          logger.info(`Variant stock updated: ${variant.id}, new stock: ${variant.stock}`);
+        }
+      }
+      delete updateData.variants;
+    }
 
     // Resolve categoryId if category name string is passed
     if (updateData.category) {
@@ -787,13 +836,10 @@ export class AdminService {
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
-        basePrice: true,
-        updatedAt: true,
+      include: {
+        category: true,
+        brand: true,
+        variants: true,
       },
     });
 
@@ -887,6 +933,8 @@ export class AdminService {
           name: true,
           slug: true,
           description: true,
+          iconUrl: true,
+          bannerUrl: true,
           isFeatured: true,
           sortOrder: true,
           parentId: true,
@@ -2537,6 +2585,335 @@ export class AdminService {
     }
 
     return { url };
+  }
+
+  async updateVariantStock(variantId: any, data: any) {
+    const id = Number(variantId);
+    const { stock, reason } = data;
+
+    const variant = await prisma.productVariant.findUnique({
+      where: { id },
+    });
+
+    if (!variant) {
+      throw new AppError('Product variant not found', 404);
+    }
+
+    const updatedVariant = await prisma.productVariant.update({
+      where: { id },
+      data: { stock: parseInt(stock) },
+    });
+
+    logger.info(`Variant stock updated: ${variantId}, new stock: ${stock}, reason: ${reason}`);
+    return updatedVariant;
+  }
+
+  async createProductVariant(productId: any, data: any) {
+    const pid = Number(productId);
+    const { sku, barcode, size, color, material, pattern, price, stock } = data;
+
+    const product = await prisma.product.findUnique({
+      where: { id: pid },
+    });
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId: pid,
+        sku,
+        barcode,
+        size,
+        color,
+        material,
+        pattern,
+        price: parseFloat(price),
+        stock: parseInt(stock) || 0,
+      },
+    });
+
+    logger.info(`Product variant created: ${variant.id} for product ${productId}`);
+    return variant;
+  }
+
+  async updateProductVariant(productId: any, variantId: any, data: any) {
+    const vid = Number(variantId);
+    const pid = Number(productId);
+    const { sku, barcode, size, color, material, pattern, price, stock } = data;
+
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: vid, productId: pid },
+    });
+
+    if (!variant) {
+      throw new AppError('Product variant not found', 404);
+    }
+
+    const updateData: any = {};
+    if (sku !== undefined) updateData.sku = sku;
+    if (barcode !== undefined) updateData.barcode = barcode;
+    if (size !== undefined) updateData.size = size;
+    if (color !== undefined) updateData.color = color;
+    if (material !== undefined) updateData.material = material;
+    if (pattern !== undefined) updateData.pattern = pattern;
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (stock !== undefined) updateData.stock = parseInt(stock);
+
+    const updatedVariant = await prisma.productVariant.update({
+      where: { id: vid },
+      data: updateData,
+    });
+
+    logger.info(`Product variant updated: ${variantId}`);
+    return updatedVariant;
+  }
+
+  async getReviews(filters: {
+    page: number;
+    limit: number;
+    status?: string;
+    productId?: string;
+  }) {
+    const { page, limit, status, productId } = filters;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (status) {
+      where.status = status;
+    }
+    if (productId) {
+      where.productId = Number(productId);
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          product: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.review.count({ where }),
+    ]);
+
+    logger.info(`Retrieved ${reviews.length} reviews (page ${page})`);
+    return {
+      reviews,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getReviewDetails(reviewId: any) {
+    const id = Number(reviewId);
+    const review = await prisma.review.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!review) {
+      throw new AppError('Review not found', 404);
+    }
+
+    return review;
+  }
+
+  async updateReviewStatus(reviewId: any, data: { status: ReviewStatus }) {
+    const id = Number(reviewId);
+    const { status } = data;
+
+    const review = await prisma.review.findUnique({
+      where: { id },
+    });
+
+    if (!review) {
+      throw new AppError('Review not found', 404);
+    }
+
+    const updatedReview = await prisma.review.update({
+      where: { id },
+      data: { status },
+    });
+
+    logger.info(`Review status updated: ${reviewId}, new status: ${status}`);
+    return updatedReview;
+  }
+
+  async deleteReview(reviewId: any) {
+    const id = Number(reviewId);
+
+    const review = await prisma.review.findUnique({
+      where: { id },
+    });
+
+    if (!review) {
+      throw new AppError('Review not found', 404);
+    }
+
+    await prisma.review.delete({
+      where: { id },
+    });
+
+    logger.info(`Review deleted: ${reviewId}`);
+    return { message: 'Review deleted successfully' };
+  }
+
+  async getWishlist(filters: {
+    page: number;
+    limit: number;
+    userId?: string;
+  }) {
+    const { page, limit, userId } = filters;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (userId) {
+      where.userId = Number(userId);
+    }
+
+    const [wishlist, total] = await Promise.all([
+      prisma.wishlistItem.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              basePrice: true,
+              thumbnailUrl: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.wishlistItem.count({ where }),
+    ]);
+
+    logger.info(`Retrieved ${wishlist.length} wishlist items (page ${page})`);
+    return {
+      wishlist,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getCart(filters: {
+    page: number;
+    limit: number;
+    userId?: string;
+  }) {
+    const { page, limit, userId } = filters;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (userId) {
+      where.userId = Number(userId);
+    }
+
+    const [cart, total] = await Promise.all([
+      prisma.cart.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  basePrice: true,
+                  thumbnailUrl: true,
+                },
+              },
+              variant: {
+                select: {
+                  id: true,
+                  sku: true,
+                  size: true,
+                  color: true,
+                  price: true,
+                  stock: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.cart.count({ where }),
+    ]);
+
+    logger.info(`Retrieved ${cart.length} carts (page ${page})`);
+    return {
+      cart,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 

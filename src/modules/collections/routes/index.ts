@@ -1,6 +1,4 @@
 import { Router } from 'express';
-import adminController from '../../admin/controllers/admin.controller';
-import { authenticate } from '../../../middleware/auth';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 
@@ -43,27 +41,5 @@ router.get('/:collectionId', async (req, res, next) => {
     return next(error);
   }
 });
-
-// Middleware to translate frontend field keys to backend Prisma expectations
-const translateCollectionBody = (req: any, res: any, next: any) => {
-  if (req.body) {
-    if (req.body.order !== undefined) {
-      req.body.sortOrder = Number(req.body.order);
-    }
-    if (req.body.isActive !== undefined) {
-      req.body.isFeatured = req.body.isActive;
-    }
-  }
-  next();
-};
-
-// POST create collection
-router.post('/', authenticate, translateCollectionBody, adminController.createCollection.bind(adminController));
-
-// PUT update collection
-router.put('/:collectionId', authenticate, translateCollectionBody, adminController.updateCollection.bind(adminController));
-
-// DELETE delete collection
-router.delete('/:collectionId', authenticate, adminController.deleteCollection.bind(adminController));
 
 export default router;

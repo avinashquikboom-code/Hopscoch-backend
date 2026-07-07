@@ -76,7 +76,19 @@ export class InventoryService {
       },
     });
 
-    logger.info(`Stock movement created: ${movement.id} for variant: ${variantId}`);
+    // Calculate total stock of this variant across all warehouses
+    const allInventoryItems = await prisma.inventoryItem.findMany({
+      where: { variantId },
+    });
+    const totalStock = allInventoryItems.reduce((acc, item) => acc + item.quantity, 0);
+
+    // Update ProductVariant stock
+    await prisma.productVariant.update({
+      where: { id: variantId },
+      data: { stock: totalStock },
+    });
+
+    logger.info(`Stock movement created: ${movement.id} for variant: ${variantId}, total stock set to: ${totalStock}`);
     return {
       movement,
       inventoryItem: updatedInventoryItem,
@@ -396,6 +408,12 @@ export class InventoryService {
         },
         warehouse: true,
       },
+    });
+
+    // Update ProductVariant stock
+    await prisma.productVariant.update({
+      where: { id: variant.id },
+      data: { stock: stock },
     });
 
     logger.info(`Inventory item created: ${inventoryItem.id} with SKU: ${sku}`);

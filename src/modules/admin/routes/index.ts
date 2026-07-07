@@ -128,6 +128,40 @@ router.patch('/users/:userId', authenticate, adminController.updateAdminUser.bin
 
 /**
  * @swagger
+ * /admin/users/{userId}/avatar:
+ *   put:
+ *     summary: Update user avatar image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: User avatar updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: User not found
+ */
+router.put('/users/:userId/avatar', authenticate, upload.single('avatar'), adminController.updateAdminUser.bind(adminController));
+
+/**
+ * @swagger
  * /admin/users/{userId}:
  *   delete:
  *     summary: Delete admin user (Super Admin only)
@@ -630,6 +664,110 @@ router.delete('/products/:productId', authenticate, adminController.deleteProduc
 
 /**
  * @swagger
+ * /admin/products/{productId}/thumbnail:
+ *   put:
+ *     summary: Update product thumbnail image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               thumbnail:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Product thumbnail updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.put('/products/:productId/thumbnail', authenticate, upload.single('thumbnail'), adminController.updateProduct.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}/images:
+ *   put:
+ *     summary: Update product images (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Product images updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.put('/products/:productId/images', authenticate, upload.array('images', 10), adminController.updateProduct.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}/video:
+ *   put:
+ *     summary: Update product video (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Product video updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Product not found
+ */
+router.put('/products/:productId/video', authenticate, upload.single('video'), adminController.updateProduct.bind(adminController));
+
+/**
+ * @swagger
  * /admin/categories:
  *   get:
  *     summary: Get all categories (Admin only)
@@ -764,6 +902,294 @@ router.delete('/categories/:categoryId', authenticate, adminController.deleteCat
 
 /**
  * @swagger
+ * /admin/categories/{categoryId}/icon:
+ *   put:
+ *     summary: Update category icon image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               icon:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Category icon updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Category not found
+ */
+router.put('/categories/:categoryId/icon', authenticate, upload.single('icon'), adminController.updateCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{categoryId}/banner:
+ *   put:
+ *     summary: Update category banner image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Category banner updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Category not found
+ */
+router.put('/categories/:categoryId/banner', authenticate, upload.single('banner'), adminController.updateCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{categoryId}/images:
+ *   put:
+ *     summary: Update category icon and banner images (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               icon:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Category images updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Category not found
+ */
+router.put('/categories/:categoryId/images', authenticate, upload.fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), adminController.updateCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{parentId}/children:
+ *   post:
+ *     summary: Create subcategory under parent category (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: parentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *               isFeatured:
+ *                 type: boolean
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Subcategory created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/categories/:parentId/children', authenticate, upload.fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), adminController.createCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{parentId}/children/icon:
+ *   post:
+ *     summary: Create subcategory with icon image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: parentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Subcategory created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/categories/:parentId/children/icon', authenticate, upload.single('icon'), adminController.createCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{parentId}/children/banner:
+ *   post:
+ *     summary: Create subcategory with banner image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: parentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Subcategory created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/categories/:parentId/children/banner', authenticate, upload.single('banner'), adminController.createCategory.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/categories/{parentId}/children/images:
+ *   post:
+ *     summary: Create subcategory with both icon and banner images (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: parentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Subcategory created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/categories/:parentId/children/images', authenticate, upload.fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), adminController.createCategory.bind(adminController));
+
+/**
+ * @swagger
  * /admin/brands:
  *   get:
  *     summary: Get all brands (Admin only)
@@ -889,6 +1315,114 @@ router.put('/brands/:brandId', authenticate, adminController.updateBrand.bind(ad
  *         description: Brand not found
  */
 router.delete('/brands/:brandId', authenticate, adminController.deleteBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands/{brandId}/logo:
+ *   put:
+ *     summary: Update brand logo image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Brand logo updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Brand not found
+ */
+router.put('/brands/:brandId/logo', authenticate, upload.single('logo'), adminController.updateBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands/{brandId}/banner:
+ *   put:
+ *     summary: Update brand banner image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Brand banner updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Brand not found
+ */
+router.put('/brands/:brandId/banner', authenticate, upload.single('banner'), adminController.updateBrand.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/brands/{brandId}/images:
+ *   put:
+ *     summary: Update brand logo and banner images (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brandId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *               banner:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Brand images updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Brand not found
+ */
+router.put('/brands/:brandId/images', authenticate, upload.fields([
+  { name: 'logo', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), adminController.updateBrand.bind(adminController));
 
 /**
  * @swagger
@@ -1018,6 +1552,40 @@ router.patch('/orders/:orderId', authenticate, adminController.updateOrderStatus
  *         description: Order not found
  */
 router.get('/orders/:orderId/timeline', authenticate, adminController.getOrderTimeline.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/orders/{orderId}/invoice:
+ *   put:
+ *     summary: Upload order invoice (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               invoice:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Invoice uploaded successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Order not found
+ */
+router.put('/orders/:orderId/invoice', authenticate, upload.single('invoice'), adminController.updateOrderStatus.bind(adminController));
 
 /**
  * @swagger
@@ -2008,5 +2576,341 @@ router.put('/collections/:collectionId', authenticate, adminController.updateCol
  *         description: Collection not found
  */
 router.delete('/collections/:collectionId', authenticate, adminController.deleteCollection.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/collections/{collectionId}/image:
+ *   put:
+ *     summary: Update collection image (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: collectionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Collection image updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Collection not found
+ */
+router.put('/collections/:collectionId/image', authenticate, upload.single('image'), adminController.updateCollection.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/inventory/stock/{variantId}:
+ *   put:
+ *     summary: Update product variant stock (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               stock:
+ *                 type: integer
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Stock updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Variant not found
+ */
+router.put('/inventory/stock/:variantId', authenticate, adminController.updateVariantStock.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}/variants:
+ *   post:
+ *     summary: Create product variant (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sku:
+ *                 type: string
+ *               size:
+ *                 type: string
+ *               color:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               stock:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Variant created successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.post('/products/:productId/variants', authenticate, adminController.createProductVariant.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/products/{productId}/variants/{variantId}:
+ *   put:
+ *     summary: Update product variant (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sku:
+ *                 type: string
+ *               size:
+ *                 type: string
+ *               color:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               stock:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Variant updated successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.put('/products/:productId/variants/:variantId', authenticate, adminController.updateProductVariant.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/reviews:
+ *   get:
+ *     summary: Get all reviews (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *       - in: query
+ *         name: productId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/reviews', authenticate, adminController.getReviews.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/reviews/{reviewId}:
+ *   get:
+ *     summary: Get review details (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Review details retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Review not found
+ */
+router.get('/reviews/:reviewId', authenticate, adminController.getReviewDetails.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/reviews/{reviewId}:
+ *   put:
+ *     summary: Update review status (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, APPROVED, REJECTED]
+ *     responses:
+ *       200:
+ *         description: Review status updated successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Review not found
+ */
+router.put('/reviews/:reviewId', authenticate, adminController.updateReviewStatus.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/reviews/{reviewId}:
+ *   delete:
+ *     summary: Delete review (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Review deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: Review not found
+ */
+router.delete('/reviews/:reviewId', authenticate, adminController.deleteReview.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/wishlist:
+ *   get:
+ *     summary: Get all wishlist items (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Wishlist items retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/wishlist', authenticate, adminController.getWishlist.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/cart:
+ *   get:
+ *     summary: Get all cart items (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Cart items retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/cart', authenticate, adminController.getCart.bind(adminController));
 
 export default router;
