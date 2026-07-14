@@ -1,0 +1,28 @@
+# Production image for the Hopscotch backend (Express + Prisma).
+# Secrets are injected at RUNTIME via --env-file on the VPS; nothing is baked in.
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Build deps for native modules + Prisma.
+RUN apk add --no-cache git python3 make g++
+
+# Install dependencies (cache-friendly: package files first).
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps --ignore-scripts
+
+# Prisma client generation needs the schema.
+COPY prisma ./prisma/
+COPY prisma.config.ts ./
+RUN npx prisma generate
+
+# App source + build.
+COPY . .
+RUN npm run build
+
+# Container port (overridable by the PORT env var at runtime).
+ENV PORT=5000
+EXPOSE 5000
+
+# Apply pending migrations, then start the compiled server.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

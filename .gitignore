@@ -13,6 +13,16 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+# Local env dir (env/env.local was leaked here — see DEV_GUIDELINES)
+env/
+# Any file ending in .env, anywhere (e.g. prod.env, staging.env)
+*.env
+
+# Deploy toolkit — real config/secrets live only on the VPS, never committed.
+deploy/deploy.env
+deploy/backend.env
+deploy/admin.env
+deploy/ecom.env
 
 # Firebase service account keys
 serviceAccountKey.json
