@@ -2,6 +2,9 @@ import { Router } from 'express';
 import CatalogController from '../controllers/catalog.controller';
 import BrandController from '../controllers/brand.controller';
 import CategoryController from '../controllers/category.controller';
+import MarketingService from '../../marketing/services/marketing.service';
+import { ResponseFormatter } from '../../../utils/responseFormatter';
+
 
 const router = Router();
 const catalogController = CatalogController;
@@ -176,5 +179,24 @@ router.get('/brands/:brandId', brandController.getBrandById.bind(brandController
  *         description: Categories retrieved successfully
  */
 router.get('/categories', categoryController.listCategories.bind(categoryController));
+
+/**
+ * @swagger
+ * /banners:
+ *   get:
+ *     summary: List active banners (Public)
+ *     tags: [Catalog]
+ *     responses:
+ *       200:
+ *         description: Banners retrieved successfully
+ */
+router.get('/banners', async (req, res, next) => {
+  try {
+    const banners = await MarketingService.getBanners({ isActive: true });
+    return ResponseFormatter.success(res, 'Banners retrieved successfully', banners);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 export default router;

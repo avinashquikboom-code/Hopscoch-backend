@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import razorpayClient from './razorpay.client';
 
 export class PaymentService {
   async createPayment(userId: any, data: {
@@ -10,7 +11,6 @@ export class PaymentService {
   }) {
     const { orderId, method, providerRef } = data;
 
-    // Validate order exists and belongs to user
     const order = await prisma.order.findFirst({
       where: { id: Number(orderId), userId },
       include: { payment: true },
@@ -20,15 +20,13 @@ export class PaymentService {
       throw new AppError('Order not found', 404);
     }
 
-    // Check if payment already exists
     if (order.payment) {
       throw new AppError('Payment already exists for this order', 400);
     }
 
-    // Create payment record
     const payment = await prisma.payment.create({
       data: {
-        orderId,
+        orderId: Number(orderId),
         method,
         status: 'PENDING',
         providerRef,
@@ -52,6 +50,72 @@ export class PaymentService {
     return payment;
   }
 
+  async createRazorpayOrder(userId: any, orderId: any) {
+    const order = await prisma.order.findFirst({
+      where: { id: Number(orderId), userId },
+    });
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    const amount = Number(order.totalAmount);
+    const rzpOrder = await razorpayClient.createOrder(amount, 'INR', `receipt_order_${orderId}`);
+
+    const payment = await prisma.payment.upsert({
+      where: { orderId: Number(orderId) },
+      update: {
+        razorpayOrderId: rzpOrder.id,
+        amount: order.totalAmount,
+        status: 'PENDING',
+        method: 'RAZORPAY',
+      },
+      create: {
+        orderId: Number(orderId),
+        method: 'RAZORPAY',
+        status: 'PENDING',
+        amount: order.totalAmount,
+        razorpayOrderId: rzpOrder.id,
+      },
+    });
+
+    return {
+      razorpayOrderId: rzpOrder.id,
+      amount: rzpOrder.amount, // in paise
+      currency: rzpOrder.currency,
+      paymentId: payment.id,
+    };
+  }
+
+  async verifyRazorpayPayment(userId: any, data: { razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string }) {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = data;
+
+    const isValid = await razorpayClient.verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    if (!isValid) {
+      throw new AppError('Invalid payment signature', 400);
+    }
+
+    const payment = await prisma.payment.findFirst({
+      where: { razorpayOrderId },
+    });
+
+    if (!payment) {
+      throw new AppError('Payment record not found', 404);
+    }
+
+    const updatedPayment = await this.updatePaymentStatus(payment.id, 'PAID', razorpayPaymentId);
+    
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        razorpayPaymentId,
+        razorpaySignature,
+      },
+    });
+
+    return updatedPayment;
+  }
+
   async updatePaymentStatus(paymentId: any, status: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED', providerRef?: string) {
     const payment = await prisma.payment.findUnique({
       where: { id: Number(paymentId) },
@@ -62,7 +126,6 @@ export class PaymentService {
       throw new AppError('Payment not found', 404);
     }
 
-    // Update payment status
     const updatedPayment = await prisma.payment.update({
       where: { id: Number(paymentId) },
       data: {
@@ -78,7 +141,6 @@ export class PaymentService {
       },
     });
 
-    // Update order status based on payment status
     if (status === 'PAID') {
       await prisma.order.update({
         where: { id: payment.orderId },
@@ -106,7 +168,6 @@ export class PaymentService {
         },
       });
 
-      // Restore stock
       const orderWithItems = await prisma.order.findUnique({
         where: { id: payment.orderId },
         include: { items: true },
@@ -149,7 +210,14 @@ export class PaymentService {
       throw new AppError('Refund amount exceeds available balance', 400);
     }
 
-    // Update payment with refund
+    // Call Razorpay client if payment was executed via Razorpay
+    let rzpRefundId: string | null = null;
+    if (payment.method === 'RAZORPAY' && payment.razorpayPaymentId) {
+      logger.info(`Initiating online refund on Razorpay for payment: ${payment.razorpayPaymentId}`);
+      const refund = await razorpayClient.refundPayment(payment.razorpayPaymentId, refundAmount);
+      rzpRefundId = refund.id;
+    }
+
     const updatedPayment = await prisma.payment.update({
       where: { id: Number(paymentId) },
       data: {
@@ -157,13 +225,13 @@ export class PaymentService {
           increment: refundAmount,
         },
         status: Number(payment.refundedAmount) + refundAmount >= Number(payment.amount) ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+        refundId: rzpRefundId || payment.refundId,
       },
       include: {
         order: true,
       },
     });
 
-    // Add timeline event
     await prisma.orderTimelineEvent.create({
       data: {
         orderId: payment.orderId,
@@ -176,9 +244,84 @@ export class PaymentService {
     return updatedPayment;
   }
 
+  async handleRazorpayWebhook(event: string, payload: any) {
+    logger.info(`Processing Razorpay webhook event: ${event}`);
+    
+    if (event === 'payment.captured') {
+      const razorpayOrderId = payload.payment.entity.order_id;
+      const razorpayPaymentId = payload.payment.entity.id;
+      
+      const payment = await prisma.payment.findFirst({
+        where: { razorpayOrderId },
+      });
+      
+      if (payment && payment.status !== 'PAID') {
+        await this.updatePaymentStatus(payment.id, 'PAID', razorpayPaymentId);
+      }
+    } else if (event === 'payment.failed') {
+      const razorpayOrderId = payload.payment.entity.order_id;
+      const razorpayPaymentId = payload.payment.entity.id;
+      
+      const payment = await prisma.payment.findFirst({
+        where: { razorpayOrderId },
+      });
+      
+      if (payment && payment.status !== 'PAID') {
+        await this.updatePaymentStatus(payment.id, 'FAILED', razorpayPaymentId);
+      }
+    } else if (event === 'refund.processed') {
+      const razorpayPaymentId = payload.refund.entity.payment_id;
+      const refundId = payload.refund.entity.id;
+      const amountRefunded = payload.refund.entity.amount / 100; // in INR
+      
+      const payment = await prisma.payment.findFirst({
+        where: { razorpayPaymentId },
+      });
+      
+      if (payment) {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            refundedAmount: {
+              increment: amountRefunded,
+            },
+            status: Number(payment.refundedAmount) + amountRefunded >= Number(payment.amount) ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+            refundId,
+          },
+        });
+      }
+    }
+  }
+
+  async getPaymentsDashboard() {
+    const payments = await prisma.payment.findMany();
+    
+    let captured = 0;
+    let failed = 0;
+    let refunded = 0;
+    
+    for (const p of payments) {
+      const amt = Number(p.amount);
+      const refAmt = Number(p.refundedAmount);
+      if (p.status === 'PAID') {
+        captured += amt;
+      } else if (p.status === 'FAILED') {
+        failed += amt;
+      }
+      refunded += refAmt;
+    }
+    
+    return {
+      captured,
+      failed,
+      refunded,
+      total: payments.length,
+    };
+  }
+
   async getPaymentByOrderId(orderId: any) {
     const payment = await prisma.payment.findUnique({
-      where: { orderId },
+      where: { orderId: Number(orderId) },
       include: {
         order: {
           include: {

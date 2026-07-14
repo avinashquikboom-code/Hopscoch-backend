@@ -1,11 +1,139 @@
+import crypto from 'crypto';
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 
+// Encryption setup
+const ALGORITHM = 'aes-256-cbc';
+const ENCRYPTION_KEY = crypto
+  .createHash('sha256')
+  .update(process.env.SETTINGS_ENCRYPTION_KEY || 'your-default-settings-encryption-key-passphrase')
+  .digest(); // Always exactly 32 bytes
+
+export function encrypt(text: string): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+export function decrypt(text: string): string {
+  const textParts = text.split(':');
+  const iv = Buffer.from(textParts.shift()!, 'hex');
+  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
 export class SettingsService {
+  private cache: Map<string, string> = new Map();
+  private updateListeners: ((provider: 'shiprocket' | 'razorpay' | 'google') => void)[] = [];
+
+  registerUpdateListener(listener: (provider: 'shiprocket' | 'razorpay' | 'google') => void) {
+    this.updateListeners.push(listener);
+  }
+
+  onKeyUpdate(provider: 'shiprocket' | 'razorpay' | 'google') {
+    for (const listener of this.updateListeners) {
+      try {
+        listener(provider);
+      } catch (err) {
+        logger.error(`Error in integration update listener: ${err}`);
+      }
+    }
+  }
+
+  async getIntegrationKey(provider: 'shiprocket' | 'razorpay' | 'google', keyName: string): Promise<string> {
+    const cacheKey = `${provider}:${keyName}`;
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
+
+    // Try database first
+    const dbSetting = await prisma.integrationSetting.findUnique({
+      where: {
+        provider_keyName: {
+          provider,
+          keyName,
+        },
+      },
+    });
+
+    if (dbSetting && dbSetting.isActive) {
+      try {
+        const decryptedValue = decrypt(dbSetting.encryptedValue);
+        this.cache.set(cacheKey, decryptedValue);
+        return decryptedValue;
+      } catch (err) {
+        logger.error(`Failed to decrypt setting ${cacheKey}: ${err}`);
+      }
+    }
+
+    // Fallback to env/config
+    const envKey = `${provider.toUpperCase()}_${keyName.toUpperCase()}`;
+    const envValue = process.env[envKey] || '';
+    if (envValue) {
+      this.cache.set(cacheKey, envValue);
+    }
+    return envValue;
+  }
+
+  async updateIntegrationKey(
+    provider: 'shiprocket' | 'razorpay' | 'google',
+    keyName: string,
+    value: string,
+    updatedBy?: string
+  ): Promise<void> {
+    const encryptedValue = encrypt(value);
+    
+    await prisma.integrationSetting.upsert({
+      where: {
+        provider_keyName: {
+          provider,
+          keyName,
+        },
+      },
+      update: {
+        encryptedValue,
+        isActive: true,
+        updatedBy: updatedBy ? String(updatedBy) : null,
+      },
+      create: {
+        provider,
+        keyName,
+        encryptedValue,
+        isActive: true,
+        updatedBy: updatedBy ? String(updatedBy) : null,
+      },
+    });
+
+    const cacheKey = `${provider}:${keyName}`;
+    this.cache.delete(cacheKey);
+    
+    this.onKeyUpdate(provider);
+  }
+
+  // Audit Logs Helper
+  async logAudit(provider: 'shiprocket' | 'razorpay' | 'google', action: string, updatedBy?: string) {
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: updatedBy ? Number(updatedBy) : 1, // Default or mock admin user ID
+          action: `INTEGRATION_${provider.toUpperCase()}_${action.toUpperCase()}`,
+          metadata: { details: `Updated integration credentials for ${provider}` },
+          ipAddress: '127.0.0.1'
+        }
+      });
+    } catch (err) {
+      logger.error(`Failed to write audit log: ${err}`);
+    }
+  }
+
+  // ─── Existing settings functionality ───────────────────────────────────────
   async getAppSettings() {
-    // Since we don't have a dedicated settings table, we'll return default settings
-    // In production, you would have a settings table to store these values
     const settings = {
       siteName: 'Aura Couture',
       siteDescription: 'Luxury Fashion E-commerce',
@@ -39,8 +167,6 @@ export class SettingsService {
     seoTitle?: string;
     seoDescription?: string;
   }) {
-    // In production, you would update the settings table
-    // For now, we'll return the updated data
     const updatedSettings = {
       ...await this.getAppSettings(),
       ...data,
@@ -95,7 +221,6 @@ export class SettingsService {
   }
 
   async getLanguages() {
-    // Return default supported languages
     const languages = [
       { code: 'en', name: 'English', nativeName: 'English', isActive: true, isDefault: true },
       { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', isActive: true, isDefault: false },
@@ -107,7 +232,6 @@ export class SettingsService {
   }
 
   async getCurrencies() {
-    // Return default supported currencies
     const currencies = [
       { code: 'INR', name: 'Indian Rupee', symbol: '₹', exchangeRate: 1, isActive: true, isDefault: true },
       { code: 'USD', name: 'US Dollar', symbol: '$', exchangeRate: 0.012, isActive: true, isDefault: false },

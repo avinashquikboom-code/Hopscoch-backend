@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../middleware/errorHandler';
 import prisma from '../../../utils/prisma';
+import settingsService from '../../settings/services/settings.service';
 
 export class GeminiService {
   private genAI?: GoogleGenerativeAI;
@@ -9,17 +10,30 @@ export class GeminiService {
   private isMockMode: boolean = false;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      logger.warn('[GEMINI] Gemini API key not configured. Running in MOCK mode.');
-      this.isMockMode = true;
-      return;
-    }
+    // Initial sync connection fallback check (actual init happens dynamically on use)
+    this.isMockMode = false;
+  }
 
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-1.5-pro-vision',
-    });
+  private async initGenAI() {
+    try {
+      const apiKey = await settingsService.getIntegrationKey('google', 'gemini_api_key');
+      if (!apiKey) {
+        logger.warn('[GEMINI] Gemini API key not configured in settings. Running in MOCK mode.');
+        this.isMockMode = true;
+        this.genAI = undefined;
+        this.model = undefined;
+        return;
+      }
+      
+      this.isMockMode = false;
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({
+        model: 'gemini-1.5-pro-vision',
+      });
+    } catch (err) {
+      logger.error('[GEMINI] Failed to load Gemini API key from settings: ' + err);
+      this.isMockMode = true;
+    }
   }
 
   async analyzeImage(imageUrl: string): Promise<{
@@ -34,7 +48,9 @@ export class GeminiService {
     isBarcode?: boolean;
     barcodeData?: string;
   }> {
-    if (this.isMockMode) {
+    await this.initGenAI();
+    
+    if (this.isMockMode || !this.model) {
       logger.info('[GEMINI] Returning mock image analysis');
       return {
         extractedCategory: 'Kurta',

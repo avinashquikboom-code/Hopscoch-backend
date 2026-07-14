@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
-// Load environment variables early
-dotenv.config({ path: './env/env.local' });
+import fs from 'fs';
+// Load environment variables early from env directory
+if (fs.existsSync('./env/env.local')) {
+  dotenv.config({ path: './env/env.local' });
+} else {
+  dotenv.config({ path: './env/.env' });
+}
 
 import path from 'path';
 import express, { Application } from 'express';
@@ -39,6 +44,7 @@ import inventoryRoutes from './modules/inventory/routes';
 import reportRoutes from './modules/reports/routes';
 import adminRoutes from './modules/admin/routes';
 import settingsRoutes from './modules/settings/routes';
+import v1Routes from './routes/v1';
 import './workers';
 
 const app: Application = express();
@@ -119,12 +125,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+import prisma from './utils/prisma';
+import { ResponseFormatter } from './utils/responseFormatter';
+
 // API Routes
+app.get('/api/banners', async (req, res, next) => {
+  try {
+    const banners = await prisma.banner.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return ResponseFormatter.success(res, 'Banners retrieved successfully', banners);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api', catalogRoutes);
 app.use('/api', visualSearchRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
+
 app.use('/api/coupons', couponRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/collections', collectionRoutes);
@@ -141,6 +163,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/v1', v1Routes);
 app.use('/api/recently-viewed', recentlyViewedRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);

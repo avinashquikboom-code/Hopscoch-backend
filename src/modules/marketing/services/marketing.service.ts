@@ -8,12 +8,13 @@ export class MarketingService {
     description?: string;
     imageUrl: string;
     link?: string;
-    position: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL';
+    type?: string;
+    position: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL' | string;
     isActive: boolean;
     startDate?: string;
     endDate?: string;
   }) {
-    const { title, description, imageUrl, link, position, isActive, startDate, endDate } = data;
+    const { title, description, imageUrl, link, type, position, isActive, startDate, endDate } = data;
 
     const banner = await prisma.banner.create({
       data: {
@@ -21,7 +22,8 @@ export class MarketingService {
         description,
         imageUrl,
         link,
-        position,
+        type: type || 'home',
+        position: String(position),
         isActive,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
@@ -34,13 +36,18 @@ export class MarketingService {
 
   async getBanners(filters: {
     position?: string;
+    type?: string;
     isActive?: boolean;
   }) {
-    const { position, isActive } = filters;
+    const { position, type, isActive } = filters;
 
     const where: any = {};
     if (position) {
-      where.position = position;
+      where.position = String(position);
+    }
+
+    if (type) {
+      where.type = type;
     }
 
     if (isActive !== undefined) {
@@ -72,12 +79,13 @@ export class MarketingService {
     description?: string;
     imageUrl?: string;
     link?: string;
-    position?: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL';
+    type?: string;
+    position?: 'HOME' | 'CATEGORY' | 'PRODUCT' | 'ALL' | string;
     isActive?: boolean;
     startDate?: string;
     endDate?: string;
   }) {
-    const { title, description, imageUrl, link, position, isActive, startDate, endDate } = data;
+    const { title, description, imageUrl, link, type, position, isActive, startDate, endDate } = data;
 
     const banner = await prisma.banner.findUnique({
       where: { id: Number(bannerId) },
@@ -94,7 +102,8 @@ export class MarketingService {
         description,
         imageUrl,
         link,
-        position,
+        type,
+        position: position !== undefined ? String(position) : undefined,
         isActive,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
