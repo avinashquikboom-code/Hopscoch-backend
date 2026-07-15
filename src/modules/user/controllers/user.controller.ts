@@ -22,6 +22,11 @@ export class UserController {
         ResponseFormatter.error(res, 'Authentication required', 401);
         return;
       }
+      
+      if (req.file) {
+        req.body.avatarUrl = `/uploads/${req.file.filename}`;
+      }
+      
       const validatedData = updateUserProfileSchema.parse(req.body);
       const user = await UserService.updateCurrentUser(req.user.id, validatedData);
       ResponseFormatter.success(res, 'Profile updated successfully', user);

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import UserController from '../controllers/user.controller';
 import { authenticate } from '../../../middleware/auth';
+import { upload } from '../../../middleware/upload';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 
@@ -69,7 +70,7 @@ router.get('/:userId', userController.getUserProfile.bind(userController));
  *       401:
  *         description: Authentication required
  */
-router.patch('/me', authenticate, userController.updateCurrentUser.bind(userController));
+router.patch('/me', authenticate, upload.single('avatar'), userController.updateCurrentUser.bind(userController));
 
 /**
  * @swagger
