@@ -294,6 +294,10 @@ export class AuthService {
   }
 
   async logout(refreshToken: string): Promise<void> {
+    if (!refreshToken) {
+      throw new AppError('Refresh token is required', 400, true, 'REFRESH_TOKEN_REQUIRED');
+    }
+
     // Find refresh token
     const tokenRecord = await authRepository.findRefreshToken(refreshToken);
     if (!tokenRecord) {
