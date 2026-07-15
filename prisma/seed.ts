@@ -173,8 +173,40 @@ async function main() {
     },
   });
 
+  // 4. Create Banners
+  console.log('Creating banners...');
+  await prisma.banner.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      title: 'Summer Fashion Sale',
+      description: 'Up to 50% off on all luxury apparel',
+      imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&auto=format&fit=crop&q=80',
+      position: 'HOME',
+      type: 'home',
+      isActive: true,
+      sortOrder: 1,
+    },
+  });
+
+  await prisma.banner.upsert({
+    where: { id: 2 },
+    update: {},
+    create: {
+      id: 2,
+      title: 'New Bestsellers',
+      description: 'Explore trending designer jackets',
+      imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&auto=format&fit=crop&q=80',
+      position: 'HOME',
+      type: 'home',
+      isActive: true,
+      sortOrder: 2,
+    },
+  });
+
   console.log('✅ Seeding completed successfully!');
-  console.log(`Seeded: \n- ${product1.name}\n- ${product2.name}\n- ${product3.name}`);
+  console.log(`Seeded: \n- ${product1.name}\n- ${product2.name}\n- ${product3.name}\n- 2 Banners`);
 }
 
 main()
