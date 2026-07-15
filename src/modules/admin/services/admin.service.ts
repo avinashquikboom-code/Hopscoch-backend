@@ -268,9 +268,9 @@ export class AdminService {
           status: { in: ['REQUESTED', 'APPROVED'] },
         },
       }),
-      prisma.inventoryItem.count({
+      prisma.warehouseInventory.count({
         where: {
-          quantity: {
+          availableStock: {
             lte: 5,
           },
         },
@@ -779,9 +779,9 @@ export class AdminService {
           where: { id: product.variants[0].id },
           data: { stock: stockVal },
         });
-        await prisma.inventoryItem.updateMany({
+        await prisma.warehouseInventory.updateMany({
           where: { variantId: product.variants[0].id },
-          data: { quantity: stockVal },
+          data: { availableStock: stockVal },
         });
         logger.info(`Variant stock updated for product: ${id}, new stock: ${stockVal}`);
       } else {
@@ -1362,18 +1362,18 @@ export class AdminService {
     const where: any = {};
 
     if (lowStock) {
-      where.quantity = {
-        lte: prisma.inventoryItem.fields.lowStockThreshold,
+      where.availableStock = {
+        lte: prisma.warehouseInventory.fields.minimumStock,
       };
     }
 
     const [inventory, total] = await Promise.all([
-      prisma.inventoryItem.findMany({
+      prisma.warehouseInventory.findMany({
         where,
         select: {
           id: true,
-          quantity: true,
-          lowStockThreshold: true,
+          availableStock: true,
+          minimumStock: true,
           createdAt: true,
           updatedAt: true,
           variant: {
@@ -1403,7 +1403,7 @@ export class AdminService {
         skip,
         take: limit,
       }),
-      prisma.inventoryItem.count({ where }),
+      prisma.warehouseInventory.count({ where }),
     ]);
 
     return {
@@ -1424,43 +1424,48 @@ export class AdminService {
     warehouseId?: any;
   }) {
     const variantId = Number(data.variantId);
-    const warehouseId = data.warehouseId ? Number(data.warehouseId) : 1;
+    const warehouseId = data.warehouseId ? Number(data.warehouseId) : ((await prisma.warehouse.findFirst({ where: { isDefault: true } }))?.id || 1);
 
     let warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse) {
       warehouse = await prisma.warehouse.create({
         data: {
-          id: warehouseId,
           name: 'Default Warehouse',
+          code: 'AURA-DEF-01',
+          address: 'Default Address',
           city: 'N/A',
           state: 'N/A',
+          country: 'India',
           pincode: '000000',
+          phone: '0000000000',
+          email: 'default@warehouse.com',
+          status: 'ACTIVE',
         }
       });
     }
 
-    const item = await prisma.inventoryItem.upsert({
+    const item = await prisma.warehouseInventory.upsert({
       where: {
-        variantId_warehouseId: {
+        warehouseId_variantId: {
           variantId,
           warehouseId,
         }
       },
       update: {
-        quantity: {
+        availableStock: {
           increment: data.quantity,
         }
       },
       create: {
         variantId,
         warehouseId,
-        quantity: data.quantity,
-        lowStockThreshold: data.lowStockThreshold || 5,
+        availableStock: data.quantity,
+        minimumStock: data.lowStockThreshold || 5,
       },
       select: {
         id: true,
-        quantity: true,
-        lowStockThreshold: true,
+        availableStock: true,
+        minimumStock: true,
         createdAt: true,
       }
     });
@@ -1474,7 +1479,7 @@ export class AdminService {
     lowStockThreshold?: number;
   }) {
     const id = Number(inventoryId);
-    const item = await prisma.inventoryItem.findUnique({
+    const item = await prisma.warehouseInventory.findUnique({
       where: { id },
     });
 
@@ -1482,18 +1487,18 @@ export class AdminService {
       throw new AppError('Inventory item not found', 404);
     }
 
-    const updatedItem = await prisma.inventoryItem.update({
+    const updatedItem = await prisma.warehouseInventory.update({
       where: { id },
       data: {
-        ...(data.quantity !== undefined && { quantity: data.quantity }),
-        ...(data.lowStockThreshold !== undefined && { lowStockThreshold: data.lowStockThreshold }),
+        ...(data.quantity !== undefined && { availableStock: data.quantity }),
+        ...(data.lowStockThreshold !== undefined && { minimumStock: data.lowStockThreshold }),
       },
       select: {
         id: true,
-        quantity: true,
-        lowStockThreshold: true,
+        availableStock: true,
+        minimumStock: true,
         updatedAt: true,
-      },
+      }
     });
 
     logger.info(`Inventory updated: ${id}`);
@@ -1728,16 +1733,16 @@ export class AdminService {
       prisma.returnRequest.count({ where: { status: 'APPROVED', ...dateWhere } }),
       prisma.returnRequest.count({ where: { status: 'REJECTED', ...dateWhere } }),
       // Inventory
-      prisma.inventoryItem.count(),
-      prisma.inventoryItem.count({ where: { quantity: { lte: 5, gt: 0 } } }),
-      prisma.inventoryItem.count({ where: { quantity: 0 } }),
+      prisma.warehouseInventory.count(),
+      prisma.warehouseInventory.count({ where: { availableStock: { lte: 5, gt: 0 } } }),
+      prisma.warehouseInventory.count({ where: { availableStock: 0 } }),
       // Users
       prisma.user.count({ where: { role: 'CUSTOMER', deletedAt: null } }),
       prisma.user.count({ where: { role: 'CUSTOMER', isActive: true, deletedAt: null } }),
       prisma.user.count({ where: { role: 'CUSTOMER', deletedAt: null, ...dateWhere } }),
       // Products
       prisma.product.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
-      prisma.inventoryItem.findMany({ where: { quantity: { lte: 5 } }, take: 5, include: { variant: { include: { product: { select: { name: true } } } } } }),
+      prisma.warehouseInventory.findMany({ where: { availableStock: { lte: 5 } }, take: 5, include: { variant: { include: { product: { select: { name: true } } } } } }),
       // Top products
       prisma.orderItem.groupBy({ by: ['productId'], where: { order: dateWhere }, _sum: { quantity: true }, orderBy: { _sum: { quantity: 'desc' } }, take: 5 }),
     ]);
@@ -1755,11 +1760,11 @@ export class AdminService {
     );
 
     // Top products with names
-    const topProductIds = topProductItems.map((p) => p.productId);
+    const topProductIds = topProductItems.map((p: any) => p.productId);
     const topProductNames = topProductIds.length > 0
       ? await prisma.product.findMany({ where: { id: { in: topProductIds } }, select: { id: true, name: true } })
       : [];
-    const topProducts = topProductItems.map((p) => ({
+    const topProducts = topProductItems.map((p: any) => ({
       name: topProductNames.find((n) => n.id === p.productId)?.name ?? `Product ${p.productId}`,
       sales: p._sum.quantity ?? 0,
     }));
@@ -1841,9 +1846,9 @@ export class AdminService {
         orderBy: { _sum: { quantity: 'desc' } },
         take: 10,
       }),
-      prisma.inventoryItem.count({
+      prisma.warehouseInventory.count({
         where: {
-          quantity: {
+          availableStock: {
             lte: 5,
           },
         },

@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import { reserveStock, releaseReservation } from '../../inventory/services/inventory.service';
 
 export class OrderService {
   async createOrder(userId: any, data: { addressId: any }) {
@@ -93,13 +94,11 @@ export class OrderService {
       },
     });
 
-    // Update stock
-    for (const item of cart.items) {
-      await prisma.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { decrement: item.quantity } },
-      });
-    }
+    // Reserve stock in default warehouse
+    await reserveStock(
+      order.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+      String(order.id)
+    );
 
     // Clear cart
     await prisma.cartItem.deleteMany({
@@ -216,13 +215,11 @@ export class OrderService {
       },
     });
 
-    // Restore stock
-    for (const item of (updatedOrder as any).items) {
-      await prisma.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { increment: item.quantity } },
-      });
-    }
+    // Release reserved stock in default warehouse
+    await releaseReservation(
+      (updatedOrder as any).items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
+      String(updatedOrder.id)
+    );
 
     logger.info(`Order cancelled: ${orderId} by user: ${userId}`);
     return updatedOrder;

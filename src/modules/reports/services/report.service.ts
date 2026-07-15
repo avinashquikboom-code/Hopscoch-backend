@@ -89,17 +89,17 @@ export class ReportService {
 
     const where: any = {};
     if (warehouseId) {
-      where.warehouseId = Number(warehouseId);
+      where.warehouseId = warehouseId;
     }
 
     if (lowStock) {
-      where.quantity = {
-        lte: prisma.inventoryItem.fields.lowStockThreshold,
+      where.availableStock = {
+        lte: prisma.warehouseInventory.fields.minimumStock,
       };
     }
 
     const [inventoryItems, total, metrics] = await Promise.all([
-      prisma.inventoryItem.findMany({
+      prisma.warehouseInventory.findMany({
         where,
         include: {
           variant: {
@@ -122,16 +122,16 @@ export class ReportService {
             take: 5,
           },
         },
-        orderBy: { quantity: 'asc' },
+        orderBy: { availableStock: 'asc' },
         skip,
         take: limit,
       }),
-      prisma.inventoryItem.count({ where }),
-      prisma.inventoryItem.aggregate({
+      prisma.warehouseInventory.count({ where }),
+      prisma.warehouseInventory.aggregate({
         where,
         _count: true,
         _sum: {
-          quantity: true,
+          availableStock: true,
         },
       }),
     ]);
@@ -140,7 +140,7 @@ export class ReportService {
       inventoryItems,
       metrics: {
         totalItems: metrics._count,
-        totalStock: metrics._sum.quantity || 0,
+        totalStock: metrics._sum.availableStock || 0,
         lowStockCount: lowStock ? metrics._count : 0,
       },
       pagination: {
@@ -315,10 +315,10 @@ export class ReportService {
       prisma.order.count(),
       prisma.user.count(),
       prisma.product.count(),
-      prisma.inventoryItem.count({
+      prisma.warehouseInventory.count({
         where: {
-          quantity: {
-            lte: prisma.inventoryItem.fields.lowStockThreshold,
+          availableStock: {
+            lte: prisma.warehouseInventory.fields.minimumStock,
           },
         },
       }),

@@ -4,12 +4,16 @@ import { AuthRequest } from '../../../middleware/auth';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import InventoryService from '../services/inventory.service';
 import { createStockMovementSchema, updateInventoryThresholdSchema, inventoryQuerySchema } from '../validators/inventory.validator';
+import * as warehouseService from '../services/warehouse.service';
 
 export class InventoryController {
   async createStockMovement(req: AuthRequest, res: Response): Promise<void> {
     try {
       const validatedData = createStockMovementSchema.parse(req.body);
-      const result = await InventoryService.createStockMovement(validatedData);
+      const result = await InventoryService.createStockMovement({
+        ...validatedData,
+        warehouseId: Number(validatedData.warehouseId),
+      });
       ResponseFormatter.success(res, 'Stock movement created successfully', result);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -26,7 +30,7 @@ export class InventoryController {
       const inventory = await InventoryService.getInventoryItems({
         page: parseInt(validatedQuery.page),
         limit: parseInt(validatedQuery.limit),
-        warehouseId: validatedQuery.warehouseId,
+        warehouseId: validatedQuery.warehouseId ? Number(validatedQuery.warehouseId) : undefined,
         lowStock: validatedQuery.lowStock,
       });
       ResponseFormatter.success(res, 'Inventory retrieved successfully', inventory);
@@ -42,7 +46,7 @@ export class InventoryController {
   async getInventoryByVariant(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { variantId } = req.params;
-      const inventory = await InventoryService.getInventoryByVariant(variantId);
+      const inventory = await InventoryService.getInventoryByVariant(Number(variantId));
       ResponseFormatter.success(res, 'Inventory retrieved successfully', inventory);
     } catch (error) {
       throw error;
@@ -52,7 +56,10 @@ export class InventoryController {
   async updateInventoryThreshold(req: AuthRequest, res: Response): Promise<void> {
     try {
       const validatedData = updateInventoryThresholdSchema.parse(req.body);
-      const inventoryItem = await InventoryService.updateInventoryThreshold(validatedData);
+      const inventoryItem = await InventoryService.updateInventoryThreshold({
+        inventoryItemId: Number(validatedData.inventoryItemId),
+        lowStockThreshold: validatedData.lowStockThreshold,
+      });
       ResponseFormatter.success(res, 'Inventory threshold updated successfully', inventoryItem);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -70,7 +77,7 @@ export class InventoryController {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         inventoryItemId: inventoryItemId ? Number(inventoryItemId) : undefined,
-        type: type as string,
+        type: type as any,
       });
       ResponseFormatter.success(res, 'Stock movements retrieved successfully', movements);
     } catch (error) {
@@ -136,6 +143,54 @@ export class InventoryController {
       const { inventoryItemId } = req.params;
       const result = await InventoryService.deleteInventoryItem(Number(inventoryItemId));
       ResponseFormatter.success(res, 'Inventory item deleted successfully', result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async listWarehouses(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const warehouses = await warehouseService.listWarehouses();
+      ResponseFormatter.success(res, 'Warehouses retrieved successfully', warehouses);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getWarehouseById(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const warehouse = await warehouseService.getWarehouseById(Number(id));
+      ResponseFormatter.success(res, 'Warehouse retrieved successfully', warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const warehouse = await warehouseService.createWarehouse(req.body);
+      ResponseFormatter.success(res, 'Warehouse created successfully', warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const warehouse = await warehouseService.updateWarehouse(Number(id), req.body);
+      ResponseFormatter.success(res, 'Warehouse updated successfully', warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async setDefaultWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const warehouse = await warehouseService.setDefaultWarehouse(Number(id));
+      ResponseFormatter.success(res, 'Default warehouse updated successfully', warehouse);
     } catch (error) {
       throw error;
     }

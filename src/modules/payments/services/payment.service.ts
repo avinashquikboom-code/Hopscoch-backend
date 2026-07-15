@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import { confirmSale, releaseReservation } from '../../inventory/services/inventory.service';
 import razorpayClient from './razorpay.client';
 
 export class PaymentService {
@@ -154,6 +155,12 @@ export class PaymentService {
           },
         },
       });
+
+      // Confirm sale in default warehouse
+      await confirmSale(
+        updatedPayment.order.items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
+        String(updatedPayment.order.id)
+      );
     } else if (status === 'FAILED') {
       await prisma.order.update({
         where: { id: payment.orderId },
@@ -174,12 +181,11 @@ export class PaymentService {
       });
 
       if (orderWithItems) {
-        for (const item of orderWithItems.items) {
-          await prisma.productVariant.update({
-            where: { id: item.variantId },
-            data: { stock: { increment: item.quantity } },
-          });
-        }
+        // Release reserved stock in default warehouse
+        await releaseReservation(
+          orderWithItems.items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
+          String(orderWithItems.id)
+        );
       }
     }
 

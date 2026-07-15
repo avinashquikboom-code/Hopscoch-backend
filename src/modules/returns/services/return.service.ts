@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import { processReturn } from '../../inventory/services/inventory.service';
 
 export class ReturnService {
   async createReturnRequest(userId: any, data: {
@@ -173,6 +174,7 @@ export class ReturnService {
   async updateReturnStatus(returnId: any, data: {
     status: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'PICKED_UP' | 'RECEIVED' | 'REFUND_INITIATED' | 'REFUND_COMPLETED';
     adminNotes?: string;
+    sellable?: boolean;
   }) {
     const { status, adminNotes } = data;
 
@@ -229,13 +231,15 @@ export class ReturnService {
       },
     });
 
-    // If refund completed, restore stock
+    // If refund completed, process return in default warehouse
     if (status === 'REFUND_COMPLETED') {
       for (const item of (returnRequest as any).order.items) {
-        await prisma.productVariant.update({
-          where: { id: item.variantId },
-          data: { stock: { increment: item.quantity } },
-        });
+        await processReturn(
+          item.variantId,
+          item.quantity,
+          data.sellable !== false, // default to true (sellable) unless explicitly false
+          String(returnRequest.id)
+        );
       }
     }
 

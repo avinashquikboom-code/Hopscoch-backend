@@ -2,6 +2,7 @@ import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import shiprocketClient from './shiprocket.client';
+import { getShiprocketPickupLocation } from '../../inventory/services/warehouse.service';
 
 export class ShipmentService {
   async createShipment(orderId: number) {
@@ -38,7 +39,7 @@ export class ShipmentService {
     const payload = {
       order_id: String(order.id),
       order_date: order.createdAt.toISOString().replace('T', ' ').substring(0, 19),
-      pickup_location: "Primary",
+      pickup_location: await getShiprocketPickupLocation(),
       billing_customer_name: order.address.fullName || order.user.firstName || 'Customer',
       billing_last_name: '',
       billing_address: order.address.line1,

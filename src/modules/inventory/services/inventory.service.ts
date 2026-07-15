@@ -1,104 +1,144 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import { Prisma, WarehouseStatus, StockMovementType } from '@prisma/client';
+import { getDefaultWarehouse } from './warehouse.service';
+
+type Tx = Omit<
+  typeof prisma,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
+async function resolveWarehouseId(warehouseId?: number): Promise<number> {
+  if (warehouseId) return warehouseId;
+  return (await getDefaultWarehouse()).id;
+}
+
+async function getOrCreateInventory(tx: Tx, warehouseId: number, variantId: number) {
+  let inv = await tx.warehouseInventory.findUnique({
+    where: { warehouseId_variantId: { warehouseId, variantId } },
+  });
+  if (!inv) {
+    inv = await tx.warehouseInventory.create({
+      data: {
+        warehouseId,
+        variantId,
+        availableStock: 0,
+        reservedStock: 0,
+        soldStock: 0,
+        returnedStock: 0,
+        damagedStock: 0,
+        minimumStock: 5,
+      },
+    });
+  }
+  return inv;
+}
+
+async function logMovement(
+  tx: Tx,
+  inv: { id: number; warehouseId: number; variantId: number },
+  type: StockMovementType,
+  quantity: number,
+  previousStock: number,
+  newStock: number,
+  reference?: string,
+  note?: string,
+  createdById?: string
+) {
+  await tx.stockMovement.create({
+    data: {
+      warehouseId: inv.warehouseId,
+      variantId: inv.variantId,
+      inventoryId: inv.id,
+      type,
+      quantity: Math.abs(quantity),
+      previousStock,
+      newStock,
+      reference: reference || null,
+      note: note || null,
+      createdById: createdById || null,
+    },
+  });
+}
 
 export class InventoryService {
   async createStockMovement(data: {
-    variantId: any;
-    warehouseId: any;
-    type: 'RESTOCK' | 'SALE' | 'RETURN' | 'ADJUSTMENT' | 'DAMAGE';
+    variantId: number;
+    warehouseId: number;
+    type: StockMovementType;
     quantityChange: number;
     reason?: string;
-    referenceOrderId?: any;
+    referenceOrderId?: string;
   }) {
     const { variantId, warehouseId, type, quantityChange, reason, referenceOrderId } = data;
 
-    // Find or create inventory item
-    let inventoryItem = await prisma.inventoryItem.findUnique({
-      where: {
-        variantId_warehouseId: {
-          variantId,
-          warehouseId,
-        },
-      },
-    });
+    return prisma.$transaction(async (tx) => {
+      const inv = await getOrCreateInventory(tx, warehouseId, variantId);
 
-    if (!inventoryItem) {
-      // Create inventory item if it doesn't exist
-      inventoryItem = await prisma.inventoryItem.create({
+      // Validate stock availability for SALE or adjustments
+      if (quantityChange < 0 && inv.availableStock + quantityChange < 0) {
+        throw new AppError('Insufficient stock', 400);
+      }
+
+      const prevStock = inv.availableStock;
+      const updated = await tx.warehouseInventory.update({
+        where: { id: inv.id },
         data: {
-          variantId,
-          warehouseId,
-          quantity: 0,
-          lowStockThreshold: 5,
+          availableStock: {
+            increment: quantityChange,
+          },
         },
-      });
-    }
-
-    // Validate stock availability for SALE or DAMAGE
-    if ((type === 'SALE' || type === 'DAMAGE') && inventoryItem.quantity + quantityChange < 0) {
-      throw new AppError('Insufficient stock', 400);
-    }
-
-    // Create stock movement
-    const movement = await prisma.stockMovement.create({
-      data: {
-        inventoryItemId: inventoryItem.id,
-        type,
-        quantityChange,
-        reason,
-        referenceOrderId,
-      },
-    });
-
-    // Update inventory quantity
-    const updatedInventoryItem = await prisma.inventoryItem.update({
-      where: { id: inventoryItem.id },
-      data: {
-        quantity: {
-          increment: quantityChange,
-        },
-      },
-      include: {
-        variant: {
-          include: {
-            product: {
-              include: {
-                images: {
-                  where: { sortOrder: 0 },
-                  take: 1,
+        include: {
+          variant: {
+            include: {
+              product: {
+                include: {
+                  images: {
+                    where: { sortOrder: 0 },
+                    take: 1,
+                  },
                 },
               },
             },
           },
+          warehouse: true,
         },
-        warehouse: true,
-      },
-    });
+      });
 
-    // Calculate total stock of this variant across all warehouses
-    const allInventoryItems = await prisma.inventoryItem.findMany({
-      where: { variantId },
-    });
-    const totalStock = allInventoryItems.reduce((acc, item) => acc + item.quantity, 0);
+      await logMovement(
+        tx,
+        inv,
+        type,
+        quantityChange,
+        prevStock,
+        updated.availableStock,
+        referenceOrderId,
+        reason
+      );
 
-    // Update ProductVariant stock
-    await prisma.productVariant.update({
-      where: { id: variantId },
-      data: { stock: totalStock },
-    });
+      // Calculate total stock of this variant across all warehouses
+      const allInventoryItems = await tx.warehouseInventory.findMany({
+        where: { variantId },
+      });
+      const totalStock = allInventoryItems.reduce((acc, item) => acc + item.availableStock, 0);
 
-    logger.info(`Stock movement created: ${movement.id} for variant: ${variantId}, total stock set to: ${totalStock}`);
-    return {
-      movement,
-      inventoryItem: updatedInventoryItem,
-    };
+      // Update ProductVariant stock
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: { stock: totalStock },
+      });
+
+      return {
+        inventoryItem: updated,
+      };
+    });
   }
 
   async getInventoryItems(filters: {
     page: number;
     limit: number;
-    warehouseId?: any;
+    warehouseId?: number;
     lowStock?: boolean;
   }) {
     const { page, limit, warehouseId, lowStock } = filters;
@@ -106,17 +146,17 @@ export class InventoryService {
 
     const where: any = {};
     if (warehouseId) {
-      where.warehouseId = Number(warehouseId);
+      where.warehouseId = warehouseId;
     }
 
     if (lowStock) {
-      where.quantity = {
-        lte: prisma.inventoryItem.fields.lowStockThreshold,
+      where.availableStock = {
+        lte: prisma.warehouseInventory.fields.minimumStock,
       };
     }
 
     const [inventoryItems, total] = await Promise.all([
-      prisma.inventoryItem.findMany({
+      prisma.warehouseInventory.findMany({
         where,
         include: {
           variant: {
@@ -143,7 +183,7 @@ export class InventoryService {
         skip,
         take: limit,
       }),
-      prisma.inventoryItem.count({ where }),
+      prisma.warehouseInventory.count({ where }),
     ]);
 
     return {
@@ -157,8 +197,8 @@ export class InventoryService {
     };
   }
 
-  async getInventoryByVariant(variantId: any) {
-    const inventoryItems = await prisma.inventoryItem.findMany({
+  async getInventoryByVariant(variantId: number) {
+    const inventoryItems = await prisma.warehouseInventory.findMany({
       where: { variantId },
       include: {
         variant: {
@@ -188,22 +228,22 @@ export class InventoryService {
   }
 
   async updateInventoryThreshold(data: {
-    inventoryItemId: any;
+    inventoryItemId: number;
     lowStockThreshold: number;
   }) {
     const { inventoryItemId, lowStockThreshold } = data;
 
-    const inventoryItem = await prisma.inventoryItem.findUnique({
-      where: { id: Number(inventoryItemId) },
+    const inventoryItem = await prisma.warehouseInventory.findUnique({
+      where: { id: inventoryItemId },
     });
 
     if (!inventoryItem) {
       throw new AppError('Inventory item not found', 404);
     }
 
-    const updatedInventoryItem = await prisma.inventoryItem.update({
-      where: { id: Number(inventoryItemId) },
-      data: { lowStockThreshold },
+    const updatedInventoryItem = await prisma.warehouseInventory.update({
+      where: { id: inventoryItemId },
+      data: { minimumStock: lowStockThreshold },
       include: {
         variant: {
           include: {
@@ -221,15 +261,15 @@ export class InventoryService {
   async getStockMovements(filters: {
     page: number;
     limit: number;
-    inventoryItemId?: any;
-    type?: string;
+    inventoryItemId?: number;
+    type?: StockMovementType;
   }) {
     const { page, limit, inventoryItemId, type } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (inventoryItemId) {
-      where.inventoryItemId = Number(inventoryItemId);
+      where.inventoryId = inventoryItemId;
     }
 
     if (type) {
@@ -240,7 +280,7 @@ export class InventoryService {
       prisma.stockMovement.findMany({
         where,
         include: {
-          inventoryItem: {
+          inventory: {
             include: {
               variant: {
                 include: {
@@ -270,9 +310,9 @@ export class InventoryService {
   }
 
   async getWarehouses() {
-    const warehouses = await prisma.warehouse.findMany({
+    return prisma.warehouse.findMany({
       include: {
-        inventoryItems: {
+        inventory: {
           include: {
             variant: {
               include: {
@@ -284,15 +324,13 @@ export class InventoryService {
       },
       orderBy: { name: 'asc' },
     });
-
-    return warehouses;
   }
 
   async getLowStockAlerts() {
-    const lowStockItems = await prisma.inventoryItem.findMany({
+    return prisma.warehouseInventory.findMany({
       where: {
-        quantity: {
-          lte: prisma.inventoryItem.fields.lowStockThreshold,
+        availableStock: {
+          lte: prisma.warehouseInventory.fields.minimumStock,
         },
       },
       include: {
@@ -312,12 +350,10 @@ export class InventoryService {
         warehouse: true,
       },
       orderBy: [
-        { quantity: 'asc' },
+        { availableStock: 'asc' },
         { updatedAt: 'desc' },
       ],
     });
-
-    return lowStockItems;
   }
 
   async createInventoryItem(data: {
@@ -401,21 +437,26 @@ export class InventoryService {
       warehouse = await prisma.warehouse.create({
         data: {
           name: location,
+          code: `WH-${location.toUpperCase().replace(/\s+/g, '-')}`,
+          address: 'Default Address',
           city: location,
-          state: 'Default',
+          state: 'Default State',
+          country: 'India',
           pincode: '000000',
-          isActive: true,
+          phone: '0000000000',
+          email: 'default@warehouse.com',
+          status: 'ACTIVE',
         },
       });
     }
 
     // Create inventory item
-    const inventoryItem = await prisma.inventoryItem.create({
+    const inventoryItem = await prisma.warehouseInventory.create({
       data: {
         variantId: variant.id,
         warehouseId: warehouse.id,
-        quantity: stock,
-        lowStockThreshold: minStock,
+        availableStock: stock,
+        minimumStock: minStock,
       },
       include: {
         variant: {
@@ -441,10 +482,13 @@ export class InventoryService {
     return inventoryItem;
   }
 
-  async updateInventoryItem(id: number, data: { name?: string; sku?: string; stock?: number; minStock?: number; location?: string }) {
-    const item = await prisma.inventoryItem.findUnique({
+  async updateInventoryItem(
+    id: number,
+    data: { name?: string; sku?: string; stock?: number; minStock?: number; location?: string }
+  ) {
+    const item = await prisma.warehouseInventory.findUnique({
       where: { id },
-      include: { variant: { include: { product: true } } }
+      include: { variant: { include: { product: true } } },
     });
 
     if (!item) {
@@ -454,7 +498,7 @@ export class InventoryService {
     const updateData: any = {};
 
     if (data.minStock !== undefined) {
-      updateData.lowStockThreshold = data.minStock;
+      updateData.minimumStock = data.minStock;
     }
 
     if (data.location !== undefined) {
@@ -466,10 +510,15 @@ export class InventoryService {
         warehouse = await prisma.warehouse.create({
           data: {
             name: data.location,
+            code: `WH-${data.location.toUpperCase().replace(/\s+/g, '-')}`,
+            address: 'Default Address',
             city: data.location,
-            state: 'Default',
+            state: 'Default State',
+            country: 'India',
             pincode: '000000',
-            isActive: true,
+            phone: '0000000000',
+            email: 'default@warehouse.com',
+            status: 'ACTIVE',
           },
         });
       }
@@ -477,10 +526,10 @@ export class InventoryService {
     }
 
     if (data.stock !== undefined) {
-      updateData.quantity = data.stock;
+      updateData.availableStock = data.stock;
     }
 
-    const updatedItem = await prisma.inventoryItem.update({
+    const updatedItem = await prisma.warehouseInventory.update({
       where: { id },
       data: updateData,
       include: {
@@ -525,7 +574,7 @@ export class InventoryService {
   }
 
   async deleteInventoryItem(id: number) {
-    const item = await prisma.inventoryItem.findUnique({
+    const item = await prisma.warehouseInventory.findUnique({
       where: { id },
     });
 
@@ -533,7 +582,7 @@ export class InventoryService {
       throw new AppError('Inventory item not found', 404);
     }
 
-    await prisma.inventoryItem.delete({
+    await prisma.warehouseInventory.delete({
       where: { id },
     });
 
@@ -542,3 +591,346 @@ export class InventoryService {
 }
 
 export default new InventoryService();
+
+// ── NEW WAREHOUSE/INVENTORY ADVANCED FLOW INTEGRATIONS ──
+
+// Order created → reserve stock (available → reserved)
+export async function reserveStock(
+  items: { variantId: number; quantity: number }[],
+  orderRef: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    for (const item of items) {
+      const inv = await getOrCreateInventory(tx, whId, item.variantId);
+      if (inv.availableStock < item.quantity) {
+        throw new Error(`Insufficient stock for variant ${item.variantId}`);
+      }
+      const updated = await tx.warehouseInventory.update({
+        where: { id: inv.id },
+        data: {
+          availableStock: { decrement: item.quantity },
+          reservedStock: { increment: item.quantity },
+        },
+      });
+      await logMovement(
+        tx,
+        inv,
+        StockMovementType.RESERVE,
+        item.quantity,
+        inv.availableStock,
+        updated.availableStock,
+        orderRef
+      );
+
+      // Recalculate total stock of this variant across all warehouses
+      const allInventoryItems = await tx.warehouseInventory.findMany({
+        where: { variantId: item.variantId },
+      });
+      const totalStock = allInventoryItems.reduce((acc, i) => acc + i.availableStock, 0);
+
+      // Update ProductVariant stock
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { stock: totalStock },
+      });
+    }
+  });
+}
+
+// Payment success → reserved becomes sold
+export async function confirmSale(
+  items: { variantId: number; quantity: number }[],
+  orderRef: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    for (const item of items) {
+      const inv = await tx.warehouseInventory.findUniqueOrThrow({
+        where: { warehouseId_variantId: { warehouseId: whId, variantId: item.variantId } },
+      });
+      if (inv.reservedStock < item.quantity) {
+        throw new Error(`Reservation missing for variant ${item.variantId}`);
+      }
+      await tx.warehouseInventory.update({
+        where: { id: inv.id },
+        data: {
+          reservedStock: { decrement: item.quantity },
+          soldStock: { increment: item.quantity },
+        },
+      });
+      await logMovement(
+        tx,
+        inv,
+        StockMovementType.SALE,
+        item.quantity,
+        inv.availableStock,
+        inv.availableStock,
+        orderRef
+      );
+    }
+  });
+}
+
+// Payment failed / order cancelled before payment → release reservation
+export async function releaseReservation(
+  items: { variantId: number; quantity: number }[],
+  orderRef: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    for (const item of items) {
+      const inv = await tx.warehouseInventory.findUniqueOrThrow({
+        where: { warehouseId_variantId: { warehouseId: whId, variantId: item.variantId } },
+      });
+      const qty = Math.min(inv.reservedStock, item.quantity);
+      const updated = await tx.warehouseInventory.update({
+        where: { id: inv.id },
+        data: {
+          reservedStock: { decrement: qty },
+          availableStock: { increment: qty },
+        },
+      });
+      await logMovement(
+        tx,
+        inv,
+        StockMovementType.RELEASE,
+        qty,
+        inv.availableStock,
+        updated.availableStock,
+        orderRef
+      );
+
+      // Recalculate total stock of this variant across all warehouses
+      const allInventoryItems = await tx.warehouseInventory.findMany({
+        where: { variantId: item.variantId },
+      });
+      const totalStock = allInventoryItems.reduce((acc, i) => acc + i.availableStock, 0);
+
+      // Update ProductVariant stock
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { stock: totalStock },
+      });
+    }
+  });
+}
+
+// After warehouse inspection: sellable → back to available; else damaged
+export async function processReturn(
+  variantId: number,
+  quantity: number,
+  sellable: boolean,
+  returnRef: string,
+  adminId?: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    const inv = await getOrCreateInventory(tx, whId, variantId);
+
+    const data: Prisma.WarehouseInventoryUpdateInput = sellable
+      ? {
+          availableStock: { increment: quantity },
+          returnedStock: { increment: quantity },
+          soldStock: { decrement: Math.min(inv.soldStock, quantity) },
+        }
+      : {
+          damagedStock: { increment: quantity },
+          soldStock: { decrement: Math.min(inv.soldStock, quantity) },
+        };
+
+    const updated = await tx.warehouseInventory.update({ where: { id: inv.id }, data });
+
+    await logMovement(
+      tx,
+      inv,
+      StockMovementType.RETURN,
+      quantity,
+      inv.availableStock,
+      updated.availableStock,
+      returnRef,
+      sellable ? 'Inspection passed — restocked' : 'Inspection failed — damaged',
+      adminId
+    );
+
+    // Recalculate total stock of this variant across all warehouses
+    const allInventoryItems = await tx.warehouseInventory.findMany({
+      where: { variantId },
+    });
+    const totalStock = allInventoryItems.reduce((acc, i) => acc + i.availableStock, 0);
+
+    // Update ProductVariant stock
+    await tx.productVariant.update({
+      where: { id: variantId },
+      data: { stock: totalStock },
+    });
+  });
+}
+
+// Restock / purchase inward
+export async function restock(
+  variantId: number,
+  quantity: number,
+  adminId: string,
+  note?: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    const inv = await getOrCreateInventory(tx, whId, variantId);
+    const updated = await tx.warehouseInventory.update({
+      where: { id: inv.id },
+      data: { availableStock: { increment: quantity } },
+    });
+    await logMovement(
+      tx,
+      inv,
+      StockMovementType.RESTOCK,
+      quantity,
+      inv.availableStock,
+      updated.availableStock,
+      undefined,
+      note,
+      adminId
+    );
+
+    // Recalculate total stock of this variant across all warehouses
+    const allInventoryItems = await tx.warehouseInventory.findMany({
+      where: { variantId },
+    });
+    const totalStock = allInventoryItems.reduce((acc, i) => acc + i.availableStock, 0);
+
+    // Update ProductVariant stock
+    await tx.productVariant.update({
+      where: { id: variantId },
+      data: { stock: totalStock },
+    });
+  });
+}
+
+// Manual adjustment — delta can be negative (shrinkage) or positive (audit found)
+export async function adjustStock(
+  variantId: number,
+  delta: number,
+  reason: string,
+  adminId: string,
+  warehouseId?: number
+) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  return prisma.$transaction(async (tx) => {
+    const inv = await getOrCreateInventory(tx, whId, variantId);
+    if (inv.availableStock + delta < 0) {
+      throw new Error('Adjustment would make stock negative');
+    }
+    const updated = await tx.warehouseInventory.update({
+      where: { id: inv.id },
+      data: { availableStock: { increment: delta } },
+    });
+    await logMovement(
+      tx,
+      inv,
+      StockMovementType.ADJUSTMENT,
+      delta,
+      inv.availableStock,
+      updated.availableStock,
+      undefined,
+      reason,
+      adminId
+    );
+
+    // Recalculate total stock of this variant across all warehouses
+    const allInventoryItems = await tx.warehouseInventory.findMany({
+      where: { variantId },
+    });
+    const totalStock = allInventoryItems.reduce((acc, i) => acc + i.availableStock, 0);
+
+    // Update ProductVariant stock
+    await tx.productVariant.update({
+      where: { id: variantId },
+      data: { stock: totalStock },
+    });
+  });
+}
+
+export async function listInventory(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  warehouseId?: number;
+}) {
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.min(100, params.limit ?? 20);
+  const whId = await resolveWarehouseId(params.warehouseId);
+
+  const where: Prisma.WarehouseInventoryWhereInput = {
+    warehouseId: whId,
+    ...(params.search && {
+      variant: {
+        OR: [
+          { sku: { contains: params.search, mode: 'insensitive' } },
+          { product: { name: { contains: params.search, mode: 'insensitive' } } },
+        ],
+      },
+    }),
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.warehouseInventory.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: { variant: { include: { product: { select: { name: true } } } } },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.warehouseInventory.count({ where }),
+  ]);
+
+  return { items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+}
+
+export async function stockHistory(variantId: number, page = 1, limit = 30) {
+  return prisma.stockMovement.findMany({
+    where: { variantId },
+    orderBy: { createdAt: 'desc' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+}
+
+export async function lowStockReport(warehouseId?: number) {
+  const whId = await resolveWarehouseId(warehouseId);
+
+  const rows = await prisma.warehouseInventory.findMany({
+    where: {
+      warehouseId: whId,
+      availableStock: {
+        lte: prisma.warehouseInventory.fields.minimumStock,
+      },
+    },
+    include: {
+      variant: {
+        include: {
+          product: {
+            select: { name: true },
+          },
+        },
+      },
+    },
+    orderBy: { availableStock: 'asc' },
+  });
+
+  return {
+    outOfStock: rows.filter((r) => r.availableStock === 0),
+    lowStock: rows.filter((r) => r.availableStock > 0),
+  };
+}

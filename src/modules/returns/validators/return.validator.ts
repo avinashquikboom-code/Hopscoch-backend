@@ -11,6 +11,7 @@ export const createReturnRequestSchema = z.object({
 export const updateReturnStatusSchema = z.object({
   status: z.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'PICKED_UP', 'RECEIVED', 'REFUND_INITIATED', 'REFUND_COMPLETED']),
   adminNotes: z.string().max(1000).optional(),
+  sellable: z.boolean().optional(),
 });
 
 export const returnQuerySchema = z.object({

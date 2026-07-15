@@ -20,7 +20,7 @@ export class MarketingService {
       data: {
         title,
         description,
-        imageUrl,
+        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=80',
         link,
         type: type || 'home',
         position: String(position),

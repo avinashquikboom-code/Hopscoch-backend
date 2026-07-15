@@ -1,4 +1,4 @@
-import { Gender, AgeGroup, ProductStatus, Role } from '@prisma/client';
+import { Gender, AgeGroup, ProductStatus, Role, WarehouseStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import prisma from '../src/utils/prisma';
 
@@ -80,6 +80,26 @@ async function main() {
       description: 'Indian traditional tunics',
       parentId: catApparel.id,
       isFeatured: true,
+    },
+  });
+
+  // 1.5. Create Default Warehouse
+  console.log('Creating default warehouse...');
+  await prisma.warehouse.upsert({
+    where: { code: 'AURA-MUM-01' },
+    update: {},
+    create: {
+      name: 'AURA COUTURE Main Warehouse',
+      code: 'AURA-MUM-01',
+      address: 'Sector 8, Kopar Khairane',
+      city: 'Navi Mumbai',
+      state: 'Maharashtra',
+      pincode: '400709',
+      phone: '9876543210',
+      email: 'warehouse@auracouture.com',
+      isDefault: true,
+      shiprocketPickupName: 'Primary',
+      status: WarehouseStatus.ACTIVE,
     },
   });
 

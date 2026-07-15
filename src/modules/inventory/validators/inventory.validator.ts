@@ -3,10 +3,10 @@ import { z } from 'zod';
 export const createStockMovementSchema = z.object({
   variantId: z.coerce.number().int('Invalid variant ID'),
   warehouseId: z.coerce.number().int('Invalid warehouse ID'),
-  type: z.enum(['RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'DAMAGE']),
+  type: z.enum(['STOCK_IN', 'STOCK_OUT', 'SALE', 'RETURN', 'ADJUSTMENT', 'RESTOCK', 'RESERVE', 'RELEASE']),
   quantityChange: z.number().int('Quantity change must be an integer'),
   reason: z.string().optional(),
-  referenceOrderId: z.coerce.number().int().optional(),
+  referenceOrderId: z.string().optional(),
 });
 
 export const updateInventoryThresholdSchema = z.object({

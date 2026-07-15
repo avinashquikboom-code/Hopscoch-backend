@@ -242,7 +242,11 @@ router.get('/movements', authenticate, inventoryController.getStockMovements.bin
  *       401:
  *         description: Authentication required
  */
-router.get('/warehouses', authenticate, inventoryController.getWarehouses.bind(inventoryController));
+router.get('/warehouses', authenticate, inventoryController.listWarehouses.bind(inventoryController));
+router.get('/warehouses/:id', authenticate, inventoryController.getWarehouseById.bind(inventoryController));
+router.post('/warehouses', authenticate, inventoryController.createWarehouse.bind(inventoryController));
+router.patch('/warehouses/:id', authenticate, inventoryController.updateWarehouse.bind(inventoryController));
+router.post('/warehouses/:id/set-default', authenticate, inventoryController.setDefaultWarehouse.bind(inventoryController));
 
 /**
  * @swagger
