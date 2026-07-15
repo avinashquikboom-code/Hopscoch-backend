@@ -248,6 +248,9 @@ export class AdminService {
       totalProducts,
       recentOrders,
       recentActivity,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
     ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.user.count({ where: { isActive: true, deletedAt: null } }),
@@ -301,14 +304,27 @@ export class AdminService {
           },
         },
       }),
+      prisma.order.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { status: 'DELIVERED' } }),
+      prisma.order.count({ where: { status: 'CANCELLED' } }),
     ]);
 
+    const revenueVal = totalRevenue._sum.totalAmount || 0;
+
     return {
+      totalRevenue: revenueVal,
+      totalOrders,
+      totalCustomers: totalUsers,
+      totalProducts,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
+      lowStockCount: lowStockItems,
       stats: {
         totalUsers,
         activeUsers,
         totalOrders,
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
+        totalRevenue: revenueVal,
         pendingReturns,
         lowStockItems,
         totalProducts,
