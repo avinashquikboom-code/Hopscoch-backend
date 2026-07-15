@@ -50,6 +50,9 @@ import './workers';
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy headers from Nginx reverse proxy
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 
