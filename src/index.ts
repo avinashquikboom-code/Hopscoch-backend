@@ -80,6 +80,8 @@ app.use(compression());
 // Use absolute path for uploads directory to work correctly from both src and dist
 const uploadsPath = path.resolve(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadsPath));
+const assetsPath = path.resolve(process.cwd(), 'assets');
+app.use('/assets', express.static(assetsPath));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(rateLimiter);
