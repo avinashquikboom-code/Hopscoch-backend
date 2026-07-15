@@ -9,7 +9,11 @@ RUN apk add --no-cache git python3 make g++
 
 # Install dependencies (cache-friendly: package files first).
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps --ignore-scripts
+# --ignore-scripts blocks postinstall for every package, which also skips the
+# step that produces bcrypt's native binding (MODULE_NOT_FOUND at runtime).
+# Keep it for supply-chain safety and rebuild just bcrypt against this image.
+RUN npm ci --legacy-peer-deps --ignore-scripts \
+  && npm rebuild bcrypt
 
 # Prisma client generation needs the schema.
 COPY prisma ./prisma/
