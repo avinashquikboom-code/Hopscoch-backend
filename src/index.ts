@@ -54,22 +54,24 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://localhost:4000',
+  'https://admin.fciseller.com',
+  'https://fciseller.com',
+  'https://www.fciseller.com',
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+    // Allow server-to-server / curl (no Origin header)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS: origin '${origin}' not allowed`));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(compression());
 // Use absolute path for uploads directory to work correctly from both src and dist
@@ -96,8 +98,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.API_URL || 'http://localhost:5000',
-        description: 'Development server',
+        url: process.env.API_URL || 'https://api.fciseller.com',
+        description: 'Production server',
       },
     ],
     components: {
