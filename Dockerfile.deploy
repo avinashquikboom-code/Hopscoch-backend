@@ -24,5 +24,5 @@ RUN npm run build
 ENV PORT=5000
 EXPOSE 5000
 
-# Apply pending migrations, seed the database (idempotent), then start the compiled server.
-CMD ["sh", "-c", "npx prisma migrate deploy && npx ts-node prisma/seed.ts && node dist/index.js"]
+# Apply pending migrations, then start the compiled server.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
