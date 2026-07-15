@@ -14,6 +14,11 @@ RUN npm ci --legacy-peer-deps --ignore-scripts
 # Prisma client generation needs the schema.
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
+# generate only reads the schema and never connects, but prisma.config.ts
+# resolves env('DATABASE_URL') eagerly and throws when it is unset. Supply a
+# throwaway value via ARG so it does not persist into the final image; the real
+# DATABASE_URL is injected at runtime via --env-file.
+ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate
 
 # App source + build.
@@ -24,5 +29,8 @@ RUN npm run build
 ENV PORT=5000
 EXPOSE 5000
 
-# Apply pending migrations, then start the compiled server.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Start the compiled server. No migrate step: this repo tracks no migrations
+# (prisma/migrations does not exist), so `migrate deploy` exits 1 with P3005
+# against the already-populated schema and would stop the server from starting.
+# Schema changes are applied out-of-band with `prisma db push`.
+CMD ["node", "dist/index.js"]
