@@ -225,8 +225,53 @@ async function main() {
     },
   });
 
+  await prisma.banner.upsert({
+    where: { id: 3 },
+    update: {},
+    create: {
+      id: 3,
+      title: 'Kurta & Kurtis Festival',
+      description: 'Premium traditional ethnic wear collections',
+      imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&auto=format&fit=crop&q=80',
+      position: 'HOME',
+      type: 'ethnic',
+      isActive: true,
+      sortOrder: 3,
+    },
+  });
+
+  await prisma.banner.upsert({
+    where: { id: 4 },
+    update: {},
+    create: {
+      id: 4,
+      title: 'Exclusive Silk Sarees',
+      description: 'Handcrafted luxury sarees from top weavers',
+      imageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=1200&auto=format&fit=crop&q=80',
+      position: 'HOME',
+      type: 'seasonal',
+      isActive: true,
+      sortOrder: 4,
+    },
+  });
+
+  await prisma.banner.upsert({
+    where: { id: 5 },
+    update: {},
+    create: {
+      id: 5,
+      title: 'Western Streetwear',
+      description: 'Upgrade your look with premium denim',
+      imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&auto=format&fit=crop&q=80',
+      position: 'HOME',
+      type: 'exclusive',
+      isActive: true,
+      sortOrder: 5,
+    },
+  });
+
   console.log('✅ Seeding completed successfully!');
-  console.log(`Seeded: \n- ${product1.name}\n- ${product2.name}\n- ${product3.name}\n- 2 Banners`);
+  console.log(`Seeded: \n- ${product1.name}\n- ${product2.name}\n- ${product3.name}\n- 5 Banners`);
 }
 
 main()
