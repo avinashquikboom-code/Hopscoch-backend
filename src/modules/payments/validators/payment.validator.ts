@@ -7,7 +7,7 @@ export const createPaymentSchema = z.object({
 });
 
 export const processRefundSchema = z.object({
-  paymentId: z.coerce.number().int('Invalid payment ID'),
+  paymentId: z.coerce.number().int('Invalid payment ID').optional(),
   refundAmount: z.number().positive('Refund amount must be positive'),
   refundReason: z.string().min(10).max(500),
 });

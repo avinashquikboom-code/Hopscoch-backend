@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
+import adminController from '../../admin/controllers/admin.controller';
+import { authenticate } from '../../../middleware/auth';
 
 const router = Router();
 
@@ -41,5 +43,12 @@ router.get('/:collectionId', async (req, res, next) => {
     return next(error);
   }
 });
+
+// Administrative collections operations (mapped to /api/collections to match frontend)
+router.post('/', authenticate, adminController.createCollection.bind(adminController));
+
+router.put('/:collectionId', authenticate, adminController.updateCollection.bind(adminController));
+
+router.delete('/:collectionId', authenticate, adminController.deleteCollection.bind(adminController));
 
 export default router;
