@@ -191,6 +191,14 @@ app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
   logger.info(`🏥 Health Check: http://localhost:${PORT}/health`);
+  
+  // Auto-open Swagger UI in development
+  if (process.env.NODE_ENV !== 'production') {
+    const open = require('open');
+    open(`http://localhost:${PORT}/api-docs`).catch(() => {
+      logger.info('Could not auto-open browser. Please visit http://localhost:' + PORT + '/api-docs manually');
+    });
+  }
 });
 
 export default app;
