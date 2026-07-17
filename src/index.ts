@@ -101,7 +101,7 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Hopscotch E-Commerce API',
+      title: 'FCISeller E-Commerce API',
       version: '1.0.0',
       description: 'Production-grade luxury fashion e-commerce backend API',
     },

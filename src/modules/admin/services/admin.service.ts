@@ -1913,9 +1913,9 @@ export class AdminService {
     const settings = await prisma.systemSettings.findFirst();
     if (!settings) {
       return {
-        siteName: 'Hopscotch',
+        siteName: 'FCISeller',
         siteDescription: 'Luxury Fashion E-commerce',
-        contactEmail: 'contact@hopscotch.com',
+        contactEmail: 'contact@fciseller.com',
         contactPhone: '+1-800-123-4567',
         currency: 'USD',
       };

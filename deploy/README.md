@@ -1,6 +1,6 @@
-# Hopscotch Deploy Toolkit
+# FCISeller Deploy Toolkit
 
-Server-side scripts to pull images from ECR and run the Hopscotch stack
+Server-side scripts to pull images from ECR and run the FCISeller stack
 (backend + admin + storefront) with resource limits behind Nginx. Mirrors the
 HRM toolkit but is fully isolated from it (own network, container names, ports,
 ECR repos, nginx site). Deploy this folder to the VPS at `/opt/hopscotch/`.
@@ -26,7 +26,7 @@ Ports are chosen to avoid the HRM stack (admin 3000, backend 5004).
 | `deploy-ecom.sh` | Pull + (re)start storefront on :3002 |
 | `deploy-all.sh` | All three, backend first |
 | `status.sh` | Container status + live CPU/mem + recent logs |
-| `setup-server.sh` | Install the Hopscotch nginx site (additive; leaves HRM alone) |
+| `setup-server.sh` | Install the FCISeller nginx site (additive; leaves HRM alone) |
 | `nginx/hopscotch.conf` | Reverse proxy: storefront/admin/api → the three containers |
 | `*.env.example` | Templates for the runtime secret files (backend/admin/ecom) |
 
@@ -84,7 +84,7 @@ sudo certbot --nginx \
 ## Capacity — READ BEFORE DEPLOYING ALL THREE
 
 The host is **2 vCPU / ~1.9 GB RAM** and is **already running the HRM stack**
-(backend ~640m limit, admin ~512m limit). The default Hopscotch limits add:
+(backend ~640m limit, admin ~512m limit). The default FCISeller limits add:
 
 - backend `512m`, admin `384m`, storefront `384m`  → **~1.28 GB more**
 
@@ -99,7 +99,7 @@ docker stats --no-stream
 Options if RAM is tight:
 - Lower the `*_MEMORY` values in `deploy.env`.
 - Deploy only the services you need right now (e.g. backend + storefront).
-- Move Hopscotch to its own VPS (recommended for production).
+- Move FCISeller to its own VPS (recommended for production).
 
 ## Rollback
 

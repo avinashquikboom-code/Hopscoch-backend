@@ -135,12 +135,12 @@ export class SettingsService {
   // ─── Existing settings functionality ───────────────────────────────────────
   async getAppSettings() {
     const settings = {
-      siteName: 'Aura Couture',
+      siteName: 'FCISeller',
       siteDescription: 'Luxury Fashion E-commerce',
       siteUrl: process.env.CLIENT_URL || 'http://localhost:3000',
       logoUrl: '',
       faviconUrl: '',
-      contactEmail: 'support@auracouture.com',
+      contactEmail: 'support@fciseller.com',
       contactPhone: '+91 9876543210',
       socialLinks: {
         facebook: '',
@@ -148,8 +148,8 @@ export class SettingsService {
         instagram: '',
         linkedin: '',
       },
-      seoTitle: 'Aura Couture - Luxury Fashion',
-      seoDescription: 'Shop the latest luxury fashion at Aura Couture',
+      seoTitle: 'FCISeller - Luxury Fashion',
+      seoDescription: 'Shop the latest luxury fashion at FCISeller',
     };
 
     return settings;

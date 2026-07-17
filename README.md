@@ -1,4 +1,4 @@
-# Hopscotch E-Commerce Backend API
+# FCISeller E-Commerce Backend API
 
 Production-grade luxury fashion e-commerce backend API built with Node.js, Express, TypeScript, PostgreSQL, and Prisma.
 
@@ -253,7 +253,7 @@ ISC
 
 ## 👥 Authors
 
-- Hopscotch Development Team
+- FCISeller Development Team
 
 ## 🙏 Acknowledgments
 

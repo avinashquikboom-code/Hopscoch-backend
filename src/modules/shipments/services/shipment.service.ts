@@ -33,7 +33,7 @@ export class ShipmentService {
       throw new AppError('Shipping address missing for this order', 400);
     }
 
-    logger.info(`Creating Shiprocket order for Hopscotch Order ID: ${orderId}`);
+    logger.info(`Creating Shiprocket order for FCISeller Order ID: ${orderId}`);
     
     // Format payload for Shiprocket API
     const payload = {
