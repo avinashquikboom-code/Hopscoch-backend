@@ -320,6 +320,13 @@ export class AdminService {
       deliveredOrders,
       cancelledOrders,
       lowStockCount: lowStockItems,
+      revenueGrowth: 0,
+      ordersGrowth: 0,
+      customersGrowth: 0,
+      productsGrowth: 0,
+      monthlySales: [],
+      categoryBreakdown: [],
+      topProducts: [],
       stats: {
         totalUsers,
         activeUsers,

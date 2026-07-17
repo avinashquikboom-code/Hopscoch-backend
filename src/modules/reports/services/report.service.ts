@@ -376,18 +376,22 @@ export class ReportService {
     });
 
     return {
-      metrics: {
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
-        totalOrders,
-        totalCustomers,
-        totalProducts,
-        lowStockItems,
-        pendingReturns,
-      },
+      totalRevenue: totalRevenue._sum.totalAmount || 0,
+      totalOrders,
+      totalCustomers,
+      totalProducts,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      lowStockCount: lowStockItems,
+      revenueGrowth: 0,
+      ordersGrowth: 0,
+      customersGrowth: 0,
+      productsGrowth: 0,
+      monthlySales: [],
+      categoryBreakdown: [],
+      topProducts: topProducts,
       recentOrders,
-      topSellingProducts: topProducts,
     };
-  }
-}
 
 export default new ReportService();
