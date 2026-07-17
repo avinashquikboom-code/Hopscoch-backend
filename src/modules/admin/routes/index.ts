@@ -1,10 +1,49 @@
 import { Router } from 'express';
 import AdminController from '../controllers/admin.controller';
+import AuthController from '../../auth/controllers/auth.controller';
 import { authenticate } from '../../../middleware/auth';
 import { upload } from '../../../middleware/upload';
+import { authRateLimiter } from '../../../middleware/rateLimiter';
 
 const router = Router();
 const adminController = AdminController;
+const authController = AuthController;
+
+/**
+ * @swagger
+ * /admin/login:
+ *   post:
+ *     summary: Admin panel login
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *               deviceType:
+ *                 type: string
+ *                 enum: [mobile, web, admin]
+ *                 default: admin
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ *       400:
+ *         description: Validation error
+ */
+router.post('/login', authRateLimiter, authController.login.bind(authController));
 
 /**
  * @swagger
