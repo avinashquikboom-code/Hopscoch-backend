@@ -728,19 +728,35 @@ export class AdminService {
       }
     });
 
-    const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
-    await prisma.productVariant.create({
-      data: {
-        productId: product.id,
-        sku: data.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
-        price: product.basePrice,
-        stock: stockVal,
-        color: 'Default',
-        size: 'One Size',
+    if (Array.isArray(data.variants) && data.variants.length > 0) {
+      for (const v of data.variants) {
+        await prisma.productVariant.create({
+          data: {
+            productId: product.id,
+            sku: v.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
+            price: v.price !== undefined ? Number(v.price) : product.basePrice,
+            stock: v.stock !== undefined ? Number(v.stock) : 0,
+            color: v.color || 'Default',
+            size: v.size || 'One Size',
+            material: v.material || null,
+          }
+        });
       }
-    });
-
-    logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal}`);
+      logger.info(`Product created: ${product.id} and ${data.variants.length} variant(s) created`);
+    } else {
+      const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
+      await prisma.productVariant.create({
+        data: {
+          productId: product.id,
+          sku: data.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
+          price: product.basePrice,
+          stock: stockVal,
+          color: 'Default',
+          size: 'One Size',
+        }
+      });
+      logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal}`);
+    }
 
     const fullProduct = await prisma.product.findUnique({
       where: { id: product.id },

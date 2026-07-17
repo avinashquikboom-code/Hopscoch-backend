@@ -96,6 +96,31 @@ router.put('/:categoryId', authenticate, translateCategoryBody, adminController.
 // DELETE delete category
 router.delete('/:categoryId', authenticate, adminController.deleteCategory.bind(adminController));
 
+// GET subcategories for a parent category
+router.get('/:parentId/children', async (req, res, next) => {
+  try {
+    const { parentId } = req.params;
+    const subcategories = await prisma.category.findMany({
+      where: {
+        parentId: Number(parentId),
+        deletedAt: null,
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+    
+    const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+    const subcategoriesWithFullUrls = subcategories.map((category: any) => ({
+      ...category,
+      iconUrl: category.iconUrl ? category.iconUrl.startsWith('http') ? category.iconUrl : `${baseUrl}${category.iconUrl}` : null,
+      bannerUrl: category.bannerUrl ? category.bannerUrl.startsWith('http') ? category.bannerUrl : `${baseUrl}${category.bannerUrl}` : null,
+    }));
+    
+    return ResponseFormatter.success(res, 'Subcategories retrieved successfully', subcategoriesWithFullUrls);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // POST create subcategory under parentId with image upload
 router.post('/:parentId/children/icon', authenticate, upload.single('icon'), (req, res, next) => {
   req.body.parentId = Number(req.params.parentId);
