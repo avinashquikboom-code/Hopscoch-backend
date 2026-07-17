@@ -13,10 +13,9 @@ export class ReportService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-  }
+
     if (startDate || endDate) {
       where.createdAt = {};
-  }
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
@@ -79,7 +78,6 @@ export class ReportService {
       },
     };
   }
-  }
 
   async getInventoryReport(filters: {
     lowStock?: boolean;
@@ -91,7 +89,7 @@ export class ReportService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-  }
+
     if (warehouseId) {
       where.warehouseId = warehouseId;
     }
@@ -100,7 +98,6 @@ export class ReportService {
       where.availableStock = {
         lte: prisma.warehouseInventory.fields.minimumStock,
       };
-  }
     }
 
     const [inventoryItems, total, metrics] = await Promise.all([
@@ -156,7 +153,6 @@ export class ReportService {
       },
     };
   }
-  }
 
   async getCustomerReport(filters: {
     startDate?: string;
@@ -168,10 +164,9 @@ export class ReportService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-  }
+
     if (startDate || endDate) {
       where.createdAt = {};
-  }
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
@@ -224,7 +219,6 @@ export class ReportService {
       },
     };
   }
-  }
 
   async getOrderReport(filters: {
     startDate?: string;
@@ -237,10 +231,9 @@ export class ReportService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-  }
+
     if (startDate || endDate) {
       where.createdAt = {};
-  }
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
@@ -289,7 +282,6 @@ export class ReportService {
         count: item._count,
         totalAmount: item._sum.totalAmount || 0,
       };
-  }
       return acc;
     }, {});
 
@@ -303,7 +295,6 @@ export class ReportService {
         totalPages: Math.ceil(total / limit),
       },
     };
-  }
   }
 
   async getDashboardMetrics() {
@@ -407,5 +398,6 @@ export class ReportService {
       recentOrders,
     };
   }
+}
 
 export default new ReportService();
