@@ -95,8 +95,11 @@ export class ReportService {
     }
 
     if (lowStock) {
-      where.availableStock = {
-        lte: prisma.warehouseInventory.fields.minimumStock,
+      const lowStockItems = await prisma.$queryRaw<{ id: number }[]>`
+        SELECT id FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock"
+      `;
+      where.id = {
+        in: lowStockItems.map((item: { id: number }) => item.id),
       };
     }
 
@@ -319,13 +322,9 @@ export class ReportService {
       prisma.order.count(),
       prisma.user.count(),
       prisma.product.count(),
-      prisma.warehouseInventory.count({
-        where: {
-          availableStock: {
-            lte: prisma.warehouseInventory.fields.minimumStock,
-          },
-        },
-      }),
+      prisma.$queryRaw<{ count: bigint | number }[]>`
+        SELECT COUNT(*)::int as count FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock"
+      `.then(res => Number(res[0]?.count || 0)),
       prisma.returnRequest.count({
         where: {
           status: { in: ['REQUESTED', 'APPROVED'] },

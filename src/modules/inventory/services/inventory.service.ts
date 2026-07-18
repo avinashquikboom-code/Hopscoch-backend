@@ -150,8 +150,11 @@ export class InventoryService {
     }
 
     if (lowStock) {
-      where.availableStock = {
-        lte: prisma.warehouseInventory.fields.minimumStock,
+      const lowStockItems = await prisma.$queryRaw<{ id: number }[]>`
+        SELECT id FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock"
+      `;
+      where.id = {
+        in: lowStockItems.map((item: { id: number }) => item.id),
       };
     }
 
@@ -327,10 +330,13 @@ export class InventoryService {
   }
 
   async getLowStockAlerts() {
+    const lowStockItems = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT id FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock"
+    `;
     return prisma.warehouseInventory.findMany({
       where: {
-        availableStock: {
-          lte: prisma.warehouseInventory.fields.minimumStock,
+        id: {
+          in: lowStockItems.map((item: { id: number }) => item.id),
         },
       },
       include: {
@@ -910,11 +916,14 @@ export async function stockHistory(variantId: number, page = 1, limit = 30) {
 export async function lowStockReport(warehouseId?: number) {
   const whId = await resolveWarehouseId(warehouseId);
 
+  const lowStockItems = await prisma.$queryRaw<{ id: number }[]>`
+    SELECT id FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock" AND "warehouseId" = ${whId}
+  `;
+
   const rows = await prisma.warehouseInventory.findMany({
     where: {
-      warehouseId: whId,
-      availableStock: {
-        lte: prisma.warehouseInventory.fields.minimumStock,
+      id: {
+        in: lowStockItems.map((item: { id: number }) => item.id),
       },
     },
     include: {

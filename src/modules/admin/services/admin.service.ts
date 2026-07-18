@@ -1385,8 +1385,11 @@ export class AdminService {
     const where: any = {};
 
     if (lowStock) {
-      where.availableStock = {
-        lte: prisma.warehouseInventory.fields.minimumStock,
+      const lowStockItems = await prisma.$queryRaw<{ id: number }[]>`
+        SELECT id FROM "warehouseInventory" WHERE "availableStock" <= "minimumStock"
+      `;
+      where.id = {
+        in: lowStockItems.map((item: { id: number }) => item.id),
       };
     }
 
@@ -1922,7 +1925,7 @@ export class AdminService {
       orderBy: { lastActivityAt: 'desc' },
     });
 
-    return sessions.map((s, index) => ({
+    return sessions.map((s, index: number) => ({
       id: String(s.id),
       device: s.deviceName || s.deviceType || 'Unknown device',
       browser: s.browser || 'Unknown browser',
