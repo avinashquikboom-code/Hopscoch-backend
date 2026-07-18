@@ -69,8 +69,13 @@ const allowedOrigins = process.env.CORS_ORIGIN
   : defaultOrigins;
 
 app.use(cors({
-  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin))
-    ? cb(null, true) : cb(new Error(`CORS blocked: ${origin}`)),
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (defaultOrigins.includes(origin) || allowedOrigins.includes(origin)) {
+      return cb(null, true);
+    }
+    return cb(new Error(`CORS blocked: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-API-Key', 'X-App-Type'],
