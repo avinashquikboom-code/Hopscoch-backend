@@ -35,6 +35,23 @@ router.post('/visual-search', visualSearchController.search.bind(visualSearchCon
 
 /**
  * @swagger
+ * /visual-search/history:
+ *   get:
+ *     summary: List the authenticated user's visual search history
+ *     tags: [Visual Search]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Visual search history retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+// NOTE: must be registered before '/visual-search/:queryId' or it gets shadowed
+router.get('/visual-search/history', authenticate, visualSearchController.getHistory.bind(visualSearchController));
+
+/**
+ * @swagger
  * /visual-search/:queryId:
  *   get:
  *     summary: Get a previously run visual search query and its ranked matches
@@ -52,22 +69,6 @@ router.post('/visual-search', visualSearchController.search.bind(visualSearchCon
  *         description: Query not found
  */
 router.get('/visual-search/:queryId', visualSearchController.getQuery.bind(visualSearchController));
-
-/**
- * @swagger
- * /visual-search/history:
- *   get:
- *     summary: List the authenticated user's visual search history
- *     tags: [Visual Search]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Visual search history retrieved successfully
- *       401:
- *         description: Authentication required
- */
-router.get('/visual-search/history', authenticate, visualSearchController.getHistory.bind(visualSearchController));
 
 /**
  * @swagger

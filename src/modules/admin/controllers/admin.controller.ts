@@ -687,6 +687,15 @@ export class AdminController {
     }
   }
 
+  async getSessions(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const sessions = await AdminService.getSessions(req.user!.id);
+      ResponseFormatter.success(res, 'Sessions retrieved successfully', sessions);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
       const settings = await AdminService.getSettings();

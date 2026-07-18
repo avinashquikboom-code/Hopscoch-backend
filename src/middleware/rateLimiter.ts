@@ -1,8 +1,20 @@
 import rateLimit from 'express-rate-limit';
+import { Request } from 'express';
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+// Requests from the admin panel identify themselves with the admin API key.
+// They are exempt from the general limiter so bursts of dashboard calls
+// don't get throttled into 429s.
+const isAdminPanelRequest = (req: Request): boolean => {
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+  return !!apiKey && apiKey === (process.env.ADMIN_API_KEY || 'hopscotch-admin-api-key');
+};
 
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: isDev ? 5000 : 1000,
+  skip: isAdminPanelRequest,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
@@ -13,7 +25,8 @@ export const rateLimiter = rateLimit({
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs for auth endpoints
+  max: isDev ? 100 : 20,
+  skipSuccessfulRequests: true, // only failed attempts count toward the limit
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again later.',

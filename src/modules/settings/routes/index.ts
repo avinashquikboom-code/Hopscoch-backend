@@ -243,4 +243,100 @@ router.put('/payments/gateways/:id', authenticate, async (req, res, next) => {
   }
 });
 
+// ── Admin panel store settings (JSON-file backed, same pattern as gateways) ──
+
+const readJsonFile = async <T>(filePath: string, fallback: T): Promise<T> => {
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const writeJsonFile = async (filePath: string, data: unknown): Promise<void> => {
+  await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+};
+
+const storeSettingsFilePath = path.join(__dirname, '../store-settings.json');
+const paymentSettingsFilePath = path.join(__dirname, '../payment-settings.json');
+const shippingSettingsFilePath = path.join(__dirname, '../shipping-settings.json');
+
+const defaultStoreSettings = {
+  storeName: 'FCI SELLER',
+  storeEmail: 'admin@fciseller.com',
+  storePhone: '',
+  storeAddress: '',
+  currency: 'USD',
+  language: 'en',
+  timezone: 'UTC',
+  metaTitle: '',
+  metaDescription: '',
+  newOrderAlerts: true,
+  lowStockWarnings: true,
+  weeklyDigests: false,
+};
+
+// General store settings (admin panel Settings page + currency context)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const settings = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
+    return ResponseFormatter.success(res, 'Settings retrieved successfully', settings);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/', authenticate, async (req, res, next) => {
+  try {
+    const current = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
+    const updated = { ...current, ...req.body };
+    await writeJsonFile(storeSettingsFilePath, updated);
+    return ResponseFormatter.success(res, 'Settings updated successfully', updated);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Payment gateway settings (admin panel Settings → Payments page)
+router.get('/payments', authenticate, async (req, res, next) => {
+  try {
+    const settings = await readJsonFile<Record<string, unknown>>(paymentSettingsFilePath, {});
+    return ResponseFormatter.success(res, 'Payment settings retrieved successfully', settings);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/payments', authenticate, async (req, res, next) => {
+  try {
+    const current = await readJsonFile<Record<string, unknown>>(paymentSettingsFilePath, {});
+    const updated = { ...current, ...req.body };
+    await writeJsonFile(paymentSettingsFilePath, updated);
+    return ResponseFormatter.success(res, 'Payment settings updated successfully', updated);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Shipping zone/rate settings (admin panel Settings → Shipping page)
+router.get('/shipping', authenticate, async (req, res, next) => {
+  try {
+    const rates = await readJsonFile<unknown[]>(shippingSettingsFilePath, []);
+    return ResponseFormatter.success(res, 'Shipping settings retrieved successfully', rates);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/shipping', authenticate, async (req, res, next) => {
+  try {
+    const rates = Array.isArray(req.body) ? req.body : [];
+    await writeJsonFile(shippingSettingsFilePath, rates);
+    return ResponseFormatter.success(res, 'Shipping settings updated successfully', rates);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 export default router;

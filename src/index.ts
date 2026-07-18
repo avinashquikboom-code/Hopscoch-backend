@@ -9,6 +9,7 @@ if (fs.existsSync('./env/env.local')) {
 
 import path from 'path';
 import express, { Application } from 'express';
+import 'express-async-errors';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -78,7 +79,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-API-Key', 'X-App-Type'],
+  exposedHeaders: ['X-New-Access-Token'],
 }));
 app.use(compression());
 // Use absolute path for uploads directory to work correctly from both src and dist

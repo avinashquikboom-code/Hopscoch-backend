@@ -1916,6 +1916,24 @@ export class AdminService {
     };
   }
 
+  async getSessions(userId: number) {
+    const sessions = await prisma.session.findMany({
+      where: { userId, isActive: true },
+      orderBy: { lastActivityAt: 'desc' },
+    });
+
+    return sessions.map((s, index) => ({
+      id: String(s.id),
+      device: s.deviceName || s.deviceType || 'Unknown device',
+      browser: s.browser || 'Unknown browser',
+      os: s.os || s.platform || 'Unknown OS',
+      ip: s.ipAddress || '—',
+      location: '—',
+      lastActive: s.lastActivityAt.toISOString(),
+      current: index === 0,
+    }));
+  }
+
   async getSettings() {
     const settings = await prisma.systemSettings.findFirst();
     if (!settings) {

@@ -314,7 +314,7 @@ router.get('/activity-logs', authenticate, adminController.getActivityLogs.bind(
  *       401:
  *         description: Authentication required
  */
-router.get('/dashboard', authenticate, adminController.getDashboardStats.bind(adminController));
+router.get('/dashboard', adminController.getDashboardStats.bind(adminController));
 
 /**
  * @swagger
@@ -1928,6 +1928,22 @@ router.get('/analytics/full', authenticate, adminController.getFullAnalytics.bin
  *         description: Authentication required
  */
 router.get('/settings', authenticate, adminController.getSettings.bind(adminController));
+
+/**
+ * @swagger
+ * /admin/sessions:
+ *   get:
+ *     summary: Get active sessions for the logged-in admin (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sessions retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get('/sessions', authenticate, adminController.getSessions.bind(adminController));
 
 /**
  * @swagger

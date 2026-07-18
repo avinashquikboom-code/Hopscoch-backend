@@ -79,18 +79,23 @@ export const workers = {
   report: reportWorker,
 };
 
-// Graceful shutdown
-const closeWorkers = async () => {
-  await Promise.all([
-    emailWorker.close(),
-    notificationWorker?.close(),
-    orderWorker.close(),
-    paymentWorker.close(),
-    inventoryWorker.close(),
-    reportWorker.close(),
-  ]);
-  console.log('All workers closed');
+// Graceful shutdown — must exit the process afterwards, otherwise the HTTP
+// server keeps the process alive and restarts (ts-node-dev, deploys) hang.
+const closeWorkers = async (signal: string) => {
+  try {
+    await Promise.all([
+      emailWorker.close(),
+      notificationWorker?.close(),
+      orderWorker.close(),
+      paymentWorker.close(),
+      inventoryWorker.close(),
+      reportWorker.close(),
+    ]);
+    console.log('All workers closed');
+  } finally {
+    process.exit(signal === 'SIGINT' ? 130 : 0);
+  }
 };
 
-process.on('SIGTERM', closeWorkers);
-process.on('SIGINT', closeWorkers);
+process.on('SIGTERM', () => closeWorkers('SIGTERM'));
+process.on('SIGINT', () => closeWorkers('SIGINT'));

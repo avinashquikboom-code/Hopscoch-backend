@@ -26,6 +26,53 @@ const parseCookies = (cookieHeader: string | undefined): Record<string, string> 
   return cookies;
 };
 
+// Helper function to determine app type from request
+const getAppTypeFromRequest = (req: Request): 'admin' | 'mobile' | 'web' => {
+  const userAgent = req.headers['user-agent'] || '';
+  const referer = req.headers.referer || '';
+  
+  // Check for admin panel
+  if (referer.includes('/admin') || userAgent.includes('admin')) {
+    return 'admin';
+  }
+  
+  // Check for mobile app
+  if (userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
+    return 'mobile';
+  }
+  
+  // Default to web
+  return 'web';
+};
+
+// Helper function to get JWT secret based on app type
+const getJwtSecretByAppType = (appType: 'admin' | 'mobile' | 'web'): string => {
+  switch (appType) {
+    case 'admin':
+      return process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET || 'your-admin-jwt-secret';
+    case 'mobile':
+      return process.env.MOBILE_JWT_SECRET || process.env.JWT_SECRET || 'your-mobile-jwt-secret';
+    case 'web':
+      return process.env.WEBSITE_JWT_SECRET || process.env.JWT_SECRET || 'your-website-jwt-secret';
+    default:
+      return process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+  }
+};
+
+// Helper function to get refresh secret based on app type
+const getRefreshSecretByAppType = (appType: 'admin' | 'mobile' | 'web'): string => {
+  switch (appType) {
+    case 'admin':
+      return process.env.ADMIN_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-admin-refresh-secret';
+    case 'mobile':
+      return process.env.MOBILE_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-mobile-refresh-secret';
+    case 'web':
+      return process.env.WEBSITE_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET || 'your-website-refresh-secret';
+    default:
+      return process.env.REFRESH_TOKEN_SECRET || 'your-super-secret-refresh-token-key';
+  }
+};
+
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
@@ -47,7 +94,14 @@ export const authenticate = async (
     }
 
     let decoded: any;
+    
+    // Determine app type from request
+    const appType = getAppTypeFromRequest(req);
+    const jwtSecret = getJwtSecretByAppType(appType);
+    
+    // Try app-specific secret first, then fallback to common secrets
     const secrets = [
+      jwtSecret,
       process.env.JWT_SECRET || 'your-super-secret-jwt-key',
       process.env.ADMIN_JWT_SECRET || 'your-admin-jwt-secret',
       process.env.WEBSITE_JWT_SECRET || 'your-website-jwt-secret',
@@ -74,8 +128,8 @@ export const authenticate = async (
       const refreshToken = cookies.refreshToken || cookies.refresh_token;
       if (refreshToken) {
         try {
-          // Attempt automatic token refresh
-          const tokens = await AuthService.refreshAccessToken(refreshToken, 'admin');
+          // Attempt automatic token refresh with app-specific device type
+          const tokens = await AuthService.refreshAccessToken(refreshToken, appType);
           
           // Set new cookies on response
           res.cookie('accessToken', tokens.accessToken, {
