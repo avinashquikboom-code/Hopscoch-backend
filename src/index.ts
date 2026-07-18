@@ -194,10 +194,14 @@ app.listen(PORT, () => {
   
   // Auto-open Swagger UI in development
   if (process.env.NODE_ENV !== 'production') {
-    const open = require('open');
-    open(`http://localhost:${PORT}/api-docs`).catch(() => {
-      logger.info('Could not auto-open browser. Please visit http://localhost:' + PORT + '/api-docs manually');
-    });
+    try {
+      const open = require('open');
+      open(`http://localhost:${PORT}/api-docs`).catch(() => {
+        logger.info('Could not auto-open browser. Please visit http://localhost:' + PORT + '/api-docs manually');
+      });
+    } catch (error) {
+      logger.info(`Could not auto-open browser (open module not found). Please visit http://localhost:${PORT}/api-docs manually`);
+    }
   }
 });
 
