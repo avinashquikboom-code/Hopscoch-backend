@@ -725,7 +725,10 @@ export class AdminController {
 
   async uploadFile(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const result = await AdminService.uploadFile(req.file);
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const apiBase = `${protocol}://${host}`;
+      const result = await AdminService.uploadFile(req.file, apiBase);
       ResponseFormatter.success(res, 'File uploaded successfully', result);
     } catch (error) {
       throw error;

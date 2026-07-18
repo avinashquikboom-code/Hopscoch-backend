@@ -2870,7 +2870,7 @@ export class AdminService {
     return { message: 'Collection deleted successfully' };
   }
 
-  async uploadFile(file: any) {
+  async uploadFile(file: any, apiBase?: string) {
     if (!file) {
       throw new AppError('No file provided', 400);
     }
@@ -2889,12 +2889,12 @@ export class AdminService {
         url = result.secure_url;
       } catch (err) {
         logger.error(`Cloudinary upload failed, falling back to local: ${err}`);
-        const apiBase = process.env.API_URL || 'http://localhost:5001';
-        url = `${apiBase}/uploads/${file.filename}`;
+        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+        url = `${base}/uploads/${file.filename}`;
       }
     } else {
-      const apiBase = process.env.API_URL || 'http://localhost:5001';
-      url = `${apiBase}/uploads/${file.filename}`;
+      const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+      url = `${base}/uploads/${file.filename}`;
     }
 
     return { url };
