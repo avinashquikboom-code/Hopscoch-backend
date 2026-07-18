@@ -107,6 +107,22 @@ export const errorHandler = (
     return;
   }
 
+  // Handle Multer upload errors
+  if (err.name === 'MulterError') {
+    logger.error({
+      message: 'File upload error',
+      details: err.message,
+      path: req.path,
+    });
+    ResponseFormatter.error(
+      res,
+      err.message === 'File too large' ? 'File size exceeds the 50MB limit' : err.message,
+      413,
+      'FILE_UPLOAD_ERROR'
+    );
+    return;
+  }
+
   // Handle Zod validation errors
   if (err.name === 'ZodError') {
     const zodError = err as any;

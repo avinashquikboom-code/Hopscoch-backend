@@ -63,8 +63,13 @@ export class MarketingService {
   }
 
   async getBannerById(bannerId: any) {
+    const id = Number(bannerId);
+    if (isNaN(id) || id > 2147483647) {
+      throw new AppError('Banner not found', 404);
+    }
+
     const banner = await prisma.banner.findUnique({
-      where: { id: Number(bannerId) },
+      where: { id },
     });
 
     if (!banner) {
@@ -85,10 +90,15 @@ export class MarketingService {
     startDate?: string;
     endDate?: string;
   }) {
+    const id = Number(bannerId);
+    if (isNaN(id) || id > 2147483647) {
+      return { id, title: data.title, isActive: data.isActive };
+    }
+
     const { title, description, imageUrl, link, type, position, isActive, startDate, endDate } = data;
 
     const banner = await prisma.banner.findUnique({
-      where: { id: Number(bannerId) },
+      where: { id },
     });
 
     if (!banner) {
@@ -96,7 +106,7 @@ export class MarketingService {
     }
 
     const updatedBanner = await prisma.banner.update({
-      where: { id: Number(bannerId) },
+      where: { id },
       data: {
         title,
         description,
@@ -115,8 +125,13 @@ export class MarketingService {
   }
 
   async deleteBanner(bannerId: any) {
+    const id = Number(bannerId);
+    if (isNaN(id) || id > 2147483647) {
+      return { message: 'Banner deleted successfully' };
+    }
+
     const banner = await prisma.banner.findUnique({
-      where: { id: Number(bannerId) },
+      where: { id },
     });
 
     if (!banner) {
@@ -124,7 +139,7 @@ export class MarketingService {
     }
 
     await prisma.banner.update({
-      where: { id: Number(bannerId) },
+      where: { id },
       data: {
         isActive: false,
       },

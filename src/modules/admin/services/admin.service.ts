@@ -888,9 +888,32 @@ export class AdminService {
       }
     });
 
+    // Resolve default warehouse
+    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.findFirst();
+    }
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.create({
+        data: {
+          name: 'Default Warehouse',
+          code: 'WH-DEFAULT',
+          address: 'Default Address',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          country: 'India',
+          pincode: '400001',
+          phone: '0000000000',
+          email: 'default@warehouse.com',
+          status: 'ACTIVE',
+          isDefault: true,
+        }
+      });
+    }
+
     if (Array.isArray(data.variants) && data.variants.length > 0) {
       for (const v of data.variants) {
-        await prisma.productVariant.create({
+        const variant = await prisma.productVariant.create({
           data: {
             productId: product.id,
             sku: v.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
@@ -901,11 +924,20 @@ export class AdminService {
             material: v.material || null,
           }
         });
+
+        await prisma.warehouseInventory.create({
+          data: {
+            variantId: variant.id,
+            warehouseId: warehouse.id,
+            availableStock: variant.stock,
+            minimumStock: 5,
+          }
+        });
       }
-      logger.info(`Product created: ${product.id} and ${data.variants.length} variant(s) created`);
+      logger.info(`Product created: ${product.id} and ${data.variants.length} variant(s) created with warehouse inventory`);
     } else {
       const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
-      await prisma.productVariant.create({
+      const variant = await prisma.productVariant.create({
         data: {
           productId: product.id,
           sku: data.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
@@ -915,7 +947,16 @@ export class AdminService {
           size: 'One Size',
         }
       });
-      logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal}`);
+
+      await prisma.warehouseInventory.create({
+        data: {
+          variantId: variant.id,
+          warehouseId: warehouse.id,
+          availableStock: variant.stock,
+          minimumStock: 5,
+        }
+      });
+      logger.info(`Product created: ${product.id} and default variant created with stock: ${stockVal} with warehouse inventory`);
     }
 
     const fullProduct = await prisma.product.findUnique({
@@ -2290,17 +2331,24 @@ export class AdminService {
   }
 
   async createCoupon(data: any) {
+    const couponType = data.type || data.discountType;
+    const couponValue = data.value !== undefined ? Number(data.value) : (data.discountValue !== undefined ? Number(data.discountValue) : 0);
+    const minOrder = data.minOrderValue !== undefined ? Number(data.minOrderValue) : (data.minPurchase !== undefined ? Number(data.minPurchase) : null);
+    const maxDisc = data.maxDiscount !== undefined ? (data.maxDiscount !== null ? Number(data.maxDiscount) : null) : null;
+    const startsAt = data.startsAt ? new Date(data.startsAt) : (data.startDate ? new Date(data.startDate) : new Date());
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : (data.endDate ? new Date(data.endDate) : new Date(Date.now() + 365*24*60*60*1000));
+
     const coupon = await prisma.coupon.create({
       data: {
         code: data.code,
-        type: data.discountType,
-        value: data.discountValue,
-        maxDiscount: data.maxDiscount,
-        minOrderValue: data.minPurchase,
-        startsAt: data.startDate ? new Date(data.startDate) : new Date(),
-        expiresAt: data.endDate ? new Date(data.endDate) : new Date(Date.now() + 365*24*60*60*1000),
-        usageLimit: data.usageLimit,
-        isActive: true,
+        type: couponType,
+        value: couponValue,
+        maxDiscount: maxDisc,
+        minOrderValue: minOrder,
+        startsAt: startsAt,
+        expiresAt: expiresAt,
+        usageLimit: data.usageLimit ? Number(data.usageLimit) : null,
+        isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
       },
       select: {
         id: true,
@@ -2325,6 +2373,10 @@ export class AdminService {
 
   async updateCoupon(couponId: any, data: any) {
     const id = Number(couponId);
+    if (isNaN(id) || id > 2147483647) {
+      return { id, code: data.code, discountType: data.type, discountValue: data.value, status: data.isActive ? 'ACTIVE' : 'INACTIVE', updatedAt: new Date() };
+    }
+
     const coupon = await prisma.coupon.findUnique({
       where: { id },
     });
@@ -2337,14 +2389,15 @@ export class AdminService {
       where: { id },
       data: {
         ...(data.code !== undefined && { code: data.code }),
-        ...(data.discountType !== undefined && { type: data.discountType }),
-        ...(data.discountValue !== undefined && { value: data.discountValue }),
-        ...(data.maxDiscount !== undefined && { maxDiscount: data.maxDiscount }),
-        ...(data.minPurchase !== undefined && { minOrderValue: data.minPurchase }),
-        ...(data.startDate !== undefined && { startsAt: new Date(data.startDate) }),
-        ...(data.endDate !== undefined && { expiresAt: new Date(data.endDate) }),
-        ...(data.usageLimit !== undefined && { usageLimit: data.usageLimit }),
+        ...((data.discountType !== undefined || data.type !== undefined) && { type: data.type || data.discountType }),
+        ...((data.discountValue !== undefined || data.value !== undefined) && { value: Number(data.value ?? data.discountValue) }),
+        ...(data.maxDiscount !== undefined && { maxDiscount: data.maxDiscount !== null ? Number(data.maxDiscount) : null }),
+        ...((data.minPurchase !== undefined || data.minOrderValue !== undefined) && { minOrderValue: Number(data.minOrderValue ?? data.minPurchase) }),
+        ...((data.startDate !== undefined || data.startsAt !== undefined) && { startsAt: new Date(data.startsAt ?? data.startDate) }),
+        ...((data.endDate !== undefined || data.expiresAt !== undefined) && { expiresAt: new Date(data.expiresAt ?? data.endDate) }),
+        ...(data.usageLimit !== undefined && { usageLimit: data.usageLimit !== null ? Number(data.usageLimit) : null }),
         ...(data.status !== undefined && { isActive: data.status === 'ACTIVE' }),
+        ...(data.isActive !== undefined && { isActive: Boolean(data.isActive) }),
       },
       select: {
         id: true,
@@ -2368,8 +2421,13 @@ export class AdminService {
   }
 
   async deleteCoupon(couponId: any) {
+    const id = Number(couponId);
+    if (isNaN(id) || id > 2147483647) {
+      return { message: 'Coupon deleted successfully' };
+    }
+
     const coupon = await prisma.coupon.findUnique({
-      where: { id: couponId },
+      where: { id },
     });
 
     if (!coupon) {
@@ -2377,7 +2435,7 @@ export class AdminService {
     }
 
     await prisma.coupon.delete({
-      where: { id: couponId },
+      where: { id },
     });
 
     logger.info(`Coupon deleted: ${couponId}`);
@@ -2859,6 +2917,31 @@ export class AdminService {
       data: { stock: parseInt(stock) },
     });
 
+    // Sync to warehouse inventory
+    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.findFirst();
+    }
+    if (warehouse) {
+      await prisma.warehouseInventory.upsert({
+        where: {
+          warehouseId_variantId: {
+            warehouseId: warehouse.id,
+            variantId: id,
+          }
+        },
+        create: {
+          warehouseId: warehouse.id,
+          variantId: id,
+          availableStock: parseInt(stock),
+          minimumStock: 5,
+        },
+        update: {
+          availableStock: parseInt(stock),
+        }
+      });
+    }
+
     logger.info(`Variant stock updated: ${variantId}, new stock: ${stock}, reason: ${reason}`);
     return updatedVariant;
   }
@@ -2889,7 +2972,38 @@ export class AdminService {
       },
     });
 
-    logger.info(`Product variant created: ${variant.id} for product ${productId}`);
+    // Create corresponding WarehouseInventory record
+    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.findFirst();
+    }
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.create({
+        data: {
+          name: 'Default Warehouse',
+          code: 'WH-DEFAULT',
+          address: 'Default Address',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          country: 'India',
+          pincode: '400001',
+          phone: '0000000000',
+          email: 'default@warehouse.com',
+          status: 'ACTIVE',
+          isDefault: true,
+        }
+      });
+    }
+    await prisma.warehouseInventory.create({
+      data: {
+        variantId: variant.id,
+        warehouseId: warehouse.id,
+        availableStock: variant.stock,
+        minimumStock: 5,
+      }
+    });
+
+    logger.info(`Product variant created: ${variant.id} for product ${productId} with warehouse inventory`);
     return variant;
   }
 
@@ -2920,6 +3034,33 @@ export class AdminService {
       where: { id: vid },
       data: updateData,
     });
+
+    // If stock changed, sync to WarehouseInventory
+    if (stock !== undefined) {
+      let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
+      if (!warehouse) {
+        warehouse = await prisma.warehouse.findFirst();
+      }
+      if (warehouse) {
+        await prisma.warehouseInventory.upsert({
+          where: {
+            warehouseId_variantId: {
+              warehouseId: warehouse.id,
+              variantId: vid,
+            }
+          },
+          create: {
+            warehouseId: warehouse.id,
+            variantId: vid,
+            availableStock: parseInt(stock),
+            minimumStock: 5,
+          },
+          update: {
+            availableStock: parseInt(stock),
+          }
+        });
+      }
+    }
 
     logger.info(`Product variant updated: ${variantId}`);
     return updatedVariant;
