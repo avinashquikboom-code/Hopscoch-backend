@@ -1022,12 +1022,26 @@ export class AdminService {
       updateData.basePrice = Number(updateData.basePrice);
     } else if (updateData.price !== undefined) {
       updateData.basePrice = Number(updateData.price);
-      delete updateData.price;
+    }
+
+    const allowedFields = [
+      'name', 'slug', 'description', 'status', 'categoryId', 'brandId',
+      'thumbnailUrl', 'gender', 'ageGroup', 'basePrice', 'discountType',
+      'discountValue', 'discountStartsAt', 'discountEndsAt', 'isFeatured',
+      'isTrending', 'isNewArrival', 'isBestSeller', 'avgRating', 'reviewCount',
+      'seoTitle', 'seoDescription'
+    ];
+
+    const cleanUpdateData: any = {};
+    for (const key of allowedFields) {
+      if (updateData[key] !== undefined) {
+        cleanUpdateData[key] = updateData[key];
+      }
     }
 
     const updatedProduct = await prisma.product.update({
       where: { id },
-      data: updateData,
+      data: cleanUpdateData,
       include: {
         category: true,
         brand: true,
@@ -1198,9 +1212,21 @@ export class AdminService {
       throw new AppError('Category not found', 404);
     }
 
+    const allowedFields = [
+      'name', 'slug', 'description', 'parentId', 'isFeatured', 'sortOrder',
+      'iconUrl', 'bannerUrl', 'seoTitle', 'seoDescription'
+    ];
+
+    const cleanData: any = {};
+    for (const key of allowedFields) {
+      if (data[key] !== undefined) {
+        cleanData[key] = key === 'parentId' && data[key] !== null ? Number(data[key]) : data[key];
+      }
+    }
+
     const updatedCategory = await prisma.category.update({
       where: { id },
-      data,
+      data: cleanData,
       select: {
         id: true,
         name: true,
@@ -1323,9 +1349,20 @@ export class AdminService {
       throw new AppError('Brand not found', 404);
     }
 
+    const allowedFields = [
+      'name', 'slug', 'description', 'logoUrl', 'bannerUrl', 'isFeatured'
+    ];
+
+    const cleanData: any = {};
+    for (const key of allowedFields) {
+      if (data[key] !== undefined) {
+        cleanData[key] = data[key];
+      }
+    }
+
     const updatedBrand = await prisma.brand.update({
       where: { id },
-      data,
+      data: cleanData,
       select: {
         id: true,
         name: true,
