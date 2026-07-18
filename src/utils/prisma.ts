@@ -27,8 +27,34 @@ const prisma = new PrismaClient({
 
 // Handle Prisma connection errors
 prisma.$connect()
-  .then(() => {
+  .then(async () => {
     console.log('✅ Database connected successfully');
+    
+    // Auto-reset sequences on startup to prevent duplicate key errors in production
+    const tables = [
+      'categories',
+      'brands',
+      'products',
+      'product_variants',
+      'banners',
+      'coupons',
+      'users',
+      'collections'
+    ];
+    for (const table of tables) {
+      try {
+        const result = await prisma.$queryRawUnsafe<any[]>(
+          `SELECT COALESCE(MAX(id), 0) + 1 as next_val FROM "${table}"`
+        );
+        const nextVal = result[0]?.next_val || 1;
+        await prisma.$queryRawUnsafe(
+          `SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), ${nextVal}, false)`
+        );
+      } catch (err: any) {
+        // Log locally, suppress noisy output in production if not needed
+        console.warn(`Could not reset sequence for table ${table}:`, err.message);
+      }
+    }
   })
   .catch((error) => {
     console.error('❌ Database connection error:', error);
