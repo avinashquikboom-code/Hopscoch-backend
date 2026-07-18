@@ -54,41 +54,30 @@ const PORT = process.env.PORT || 5000;
 // Trust proxy headers from Nginx reverse proxy
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(helmet());
-
-const allowedOrigins = [
-  'https://admin.fciseller.com',
-  'https://fciseller.com',
-  'https://www.fciseller.com',
-];
+// 1. CORS (registered BEFORE helmet, routes, and static file handlers)
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+  .split(',').map(o => o.trim());
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (
-      allowedOrigins.includes(origin) ||
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('http://127.0.0.1:') ||
-      origin.startsWith('http://192.168.') ||
-      origin.startsWith('http://10.') ||
-      origin.startsWith('http://172.') ||
-      origin.startsWith('http://192.')
-    ) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback to allow any other client during development/testing
-    }
-  },
+  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin))
+    ? cb(null, true) : cb(new Error(`CORS blocked: ${origin}`)),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-API-Key', 'X-App-Type'],
   exposedHeaders: ['X-New-Access-Token'],
 }));
+
+// 2. Helmet (configured to allow cross-origin resource sharing for uploads)
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
 app.use(compression());
 // Use absolute path for uploads directory to work correctly from both src and dist
 const uploadsPath = path.resolve(process.cwd(), 'uploads');
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', express.static(uploadsPath, {
+  setHeaders: (res) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 const assetsPath = path.resolve(process.cwd(), 'assets');
 app.use('/assets', express.static(assetsPath));
 app.use(express.json({ limit: '10mb' }));
