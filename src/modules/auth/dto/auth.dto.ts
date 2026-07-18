@@ -3,6 +3,8 @@ export interface AuthResponse {
     id: any;
     email: string;
     name: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     phone: string | null;
     avatar: string | null;
     role: string;

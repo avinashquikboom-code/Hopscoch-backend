@@ -378,22 +378,171 @@ export class ReportService {
       },
     });
 
+    const revenueVal = Number(totalRevenue._sum.totalAmount || 0);
+
+    // Calculate growth rates (comparing current month to previous month)
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [
+      currentMonthRevenueAgg,
+      prevMonthRevenueAgg,
+      currentMonthOrders,
+      prevMonthOrders,
+      currentMonthCustomers,
+      prevMonthCustomers,
+      currentMonthProducts,
+      prevMonthProducts,
+      categories,
+      ordersLast6Months,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
+    ] = await Promise.all([
+      prisma.order.aggregate({
+        where: {
+          status: { in: ['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'] },
+          createdAt: { gte: startOfCurrentMonth },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.order.aggregate({
+        where: {
+          status: { in: ['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'] },
+          createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.user.count({
+        where: { deletedAt: null, createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.user.count({
+        where: { deletedAt: null, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.product.count({
+        where: { status: 'PUBLISHED', deletedAt: null, createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.product.count({
+        where: { status: 'PUBLISHED', deletedAt: null, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.category.findMany({
+        where: { deletedAt: null },
+        select: {
+          name: true,
+          products: {
+            where: { deletedAt: null },
+            select: { id: true },
+          },
+        },
+      }),
+      prisma.order.findMany({
+        where: {
+          createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 5, 1) },
+        },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+          status: true,
+        },
+      }),
+      prisma.order.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { status: 'DELIVERED' } }),
+      prisma.order.count({ where: { status: 'CANCELLED' } }),
+    ]);
+
+    const currentMonthRevenue = Number(currentMonthRevenueAgg._sum.totalAmount || 0);
+    const prevMonthRevenue = Number(prevMonthRevenueAgg._sum.totalAmount || 0);
+    const revenueGrowth = prevMonthRevenue > 0
+      ? Number((((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100).toFixed(1))
+      : 0;
+
+    const ordersGrowth = prevMonthOrders > 0
+      ? Number((((currentMonthOrders - prevMonthOrders) / prevMonthOrders) * 100).toFixed(1))
+      : 0;
+
+    const customersGrowth = prevMonthCustomers > 0
+      ? Number((((currentMonthCustomers - prevMonthCustomers) / prevMonthCustomers) * 100).toFixed(1))
+      : 0;
+
+    const productsGrowth = prevMonthProducts > 0
+      ? Number((((currentMonthProducts - prevMonthProducts) / prevMonthProducts) * 100).toFixed(1))
+      : 0;
+
+    // Monthly sales formatting for chart
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlySalesMap: Record<string, { revenue: number; orders: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      monthlySalesMap[monthName] = { revenue: 0, orders: 0 };
+    }
+
+    ordersLast6Months.forEach(order => {
+      const date = new Date(order.createdAt);
+      const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
+      if (monthlySalesMap[monthName]) {
+        monthlySalesMap[monthName].orders++;
+        if (['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'].includes(order.status)) {
+          monthlySalesMap[monthName].revenue += Number(order.totalAmount);
+        }
+      }
+    });
+
+    const monthlySales = Object.entries(monthlySalesMap).map(([month, data]) => ({
+      month,
+      revenue: Number(data.revenue.toFixed(2)),
+      orders: data.orders,
+    }));
+
+    // Category breakdown
+    const categoryBreakdown = categories
+      .map(cat => ({
+        name: cat.name,
+        value: cat.products.length,
+      }))
+      .filter(c => c.value > 0);
+
+    // Format topProducts mapping
+    const formattedTopProducts = await Promise.all(
+      topProducts.map(async (prod) => {
+        const orderItems = await prisma.orderItem.findMany({
+          where: { productId: prod.id },
+          select: { quantity: true, priceSnapshot: true },
+        });
+        const revenue = orderItems.reduce((sum, oi) => sum + oi.quantity * Number(oi.priceSnapshot), 0);
+        const sales = orderItems.reduce((sum, oi) => sum + oi.quantity, 0);
+        return {
+          name: prod.name,
+          sales,
+          revenue,
+        };
+      })
+    );
+
     return {
-      totalRevenue: totalRevenue._sum.totalAmount || 0,
+      totalRevenue: revenueVal,
       totalOrders,
       totalCustomers,
       totalProducts,
-      pendingOrders: 0,
-      deliveredOrders: 0,
-      cancelledOrders: 0,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
       lowStockCount: lowStockItems,
-      revenueGrowth: 0,
-      ordersGrowth: 0,
-      customersGrowth: 0,
-      productsGrowth: 0,
-      monthlySales: [],
-      categoryBreakdown: [],
-      topProducts: topProducts,
+      revenueGrowth,
+      ordersGrowth,
+      customersGrowth,
+      productsGrowth,
+      monthlySales,
+      categoryBreakdown,
+      topProducts: formattedTopProducts,
       recentOrders,
     };
   }

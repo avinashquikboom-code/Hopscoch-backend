@@ -309,7 +309,160 @@ export class AdminService {
       prisma.order.count({ where: { status: 'CANCELLED' } }),
     ]);
 
-    const revenueVal = totalRevenue._sum.totalAmount || 0;
+    const revenueVal = Number(totalRevenue._sum.totalAmount || 0);
+
+    // Calculate growth rates (comparing current month to previous month)
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [
+      currentMonthRevenueAgg,
+      prevMonthRevenueAgg,
+      currentMonthOrders,
+      prevMonthOrders,
+      currentMonthCustomers,
+      prevMonthCustomers,
+      currentMonthProducts,
+      prevMonthProducts,
+      categories,
+      topSellingItems,
+      ordersLast6Months,
+    ] = await Promise.all([
+      prisma.order.aggregate({
+        where: {
+          status: { in: ['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'] },
+          createdAt: { gte: startOfCurrentMonth },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.order.aggregate({
+        where: {
+          status: { in: ['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'] },
+          createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.user.count({
+        where: { deletedAt: null, createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.user.count({
+        where: { deletedAt: null, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.product.count({
+        where: { status: 'PUBLISHED', deletedAt: null, createdAt: { gte: startOfCurrentMonth } },
+      }),
+      prisma.product.count({
+        where: { status: 'PUBLISHED', deletedAt: null, createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+      }),
+      prisma.category.findMany({
+        where: { deletedAt: null },
+        select: {
+          name: true,
+          products: {
+            where: { deletedAt: null },
+            select: { id: true },
+          },
+        },
+      }),
+      prisma.orderItem.groupBy({
+        by: ['productId', 'productNameSnapshot'],
+        _sum: {
+          quantity: true,
+        },
+        orderBy: {
+          _sum: {
+            quantity: 'desc',
+          },
+        },
+        take: 5,
+      }),
+      prisma.order.findMany({
+        where: {
+          createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 5, 1) },
+        },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+          status: true,
+        },
+      }),
+    ]);
+
+    const currentMonthRevenue = Number(currentMonthRevenueAgg._sum.totalAmount || 0);
+    const prevMonthRevenue = Number(prevMonthRevenueAgg._sum.totalAmount || 0);
+    const revenueGrowth = prevMonthRevenue > 0
+      ? Number((((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100).toFixed(1))
+      : 0;
+
+    const ordersGrowth = prevMonthOrders > 0
+      ? Number((((currentMonthOrders - prevMonthOrders) / prevMonthOrders) * 100).toFixed(1))
+      : 0;
+
+    const customersGrowth = prevMonthCustomers > 0
+      ? Number((((currentMonthCustomers - prevMonthCustomers) / prevMonthCustomers) * 100).toFixed(1))
+      : 0;
+
+    const productsGrowth = prevMonthProducts > 0
+      ? Number((((currentMonthProducts - prevMonthProducts) / prevMonthProducts) * 100).toFixed(1))
+      : 0;
+
+    // Monthly sales formatting for chart
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlySalesMap: Record<string, { revenue: number; orders: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      monthlySalesMap[monthName] = { revenue: 0, orders: 0 };
+    }
+
+    ordersLast6Months.forEach(order => {
+      const date = new Date(order.createdAt);
+      const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
+      if (monthlySalesMap[monthName]) {
+        monthlySalesMap[monthName].orders++;
+        if (['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'].includes(order.status)) {
+          monthlySalesMap[monthName].revenue += Number(order.totalAmount);
+        }
+      }
+    });
+
+    const monthlySales = Object.entries(monthlySalesMap).map(([month, data]) => ({
+      month,
+      revenue: Number(data.revenue.toFixed(2)),
+      orders: data.orders,
+    }));
+
+    // Category breakdown
+    const categoryBreakdown = categories
+      .map(cat => ({
+        name: cat.name,
+        value: cat.products.length,
+      }))
+      .filter(c => c.value > 0);
+
+    // Top products mapping
+    const topProducts = await Promise.all(
+      topSellingItems.map(async (item) => {
+        const orderItems = await prisma.orderItem.findMany({
+          where: { productId: item.productId },
+          select: { quantity: true, priceSnapshot: true },
+        });
+        const revenue = orderItems.reduce((sum, oi) => sum + oi.quantity * Number(oi.priceSnapshot), 0);
+        return {
+          name: item.productNameSnapshot,
+          sales: item._sum.quantity || 0,
+          revenue,
+        };
+      })
+    );
 
     return {
       totalRevenue: revenueVal,
@@ -320,13 +473,13 @@ export class AdminService {
       deliveredOrders,
       cancelledOrders,
       lowStockCount: lowStockItems,
-      revenueGrowth: 0,
-      ordersGrowth: 0,
-      customersGrowth: 0,
-      productsGrowth: 0,
-      monthlySales: [],
-      categoryBreakdown: [],
-      topProducts: [],
+      revenueGrowth,
+      ordersGrowth,
+      customersGrowth,
+      productsGrowth,
+      monthlySales,
+      categoryBreakdown,
+      topProducts,
       stats: {
         totalUsers,
         activeUsers,

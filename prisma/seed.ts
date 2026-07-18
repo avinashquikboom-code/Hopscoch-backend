@@ -1,12 +1,23 @@
-import { Gender, AgeGroup, ProductStatus, Role, WarehouseStatus } from '@prisma/client';
+import { Gender, AgeGroup, ProductStatus, Role, WarehouseStatus, OrderStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import prisma from '../src/utils/prisma';
 
 async function main() {
   console.log('🌱 Start seeding mock database...');
 
-  // 0. Create Users
-  console.log('Creating users...');
+  // Clean up existing records to ensure clean idempotent run
+  console.log('Cleaning up existing database records...');
+  await prisma.payment.deleteMany();
+  await prisma.orderTimelineEvent.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.warehouseInventory.deleteMany();
+  await prisma.productVariant.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.user.deleteMany({ where: { role: { not: Role.ADMIN } } });
+
+  // 0. Create Admin User
+  console.log('Creating admin user...');
   const hashedPassword = await bcrypt.hash('123456', 10);
   
   await prisma.user.upsert({
@@ -83,9 +94,9 @@ async function main() {
     },
   });
 
-  // 1.5. Create Default Warehouse
+  // 2.5. Create Default Warehouse
   console.log('Creating default warehouse...');
-  await prisma.warehouse.upsert({
+  const defaultWarehouse = await prisma.warehouse.upsert({
     where: { code: 'AURA-MUM-01' },
     update: {},
     create: {
@@ -193,7 +204,269 @@ async function main() {
     },
   });
 
-  // 4. Create Banners
+  // 4. Create Customers
+  console.log('Creating customer users...');
+  const customersData = [
+    { email: 'john@gmail.com', firstName: 'John', lastName: 'Doe' },
+    { email: 'jane@gmail.com', firstName: 'Jane', lastName: 'Smith' },
+    { email: 'amit@gmail.com', firstName: 'Amit', lastName: 'Sharma' },
+    { email: 'priya@gmail.com', firstName: 'Priya', lastName: 'Patel' },
+  ];
+  
+  const customers = [];
+  for (const c of customersData) {
+    const user = await prisma.user.upsert({
+      where: { email: c.email },
+      update: {},
+      create: {
+        email: c.email,
+        passwordHash: hashedPassword,
+        role: Role.CUSTOMER,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        isEmailVerified: true,
+        isActive: true,
+      },
+    });
+    
+    // Create address
+    await prisma.address.create({
+      data: {
+        userId: user.id,
+        fullName: `${c.firstName} ${c.lastName}`,
+        phone: '9876543210',
+        line1: '123 Fashion Street',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        country: 'India',
+        pincode: '400001',
+        isDefault: true,
+      },
+    });
+    
+    customers.push(user);
+  }
+
+  // 5. Create Product Variants and warehouse inventories
+  console.log('Creating variants and inventories...');
+  const variants = [];
+  
+  // Product 1 variants
+  const p1_variants = [
+    { sku: 'CLJ-BLK-S', size: 'S', color: 'Black', price: 89.99, stock: 12 },
+    { sku: 'CLJ-BLK-M', size: 'M', color: 'Black', price: 89.99, stock: 3 }, // low stock
+    { sku: 'CLJ-BLK-L', size: 'L', color: 'Black', price: 89.99, stock: 0 }, // out of stock
+  ];
+  for (const v of p1_variants) {
+    const variant = await prisma.productVariant.upsert({
+      where: { sku: v.sku },
+      update: { stock: v.stock },
+      create: {
+        productId: product1.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        price: v.price,
+        stock: v.stock,
+      },
+    });
+    
+    await prisma.warehouseInventory.upsert({
+      where: { warehouseId_variantId: { warehouseId: defaultWarehouse.id, variantId: variant.id } },
+      update: { availableStock: v.stock },
+      create: {
+        warehouseId: defaultWarehouse.id,
+        variantId: variant.id,
+        availableStock: v.stock,
+        soldStock: 5,
+        minimumStock: 5,
+      },
+    });
+    variants.push(variant);
+  }
+
+  // Product 2 variants
+  const p2_variants = [
+    { sku: 'DTJ-BLU-M', size: 'M', color: 'Blue', price: 59.99, stock: 20 },
+    { sku: 'DTJ-BLU-L', size: 'L', color: 'Blue', price: 59.99, stock: 15 },
+  ];
+  for (const v of p2_variants) {
+    const variant = await prisma.productVariant.upsert({
+      where: { sku: v.sku },
+      update: { stock: v.stock },
+      create: {
+        productId: product2.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        price: v.price,
+        stock: v.stock,
+      },
+    });
+    await prisma.warehouseInventory.upsert({
+      where: { warehouseId_variantId: { warehouseId: defaultWarehouse.id, variantId: variant.id } },
+      update: { availableStock: v.stock },
+      create: {
+        warehouseId: defaultWarehouse.id,
+        variantId: variant.id,
+        availableStock: v.stock,
+        soldStock: 8,
+        minimumStock: 5,
+      },
+    });
+    variants.push(variant);
+  }
+
+  // Product 3 variants
+  const p3_variants = [
+    { sku: 'FPK-RED-S', size: 'S', color: 'Red', price: 49.99, stock: 8 },
+    { sku: 'FPK-RED-M', size: 'M', color: 'Red', price: 49.99, stock: 25 },
+  ];
+  for (const v of p3_variants) {
+    const variant = await prisma.productVariant.upsert({
+      where: { sku: v.sku },
+      update: { stock: v.stock },
+      create: {
+        productId: product3.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        price: v.price,
+        stock: v.stock,
+      },
+    });
+    await prisma.warehouseInventory.upsert({
+      where: { warehouseId_variantId: { warehouseId: defaultWarehouse.id, variantId: variant.id } },
+      update: { availableStock: v.stock },
+      create: {
+        warehouseId: defaultWarehouse.id,
+        variantId: variant.id,
+        availableStock: v.stock,
+        soldStock: 12,
+        minimumStock: 5,
+      },
+    });
+    variants.push(variant);
+  }
+
+  // 6. Create Historical Orders
+  console.log('Creating historical orders...');
+  const getPastDate = (daysAgo: number): Date => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date;
+  };
+  
+  const orderList = [
+    { daysAgo: 2, status: OrderStatus.DELIVERED, customerIndex: 0, variantIndexes: [0, 3], quantities: [1, 2] },
+    { daysAgo: 5, status: OrderStatus.CONFIRMED, customerIndex: 1, variantIndexes: [1], quantities: [1] },
+    { daysAgo: 8, status: OrderStatus.PROCESSING, customerIndex: 2, variantIndexes: [4, 5], quantities: [1, 1] },
+    { daysAgo: 12, status: OrderStatus.SHIPPED, customerIndex: 3, variantIndexes: [2], quantities: [2] },
+    { daysAgo: 15, status: OrderStatus.PENDING, customerIndex: 0, variantIndexes: [3], quantities: [1] },
+    { daysAgo: 20, status: OrderStatus.CANCELLED, customerIndex: 1, variantIndexes: [0], quantities: [1] },
+    // Previous month (June)
+    { daysAgo: 32, status: OrderStatus.DELIVERED, customerIndex: 2, variantIndexes: [1, 5], quantities: [2, 1] },
+    { daysAgo: 35, status: OrderStatus.DELIVERED, customerIndex: 3, variantIndexes: [3], quantities: [1] },
+    { daysAgo: 40, status: OrderStatus.DELIVERED, customerIndex: 0, variantIndexes: [4], quantities: [3] },
+    { daysAgo: 45, status: OrderStatus.CANCELLED, customerIndex: 1, variantIndexes: [2], quantities: [1] },
+    // May
+    { daysAgo: 65, status: OrderStatus.DELIVERED, customerIndex: 2, variantIndexes: [0, 4], quantities: [1, 1] },
+    { daysAgo: 70, status: OrderStatus.DELIVERED, customerIndex: 3, variantIndexes: [1], quantities: [1] },
+    { daysAgo: 75, status: OrderStatus.DELIVERED, customerIndex: 0, variantIndexes: [3, 5], quantities: [1, 2] },
+    // April
+    { daysAgo: 95, status: OrderStatus.DELIVERED, customerIndex: 1, variantIndexes: [2, 3], quantities: [1, 1] },
+    { daysAgo: 100, status: OrderStatus.DELIVERED, customerIndex: 2, variantIndexes: [0], quantities: [2] },
+  ];
+  
+  let orderCounter = 1000;
+  for (const o of orderList) {
+    orderCounter++;
+    const customer = customers[o.customerIndex];
+    const orderDate = getPastDate(o.daysAgo);
+    
+    const address = await prisma.address.findFirst({
+      where: { userId: customer.id }
+    });
+    
+    if (!address) continue;
+    
+    let subtotal = 0;
+    const itemsToCreate = [];
+    
+    for (let j = 0; j < o.variantIndexes.length; j++) {
+      const variant = variants[o.variantIndexes[j]];
+      const qty = o.quantities[j];
+      const price = Number(variant.price);
+      subtotal += price * qty;
+      
+      const prod = await prisma.product.findUnique({
+        where: { id: variant.productId }
+      });
+      
+      itemsToCreate.push({
+        productId: variant.productId,
+        variantId: variant.id,
+        productNameSnapshot: prod?.name || 'Product',
+        variantSnapshot: {
+          size: variant.size,
+          color: variant.color,
+          sku: variant.sku,
+        },
+        priceSnapshot: variant.price,
+        quantity: qty,
+      });
+    }
+    
+    const taxAmount = subtotal * 0.18; 
+    const shippingAmount = subtotal > 100 ? 0 : 15;
+    const totalAmount = subtotal + taxAmount + shippingAmount;
+    
+    const order = await prisma.order.create({
+      data: {
+        orderNumber: `ORD-${orderDate.getFullYear()}-${orderCounter}`,
+        userId: customer.id,
+        addressId: address.id,
+        status: o.status,
+        subtotal: subtotal.toFixed(2),
+        taxAmount: taxAmount.toFixed(2),
+        shippingAmount: shippingAmount.toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
+        createdAt: orderDate,
+        updatedAt: orderDate,
+      }
+    });
+    
+    for (const item of itemsToCreate) {
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id,
+          ...item
+        }
+      });
+    }
+    
+    await prisma.payment.create({
+      data: {
+        orderId: order.id,
+        method: 'CARD',
+        status: ([OrderStatus.DELIVERED, OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPED] as OrderStatus[]).includes(o.status) ? 'PAID' : o.status === OrderStatus.CANCELLED ? 'FAILED' : 'PENDING',
+        amount: totalAmount.toFixed(2),
+        createdAt: orderDate,
+        updatedAt: orderDate,
+      }
+    });
+    
+    await prisma.orderTimelineEvent.create({
+      data: {
+        orderId: order.id,
+        status: o.status,
+        note: `Order status set to ${o.status}`,
+        createdAt: orderDate,
+      }
+    });
+  }
+
+  // 7. Create Banners
   console.log('Creating banners...');
   await prisma.banner.upsert({
     where: { id: 1 },
@@ -225,53 +498,7 @@ async function main() {
     },
   });
 
-  await prisma.banner.upsert({
-    where: { id: 3 },
-    update: {},
-    create: {
-      id: 3,
-      title: 'Kurta & Kurtis Festival',
-      description: 'Premium traditional ethnic wear collections',
-      imageUrl: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&auto=format&fit=crop&q=80',
-      position: 'HOME',
-      type: 'ethnic',
-      isActive: true,
-      sortOrder: 3,
-    },
-  });
-
-  await prisma.banner.upsert({
-    where: { id: 4 },
-    update: {},
-    create: {
-      id: 4,
-      title: 'Exclusive Silk Sarees',
-      description: 'Handcrafted luxury sarees from top weavers',
-      imageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=1200&auto=format&fit=crop&q=80',
-      position: 'HOME',
-      type: 'seasonal',
-      isActive: true,
-      sortOrder: 4,
-    },
-  });
-
-  await prisma.banner.upsert({
-    where: { id: 5 },
-    update: {},
-    create: {
-      id: 5,
-      title: 'Western Streetwear',
-      description: 'Upgrade your look with premium denim',
-      imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&auto=format&fit=crop&q=80',
-      position: 'HOME',
-      type: 'exclusive',
-      isActive: true,
-      sortOrder: 5,
-    },
-  });
-
   console.log('✅ Seeding completed successfully!');
-  console.log(`Seeded: \n- ${product1.name}\n- ${product2.name}\n- ${product3.name}\n- 5 Banners`);
 }
 
 main()
