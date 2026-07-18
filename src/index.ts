@@ -55,8 +55,18 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // 1. CORS (registered BEFORE helmet, routes, and static file handlers)
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
-  .split(',').map(o => o.trim());
+const defaultOrigins = [
+  'https://admin.fciseller.com',
+  'https://fciseller.com',
+  'https://www.fciseller.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001'
+];
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : defaultOrigins;
 
 app.use(cors({
   origin: (origin, cb) => (!origin || allowedOrigins.includes(origin))
