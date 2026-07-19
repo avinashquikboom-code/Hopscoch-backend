@@ -220,25 +220,63 @@ export class SettingsService {
     return updatedPreferences;
   }
 
-  async getLanguages() {
-    const languages = [
-      { code: 'en', name: 'English', nativeName: 'English', isActive: true, isDefault: true },
-      { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', isActive: true, isDefault: false },
-      { code: 'es', name: 'Spanish', nativeName: 'Español', isActive: true, isDefault: false },
-      { code: 'fr', name: 'French', nativeName: 'Français', isActive: true, isDefault: false },
-    ];
+  private getSettingsFilePath(): string {
+    const path = require('path');
+    return path.join(process.cwd(), 'data', 'app_settings.json');
+  }
 
-    return languages;
+  private readSettingsFile(): any {
+    const fs = require('fs');
+    try {
+      const filePath = this.getSettingsFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (err) {
+      logger.error(`Failed to read app settings file: ${err}`);
+    }
+    return { languages: [], currencies: [], countries: [] };
+  }
+
+  private writeSettingsFile(data: any): void {
+    const fs = require('fs');
+    try {
+      const filePath = this.getSettingsFilePath();
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      logger.error(`Failed to write app settings file: ${err}`);
+    }
+  }
+
+  async getLanguages() {
+    const data = this.readSettingsFile();
+    return data.languages || [];
   }
 
   async getCurrencies() {
-    const currencies = [
-      { code: 'INR', name: 'Indian Rupee', symbol: '₹', exchangeRate: 1, isActive: true, isDefault: true },
-      { code: 'USD', name: 'US Dollar', symbol: '$', exchangeRate: 0.012, isActive: true, isDefault: false },
-      { code: 'EUR', name: 'Euro', symbol: '€', exchangeRate: 0.011, isActive: true, isDefault: false },
-      { code: 'GBP', name: 'British Pound', symbol: '£', exchangeRate: 0.0095, isActive: true, isDefault: false },
-    ];
+    const data = this.readSettingsFile();
+    return data.currencies || [];
+  }
 
+  async getCountries() {
+    const data = this.readSettingsFile();
+    return data.countries || [];
+  }
+
+  async updateLanguages(languages: any[]) {
+    const data = this.readSettingsFile();
+    data.languages = languages;
+    this.writeSettingsFile(data);
+    logger.info('Languages updated in config file');
+    return languages;
+  }
+
+  async updateCurrencies(currencies: any[]) {
+    const data = this.readSettingsFile();
+    data.currencies = currencies;
+    this.writeSettingsFile(data);
+    logger.info('Currencies updated in config file');
     return currencies;
   }
 }

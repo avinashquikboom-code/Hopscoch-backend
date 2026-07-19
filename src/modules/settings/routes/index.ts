@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import SettingsController from '../controllers/settings.controller';
-import { authenticate } from '../../../middleware/auth';
+import { authenticate, authorize } from '../../../middleware/auth';
 import MarketingService from '../../marketing/services/marketing.service';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import path from 'path';
@@ -128,6 +128,7 @@ router.patch('/user', authenticate, settingsController.updateUserPreferences.bin
  *         description: Languages retrieved successfully
  */
 router.get('/languages', settingsController.getLanguages.bind(settingsController));
+router.put('/languages', authenticate, authorize('ADMIN'), settingsController.updateLanguages.bind(settingsController));
 
 /**
  * @swagger
@@ -140,6 +141,9 @@ router.get('/languages', settingsController.getLanguages.bind(settingsController
  *         description: Currencies retrieved successfully
  */
 router.get('/currencies', settingsController.getCurrencies.bind(settingsController));
+router.put('/currencies', authenticate, authorize('ADMIN'), settingsController.updateCurrencies.bind(settingsController));
+
+router.get('/countries', settingsController.getCountries.bind(settingsController));
 
 // Banners management API routes
 router.get('/banners', authenticate, async (req, res, next) => {

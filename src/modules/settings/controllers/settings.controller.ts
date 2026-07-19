@@ -72,6 +72,33 @@ export class SettingsController {
       throw error;
     }
   }
+
+  async getCountries(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const countries = await SettingsService.getCountries();
+      ResponseFormatter.success(res, 'Countries retrieved successfully', countries);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateLanguages(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const languages = await SettingsService.updateLanguages(req.body.languages || req.body);
+      ResponseFormatter.success(res, 'Languages updated successfully', languages);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateCurrencies(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const currencies = await SettingsService.updateCurrencies(req.body.currencies || req.body);
+      ResponseFormatter.success(res, 'Currencies updated successfully', currencies);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new SettingsController();
