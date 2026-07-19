@@ -53,6 +53,9 @@ export class CatalogService {
             where: { sortOrder: 0 },
             take: 1,
           },
+          variants: {
+            where: { deletedAt: null },
+          },
         },
         orderBy,
         skip,
@@ -156,6 +159,9 @@ export class CatalogService {
         images: {
           where: { sortOrder: 0 },
           take: 1,
+        },
+        variants: {
+          where: { deletedAt: null },
         },
       },
       take: 8,

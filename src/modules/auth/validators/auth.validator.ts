@@ -2,9 +2,12 @@ import { z } from 'zod';
 
 export const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  phone: z.string().regex(/^[0-9]{10}$/, 'Invalid phone number').optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional(),
+  name: z.string().optional(),
+  phone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number').optional(),
+  avatarUrl: z.string().optional(),
   deviceType: z.enum(['mobile', 'web', 'admin']).optional(),
   platform: z.string().optional(),
   browser: z.string().optional(),

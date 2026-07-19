@@ -59,8 +59,11 @@ export class AuthService {
   async register(data: {
     email: string;
     password: string;
+    firstName: string;
+    lastName?: string;
     name?: string;
     phone?: string;
+    avatarUrl?: string;
     deviceType?: string;
     platform?: string;
     browser?: string;

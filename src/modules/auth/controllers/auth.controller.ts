@@ -16,6 +16,9 @@ import {
 export class AuthController {
   async register(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      if (req.file) {
+        req.body.avatarUrl = `/uploads/${req.file.filename}`;
+      }
       const validatedData = registerSchema.parse(req.body);
       const deviceInfo = {
         deviceType: validatedData.deviceType,

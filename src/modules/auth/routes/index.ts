@@ -2,6 +2,7 @@ import { Router } from 'express';
 import AuthController from '../controllers/auth.controller';
 import { authenticate } from '../../../middleware/auth';
 import { authRateLimiter } from '../../../middleware/rateLimiter';
+import { upload } from '../../../middleware/upload';
 
 const router = Router();
 const authController = AuthController;
@@ -55,7 +56,7 @@ const authController = AuthController;
  *       409:
  *         description: User already exists
  */
-router.post('/register', authRateLimiter, authController.register.bind(authController));
+router.post('/register', authRateLimiter, upload.single('profileImage'), authController.register.bind(authController));
 
 /**
  * @swagger

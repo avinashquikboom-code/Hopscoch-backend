@@ -19,13 +19,26 @@ export class AuthRepository {
   async create(data: {
     email: string;
     password: string;
+    firstName?: string;
+    lastName?: string;
     name?: string;
     phone?: string;
+    avatarUrl?: string;
   }): Promise<User> {
     const hashedPassword = await bcrypt.hash(data.password, 12);
-    const nameParts = (data.name || '').trim().split(/\s+/);
-    const firstName = nameParts[0] || 'User';
-    const lastName = nameParts.slice(1).join(' ') || null;
+    
+    let firstName = data.firstName || '';
+    let lastName = data.lastName || null;
+    
+    if (!firstName && data.name) {
+      const nameParts = data.name.trim().split(/\s+/);
+      firstName = nameParts[0] || 'User';
+      lastName = nameParts.slice(1).join(' ') || null;
+    }
+    
+    if (!firstName) {
+      firstName = 'User';
+    }
 
     return prisma.user.create({
       data: {
@@ -34,6 +47,7 @@ export class AuthRepository {
         firstName,
         lastName,
         phone: data.phone,
+        avatarUrl: data.avatarUrl,
       },
     });
   }
