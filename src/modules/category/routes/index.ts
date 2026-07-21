@@ -7,14 +7,23 @@ import { ResponseFormatter } from '../../../utils/responseFormatter';
 
 const router = Router();
 
-// GET all categories
+// GET all categories (Top-level categories with subcategories nested in children)
 router.get('/', async (req, res, next) => {
   try {
+    const flat = req.query.flat === 'true';
+    const whereCondition: any = { deletedAt: null };
+    if (!flat) {
+      whereCondition.parentId = null;
+    }
+
     const categories = await prisma.category.findMany({
-      where: { deletedAt: null },
+      where: whereCondition,
       include: {
         parent: true,
-        children: true,
+        children: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { sortOrder: 'asc' },
     });

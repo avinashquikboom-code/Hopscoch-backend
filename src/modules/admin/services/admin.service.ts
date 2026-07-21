@@ -5,6 +5,19 @@ import bcrypt from 'bcrypt';
 import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 
+// Configure Cloudinary using environment variables
+if (process.env.CLOUDINARY_URL) {
+  cloudinary.config({
+    cloudinary_url: process.env.CLOUDINARY_URL,
+  });
+} else if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name') {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
 export class AdminService {
   async createAdminUser(data: {
     email: string;
@@ -779,6 +792,7 @@ export class AdminService {
           slug: true,
           status: true,
           basePrice: true,
+          thumbnailUrl: true,
           gender: true,
           ageGroup: true,
           isFeatured: true,
@@ -789,6 +803,21 @@ export class AdminService {
           reviewCount: true,
           createdAt: true,
           updatedAt: true,
+          images: {
+            select: {
+              id: true,
+              url: true,
+              altText: true,
+            },
+          },
+          variants: {
+            select: {
+              id: true,
+              sku: true,
+              price: true,
+              stock: true,
+            },
+          },
           category: {
             select: {
               id: true,
@@ -860,14 +889,18 @@ export class AdminService {
 
     // Resolve price
     const basePrice = data.basePrice !== undefined ? Number(data.basePrice) : (data.price !== undefined ? Number(data.price) : 0);
-    // Resolve slug
-    let slug = data.slug;
-    if (!slug && data.name) {
-      slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now();
-    } else if (slug) {
-      slug = slug.toLowerCase().replace(/\s+/g, '-');
-    } else {
-      slug = 'product-' + Date.now();
+    
+    // Resolve slug and ensure uniqueness
+    let baseSlug = data.slug;
+    if (!baseSlug && data.name) {
+      baseSlug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+    if (!baseSlug) baseSlug = 'product';
+
+    let slug = baseSlug;
+    const existingSlug = await prisma.product.findUnique({ where: { slug } });
+    if (existingSlug) {
+      slug = `${baseSlug}-${Date.now()}`;
     }
 
     const product = await prisma.product.create({
@@ -875,6 +908,7 @@ export class AdminService {
         name: data.name,
         slug: slug,
         description: data.description,
+        thumbnailUrl: data.thumbnailUrl || null,
         categoryId: categoryId!,
         brandId: brandId!,
         basePrice: basePrice,
@@ -887,6 +921,25 @@ export class AdminService {
         isBestSeller: data.isBestSeller || false,
       }
     });
+
+    if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
+      for (const imgUrl of data.imageUrls) {
+        await prisma.productImage.create({
+          data: {
+            productId: product.id,
+            url: imgUrl,
+            altText: data.name || '',
+            sortOrder: 0,
+          }
+        });
+      }
+      if (!product.thumbnailUrl) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { thumbnailUrl: data.imageUrls[0] },
+        });
+      }
+    }
 
     // Resolve default warehouse
     let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
@@ -911,12 +964,23 @@ export class AdminService {
       });
     }
 
+    // Helper to generate a unique SKU
+    const generateUniqueSku = async (inputSku?: string) => {
+      let candidate = inputSku || `${product.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const existing = await prisma.productVariant.findUnique({ where: { sku: candidate } });
+      if (existing) {
+        candidate = `${candidate}-${Date.now().toString().slice(-4)}`;
+      }
+      return candidate;
+    };
+
     if (Array.isArray(data.variants) && data.variants.length > 0) {
       for (const v of data.variants) {
+        const uniqueSku = await generateUniqueSku(v.sku);
         const variant = await prisma.productVariant.create({
           data: {
             productId: product.id,
-            sku: v.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
+            sku: uniqueSku,
             price: v.price !== undefined ? Number(v.price) : product.basePrice,
             stock: v.stock !== undefined ? Number(v.stock) : 0,
             color: v.color || 'Default',
@@ -937,10 +1001,11 @@ export class AdminService {
       logger.info(`Product created: ${product.id} and ${data.variants.length} variant(s) created with warehouse inventory`);
     } else {
       const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
+      const uniqueSku = await generateUniqueSku(data.sku);
       const variant = await prisma.productVariant.create({
         data: {
           productId: product.id,
-          sku: data.sku || `${product.slug}-${Date.now().toString().slice(-4)}`,
+          sku: uniqueSku,
           price: product.basePrice,
           stock: stockVal,
           color: 'Default',
@@ -2203,8 +2268,8 @@ export class AdminService {
 
     let url: string;
     const isCloudinaryConfigured = 
-      process.env.CLOUDINARY_CLOUD_NAME && 
-      process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name';
+      Boolean(process.env.CLOUDINARY_URL) ||
+      (Boolean(process.env.CLOUDINARY_CLOUD_NAME) && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name');
 
     if (isCloudinaryConfigured) {
       try {
@@ -2225,22 +2290,34 @@ export class AdminService {
 
     // Save image record to database
     const productId = Number(data.productId);
-    const image = await prisma.productImage.create({
-      data: {
-        productId,
-        url,
-        altText: data.altText || '',
-        sortOrder: 0,
-      },
-      select: {
-        id: true,
-        url: true,
-        altText: true,
-      },
-    });
+    let image = null;
+    if (!isNaN(productId) && productId > 0) {
+      image = await prisma.productImage.create({
+        data: {
+          productId,
+          url,
+          altText: data.altText || '',
+          sortOrder: 0,
+        },
+        select: {
+          id: true,
+          url: true,
+          altText: true,
+        },
+      });
 
-    logger.info(`Image uploaded: ${image.id} with URL: ${url}`);
-    return image;
+      // Update product's thumbnailUrl if it's empty
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (product && !product.thumbnailUrl) {
+        await prisma.product.update({
+          where: { id: productId },
+          data: { thumbnailUrl: url },
+        });
+      }
+    }
+
+    logger.info(`Image uploaded: ${image?.id || 'standalone'} with URL: ${url}`);
+    return image || { url };
   }
 
   async deleteImage(imageId: any) {
@@ -2877,8 +2954,8 @@ export class AdminService {
 
     let url: string;
     const isCloudinaryConfigured = 
-      process.env.CLOUDINARY_CLOUD_NAME && 
-      process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name';
+      Boolean(process.env.CLOUDINARY_URL) ||
+      (Boolean(process.env.CLOUDINARY_CLOUD_NAME) && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name');
 
     if (isCloudinaryConfigured) {
       try {

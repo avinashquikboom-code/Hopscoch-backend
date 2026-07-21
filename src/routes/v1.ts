@@ -3,6 +3,7 @@ import { authenticate, authorize } from '../middleware/auth';
 import IntegrationController from '../modules/settings/controllers/integration.controller';
 import PaymentController from '../modules/payments/controllers/payment.controller';
 import ShipmentController from '../modules/shipments/controllers/shipment.controller';
+import OrderController from '../modules/order/controllers/order.controller';
 
 const router = Router();
 
@@ -183,5 +184,9 @@ router.post(
 // ==========================================
 router.post('/shipping/webhook', ShipmentController.handleWebhook.bind(ShipmentController));
 router.post('/payments/webhook', PaymentController.handleWebhook.bind(PaymentController));
+
+// Web and Mobile Order Creation Routes (Phase 1)
+router.post('/web/orders', authenticate, OrderController.createOrder.bind(OrderController));
+router.post('/mobile/orders', authenticate, OrderController.createOrder.bind(OrderController));
 
 export default router;

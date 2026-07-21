@@ -63,7 +63,8 @@ export class OrderController {
         return;
       }
       const { orderId } = req.params;
-      const order = await OrderService.cancelOrder(req.user.id, orderId);
+      const { reason } = req.body || {};
+      const order = await OrderService.cancelOrder(req.user.id, orderId, reason);
       ResponseFormatter.success(res, 'Order cancelled successfully', order);
     } catch (error) {
       throw error;
