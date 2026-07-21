@@ -944,19 +944,9 @@ export class AdminService {
     // Resolve default warehouse
     const warehouse = await this.getOrCreateDefaultWarehouse();
 
-    // Helper to generate a unique SKU
-    const generateUniqueSku = async (inputSku?: string) => {
-      let candidate = inputSku || `${product.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const existing = await prisma.productVariant.findUnique({ where: { sku: candidate } });
-      if (existing) {
-        candidate = `${candidate}-${Date.now().toString().slice(-4)}`;
-      }
-      return candidate;
-    };
-
     if (Array.isArray(data.variants) && data.variants.length > 0) {
       for (const v of data.variants) {
-        const uniqueSku = await generateUniqueSku(v.sku);
+        const uniqueSku = await this.generateUniqueSku(product.slug, v.sku);
         const variant = await prisma.productVariant.create({
           data: {
             productId: product.id,
@@ -981,7 +971,7 @@ export class AdminService {
       logger.info(`Product created: ${product.id} and ${data.variants.length} variant(s) created with warehouse inventory`);
     } else {
       const stockVal = data.stock !== undefined ? Number(data.stock) : 10;
-      const uniqueSku = await generateUniqueSku(data.sku);
+      const uniqueSku = await this.generateUniqueSku(product.slug, data.sku);
       const variant = await prisma.productVariant.create({
         data: {
           productId: product.id,
@@ -1061,15 +1051,61 @@ export class AdminService {
       delete updateData.stock;
     }
 
-    // Handle variant stock updates
+    // Handle variant updates & additions (color, size, material, pattern, barcode, price, stock, sku)
     if (updateData.variants && Array.isArray(updateData.variants)) {
-      for (const variant of updateData.variants) {
-        if (variant.id && variant.stock !== undefined) {
-          await prisma.productVariant.update({
-            where: { id: Number(variant.id) },
-            data: { stock: parseInt(variant.stock) },
+      const warehouse = await this.getOrCreateDefaultWarehouse();
+      for (const v of updateData.variants) {
+        if (v.id) {
+          const vUpdate: any = {};
+          if (v.stock !== undefined) vUpdate.stock = parseInt(v.stock);
+          if (v.price !== undefined) vUpdate.price = parseFloat(v.price);
+          if (v.color !== undefined) vUpdate.color = String(v.color);
+          if (v.size !== undefined) vUpdate.size = String(v.size);
+          if (v.material !== undefined) vUpdate.material = String(v.material);
+          if (v.pattern !== undefined) vUpdate.pattern = String(v.pattern);
+          if (v.sku !== undefined) vUpdate.sku = String(v.sku);
+          if (v.barcode !== undefined) vUpdate.barcode = String(v.barcode);
+
+          if (Object.keys(vUpdate).length > 0) {
+            const updatedV = await prisma.productVariant.update({
+              where: { id: Number(v.id) },
+              data: vUpdate,
+            });
+
+            if (v.stock !== undefined) {
+              await prisma.warehouseInventory.updateMany({
+                where: { variantId: Number(v.id) },
+                data: { availableStock: parseInt(v.stock) },
+              });
+            }
+            logger.info(`Variant updated: ${updatedV.id} (color: ${updatedV.color}, size: ${updatedV.size})`);
+          }
+        } else {
+          // Add new variant to existing product
+          const uniqueSku = await this.generateUniqueSku(product.slug, v.sku);
+          const newVar = await prisma.productVariant.create({
+            data: {
+              productId: id,
+              sku: uniqueSku,
+              price: v.price !== undefined && v.price !== '' ? Number(v.price) : product.basePrice,
+              stock: v.stock !== undefined && v.stock !== '' ? Number(v.stock) : 0,
+              color: v.color || 'Default',
+              size: v.size || 'One Size',
+              material: v.material || null,
+              pattern: v.pattern || null,
+              barcode: v.barcode || null,
+            }
           });
-          logger.info(`Variant stock updated: ${variant.id}, new stock: ${variant.stock}`);
+
+          await prisma.warehouseInventory.create({
+            data: {
+              variantId: newVar.id,
+              warehouseId: warehouse.id,
+              availableStock: newVar.stock,
+              minimumStock: 5,
+            }
+          });
+          logger.info(`New variant created for product ${id}: ${newVar.id} (color: ${newVar.color}, size: ${newVar.size})`);
         }
       }
       delete updateData.variants;
@@ -1762,6 +1798,15 @@ export class AdminService {
       });
     }
     return warehouse;
+  }
+
+  async generateUniqueSku(productSlug: string, inputSku?: string) {
+    let candidate = inputSku || `${productSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const existing = await prisma.productVariant.findUnique({ where: { sku: candidate } });
+    if (existing) {
+      candidate = `${candidate}-${Date.now().toString().slice(-4)}`;
+    }
+    return candidate;
   }
 
   async getWarehouses(query: { page?: number; limit?: number; search?: string; status?: string }) {
