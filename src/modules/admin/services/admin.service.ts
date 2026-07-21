@@ -942,27 +942,7 @@ export class AdminService {
     }
 
     // Resolve default warehouse
-    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
-    if (!warehouse) {
-      warehouse = await prisma.warehouse.findFirst();
-    }
-    if (!warehouse) {
-      warehouse = await prisma.warehouse.create({
-        data: {
-          name: 'Default Warehouse',
-          code: 'WH-DEFAULT',
-          address: 'Default Address',
-          city: 'Mumbai',
-          state: 'Maharashtra',
-          country: 'India',
-          pincode: '400001',
-          phone: '0000000000',
-          email: 'default@warehouse.com',
-          status: 'ACTIVE',
-          isDefault: true,
-        }
-      });
-    }
+    const warehouse = await this.getOrCreateDefaultWarehouse();
 
     // Helper to generate a unique SKU
     const generateUniqueSku = async (inputSku?: string) => {
@@ -1546,14 +1526,31 @@ export class AdminService {
               email: true,
               firstName: true,
               lastName: true,
+              phone: true,
             },
           },
           address: {
             select: {
               id: true,
+              fullName: true,
+              phone: true,
+              line1: true,
               city: true,
               state: true,
+              pincode: true,
               country: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  basePrice: true,
+                  thumbnailUrl: true,
+                },
+              },
             },
           },
           _count: {
@@ -1739,6 +1736,242 @@ export class AdminService {
     };
   }
 
+  async getOrCreateDefaultWarehouse() {
+    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.findFirst({ where: { status: 'ACTIVE' } });
+    }
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.findFirst();
+    }
+    if (!warehouse) {
+      warehouse = await prisma.warehouse.create({
+        data: {
+          name: 'Main Warehouse',
+          code: 'AURA-WH-01',
+          address: 'Central Logistics Facility',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          country: 'India',
+          pincode: '400001',
+          phone: '0000000000',
+          email: 'warehouse@company.com',
+          status: 'ACTIVE',
+          isDefault: true,
+        },
+      });
+    }
+    return warehouse;
+  }
+
+  async getWarehouses(query: { page?: number; limit?: number; search?: string; status?: string }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.max(1, query.limit || 20);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.status) {
+      where.status = query.status;
+    }
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { code: { contains: query.search, mode: 'insensitive' } },
+        { city: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [warehouses, total] = await Promise.all([
+      prisma.warehouse.findMany({
+        where,
+        include: {
+          _count: {
+            select: {
+              inventory: true,
+            },
+          },
+        },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.warehouse.count({ where }),
+    ]);
+
+    return {
+      warehouses,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async createWarehouse(data: {
+    name: string;
+    code?: string;
+    address: string;
+    city: string;
+    state: string;
+    country?: string;
+    pincode: string;
+    phone: string;
+    email: string;
+    status?: 'ACTIVE' | 'INACTIVE';
+    isDefault?: boolean;
+    shiprocketPickupName?: string;
+  }) {
+    if (!data.name || !data.address || !data.city || !data.state || !data.pincode || !data.phone || !data.email) {
+      throw new AppError('Missing required warehouse fields: name, address, city, state, pincode, phone, email', 400);
+    }
+
+    const code = data.code ? data.code.trim().toUpperCase() : `AURA-WH-${Math.floor(100 + Math.random() * 900)}`;
+
+    const existingCode = await prisma.warehouse.findUnique({ where: { code } });
+    if (existingCode) {
+      throw new AppError(`Warehouse code '${code}' already exists`, 400);
+    }
+
+    if (data.isDefault) {
+      await prisma.warehouse.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const warehouse = await prisma.warehouse.create({
+      data: {
+        name: data.name,
+        code,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        country: data.country || 'India',
+        pincode: data.pincode,
+        phone: data.phone,
+        email: data.email,
+        status: (data.status as any) || 'ACTIVE',
+        isDefault: data.isDefault || false,
+        shiprocketPickupName: data.shiprocketPickupName || null,
+      },
+    });
+
+    logger.info(`Warehouse created: ${warehouse.id} (${warehouse.name})`);
+    return warehouse;
+  }
+
+  async getWarehouseDetails(warehouseId: any) {
+    const id = Number(warehouseId);
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            inventory: true,
+            movements: true,
+          },
+        },
+      },
+    });
+
+    if (!warehouse) {
+      throw new AppError(`Warehouse with ID ${warehouseId} not found`, 404);
+    }
+
+    return warehouse;
+  }
+
+  async updateWarehouse(warehouseId: any, data: Partial<{
+    name: string;
+    code: string;
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    pincode: string;
+    phone: string;
+    email: string;
+    status: 'ACTIVE' | 'INACTIVE';
+    isDefault: boolean;
+    shiprocketPickupName: string;
+  }>) {
+    const id = Number(warehouseId);
+    const existing = await prisma.warehouse.findUnique({ where: { id } });
+    if (!existing) {
+      throw new AppError(`Warehouse with ID ${warehouseId} not found`, 404);
+    }
+
+    if (data.code && data.code.trim().toUpperCase() !== existing.code) {
+      const formattedCode = data.code.trim().toUpperCase();
+      const codeCheck = await prisma.warehouse.findUnique({ where: { code: formattedCode } });
+      if (codeCheck) {
+        throw new AppError(`Warehouse code '${formattedCode}' already exists`, 400);
+      }
+    }
+
+    if (data.isDefault && !existing.isDefault) {
+      await prisma.warehouse.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await prisma.warehouse.update({
+      where: { id },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.code && { code: data.code.trim().toUpperCase() }),
+        ...(data.address && { address: data.address }),
+        ...(data.city && { city: data.city }),
+        ...(data.state && { state: data.state }),
+        ...(data.country && { country: data.country }),
+        ...(data.pincode && { pincode: data.pincode }),
+        ...(data.phone && { phone: data.phone }),
+        ...(data.email && { email: data.email }),
+        ...(data.status && { status: data.status as any }),
+        ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
+        ...(data.shiprocketPickupName !== undefined && { shiprocketPickupName: data.shiprocketPickupName }),
+      },
+    });
+
+    logger.info(`Warehouse updated: ${updated.id}`);
+    return updated;
+  }
+
+  async deleteWarehouse(warehouseId: any) {
+    const id = Number(warehouseId);
+    const existing = await prisma.warehouse.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { inventory: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new AppError(`Warehouse with ID ${warehouseId} not found`, 404);
+    }
+
+    if (existing.isDefault) {
+      throw new AppError('Cannot delete the default warehouse. Mark another warehouse as default first.', 400);
+    }
+
+    if (existing._count.inventory > 0) {
+      await prisma.warehouse.update({
+        where: { id },
+        data: { status: 'INACTIVE' },
+      });
+      return { message: 'Warehouse has associated inventory items. Status changed to INACTIVE.' };
+    }
+
+    await prisma.warehouse.delete({ where: { id } });
+    logger.info(`Warehouse deleted: ${id}`);
+    return { message: 'Warehouse deleted successfully' };
+  }
+
   async addInventory(data: {
     variantId: any;
     quantity: number;
@@ -1746,25 +1979,19 @@ export class AdminService {
     warehouseId?: any;
   }) {
     const variantId = Number(data.variantId);
-    const warehouseId = data.warehouseId ? Number(data.warehouseId) : ((await prisma.warehouse.findFirst({ where: { isDefault: true } }))?.id || 1);
+    let warehouse: any;
 
-    let warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
-    if (!warehouse) {
-      warehouse = await prisma.warehouse.create({
-        data: {
-          name: 'Default Warehouse',
-          code: 'AURA-DEF-01',
-          address: 'Default Address',
-          city: 'N/A',
-          state: 'N/A',
-          country: 'India',
-          pincode: '000000',
-          phone: '0000000000',
-          email: 'default@warehouse.com',
-          status: 'ACTIVE',
-        }
-      });
+    if (data.warehouseId) {
+      const targetId = Number(data.warehouseId);
+      warehouse = await prisma.warehouse.findUnique({ where: { id: targetId } });
+      if (!warehouse) {
+        throw new AppError(`Warehouse with ID ${data.warehouseId} not found`, 404);
+      }
+    } else {
+      warehouse = await this.getOrCreateDefaultWarehouse();
     }
+
+    const warehouseId = warehouse.id;
 
     const item = await prisma.warehouseInventory.upsert({
       where: {
@@ -3050,27 +3277,7 @@ export class AdminService {
     });
 
     // Create corresponding WarehouseInventory record
-    let warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } });
-    if (!warehouse) {
-      warehouse = await prisma.warehouse.findFirst();
-    }
-    if (!warehouse) {
-      warehouse = await prisma.warehouse.create({
-        data: {
-          name: 'Default Warehouse',
-          code: 'WH-DEFAULT',
-          address: 'Default Address',
-          city: 'Mumbai',
-          state: 'Maharashtra',
-          country: 'India',
-          pincode: '400001',
-          phone: '0000000000',
-          email: 'default@warehouse.com',
-          status: 'ACTIVE',
-          isDefault: true,
-        }
-      });
-    }
+    const warehouse = await this.getOrCreateDefaultWarehouse();
     await prisma.warehouseInventory.create({
       data: {
         variantId: variant.id,

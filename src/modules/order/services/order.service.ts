@@ -379,7 +379,6 @@ export class OrderService {
       where: { id: order.id },
       data: {
         status: 'CANCELLED',
-        cancellationReason: reason || null,
         timeline: {
           create: {
             status: 'CANCELLED',

@@ -585,6 +585,60 @@ export class AdminController {
     }
   }
 
+  async getWarehouses(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { page = '1', limit = '20', search, status } = req.query;
+      const result = await AdminService.getWarehouses({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        search: search as string,
+        status: status as string,
+      });
+      ResponseFormatter.success(res, `Retrieved ${result.warehouses.length} warehouses`, result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const warehouse = await AdminService.createWarehouse(req.body);
+      ResponseFormatter.success(res, `Warehouse '${warehouse.name}' created successfully`, warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getWarehouseDetails(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { warehouseId } = req.params;
+      const warehouse = await AdminService.getWarehouseDetails(warehouseId);
+      ResponseFormatter.success(res, `Retrieved warehouse details`, warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { warehouseId } = req.params;
+      const warehouse = await AdminService.updateWarehouse(warehouseId, req.body);
+      ResponseFormatter.success(res, `Warehouse updated successfully`, warehouse);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteWarehouse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { warehouseId } = req.params;
+      const result = await AdminService.deleteWarehouse(warehouseId);
+      ResponseFormatter.success(res, result.message, result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async addInventory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const item = await AdminService.addInventory(req.body);

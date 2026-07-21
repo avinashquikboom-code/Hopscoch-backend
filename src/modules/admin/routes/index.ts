@@ -1657,6 +1657,13 @@ router.put('/orders/:orderId/invoice', authenticate, upload.single('invoice'), a
  */
 router.get('/inventory', authenticate, adminController.getInventory.bind(adminController));
 
+// Warehouse Management Routes
+router.get('/warehouses', authenticate, adminController.getWarehouses.bind(adminController));
+router.post('/warehouses', authenticate, adminController.createWarehouse.bind(adminController));
+router.get('/warehouses/:warehouseId', authenticate, adminController.getWarehouseDetails.bind(adminController));
+router.put('/warehouses/:warehouseId', authenticate, adminController.updateWarehouse.bind(adminController));
+router.delete('/warehouses/:warehouseId', authenticate, adminController.deleteWarehouse.bind(adminController));
+
 /**
  * @swagger
  * /admin/inventory:
