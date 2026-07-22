@@ -196,6 +196,8 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/colors', colorRoutes);
 app.use('/api/sizes', sizeRoutes);
+app.use('/api/admin/colors', colorRoutes);
+app.use('/api/admin/sizes', sizeRoutes);
 app.use('/api/search', searchRoutes);
 
 // Error handling
