@@ -213,15 +213,15 @@ export class AdminController {
       // Convert relative image URLs to full URLs
       const productsWithFullUrls = products.products.map((product: any) => ({
         ...product,
-        thumbnailUrl: product.thumbnailUrl ? product.thumbnailUrl.startsWith('http') ? product.thumbnailUrl : `${baseUrl}${product.thumbnailUrl}` : null,
+        thumbnailUrl: product.thumbnailUrl ? (product.thumbnailUrl.startsWith('http') ? product.thumbnailUrl : `${baseUrl}${product.thumbnailUrl}`) : null,
         images: product.images ? product.images.map((img: any) => ({
           ...img,
-          url: img.url.startsWith('http') ? img.url : `${baseUrl}${img.url}`,
+          url: img?.url ? (img.url.startsWith('http') ? img.url : `${baseUrl}${img.url}`) : '',
         })) : [],
         videos: product.videos ? product.videos.map((vid: any) => ({
           ...vid,
-          url: vid.url.startsWith('http') ? vid.url : `${baseUrl}${vid.url}`,
-          thumbnailUrl: vid.thumbnailUrl ? (vid.thumbnailUrl.startsWith('http') ? vid.thumbnailUrl : `${baseUrl}${vid.thumbnailUrl}`) : null,
+          url: vid?.url ? (vid.url.startsWith('http') ? vid.url : `${baseUrl}${vid.url}`) : '',
+          thumbnailUrl: vid?.thumbnailUrl ? (vid.thumbnailUrl.startsWith('http') ? vid.thumbnailUrl : `${baseUrl}${vid.thumbnailUrl}`) : null,
         })) : [],
       }));
       
