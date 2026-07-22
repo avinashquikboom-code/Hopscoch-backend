@@ -107,3 +107,44 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
     itemsWithTax,
   };
 }
+
+export interface TaxRule {
+  rate: number;
+  taxType?: 'INCLUSIVE' | 'EXCLUSIVE';
+  type?: string;
+}
+
+export interface SingleTaxResult {
+  displayPrice: number;
+  basePrice: number;
+  taxAmount: number;
+  finalPrice: number;
+}
+
+export function calculateTax(price: number, rule: TaxRule | null): SingleTaxResult {
+  if (!rule || !rule.rate || rule.rate === 0) {
+    return { displayPrice: price, basePrice: price, taxAmount: 0, finalPrice: price };
+  }
+
+  const rawType = (rule.taxType || rule.type || 'EXCLUSIVE').toString().toUpperCase();
+  const taxType = rawType === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE';
+
+  if (taxType === 'INCLUSIVE') {
+    const basePrice = price / (1 + rule.rate / 100);
+    const taxAmount = price - basePrice;
+    return {
+      displayPrice: price,
+      basePrice: Math.round(basePrice * 100) / 100,
+      taxAmount: Math.round(taxAmount * 100) / 100,
+      finalPrice: price,
+    };
+  }
+
+  const taxAmount = price * (rule.rate / 100);
+  return {
+    displayPrice: price,
+    basePrice: price,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    finalPrice: Math.round((price + taxAmount) * 100) / 100,
+  };
+}

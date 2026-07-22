@@ -7,6 +7,11 @@ import { ResponseFormatter } from '../../../utils/responseFormatter';
 
 const router = Router();
 
+const toFullUrl = (url: string | null | undefined, baseUrl: string): string | null => {
+  if (!url || typeof url !== 'string') return null;
+  return url.startsWith('http') ? url : `${baseUrl}${url}`;
+};
+
 // GET all categories (Top-level categories with subcategories nested in children)
 router.get('/', async (req, res, next) => {
   try {
@@ -32,8 +37,8 @@ router.get('/', async (req, res, next) => {
     const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const categoriesWithFullUrls = categories.map((category: any) => ({
       ...category,
-      iconUrl: category.iconUrl ? category.iconUrl.startsWith('http') ? category.iconUrl : `${baseUrl}${category.iconUrl}` : null,
-      bannerUrl: category.bannerUrl ? category.bannerUrl.startsWith('http') ? category.bannerUrl : `${baseUrl}${category.bannerUrl}` : null,
+      iconUrl: toFullUrl(category.iconUrl, baseUrl),
+      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
     }));
     
     return ResponseFormatter.success(res, 'Categories retrieved successfully', categoriesWithFullUrls);
@@ -61,8 +66,8 @@ router.get('/:categoryId', async (req, res, next) => {
     const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const categoryWithFullUrls = {
       ...category,
-      iconUrl: category.iconUrl ? category.iconUrl.startsWith('http') ? category.iconUrl : `${baseUrl}${category.iconUrl}` : null,
-      bannerUrl: category.bannerUrl ? category.bannerUrl.startsWith('http') ? category.bannerUrl : `${baseUrl}${category.bannerUrl}` : null,
+      iconUrl: toFullUrl(category.iconUrl, baseUrl),
+      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
     };
     
     return ResponseFormatter.success(res, 'Category retrieved successfully', categoryWithFullUrls);
@@ -120,8 +125,8 @@ router.get('/:parentId/children', async (req, res, next) => {
     const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const subcategoriesWithFullUrls = subcategories.map((category: any) => ({
       ...category,
-      iconUrl: category.iconUrl ? category.iconUrl.startsWith('http') ? category.iconUrl : `${baseUrl}${category.iconUrl}` : null,
-      bannerUrl: category.bannerUrl ? category.bannerUrl.startsWith('http') ? category.bannerUrl : `${baseUrl}${category.bannerUrl}` : null,
+      iconUrl: toFullUrl(category.iconUrl, baseUrl),
+      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
     }));
     
     return ResponseFormatter.success(res, 'Subcategories retrieved successfully', subcategoriesWithFullUrls);
