@@ -45,6 +45,8 @@ import inventoryRoutes from './modules/inventory/routes';
 import reportRoutes from './modules/reports/routes';
 import adminRoutes from './modules/admin/routes';
 import settingsRoutes from './modules/settings/routes';
+import colorRoutes from './modules/color/routes';
+import sizeRoutes from './modules/size/routes';
 import v1Routes from './routes/v1';
 import './workers';
 
@@ -192,6 +194,8 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
+app.use('/api/colors', colorRoutes);
+app.use('/api/sizes', sizeRoutes);
 app.use('/api/search', searchRoutes);
 
 // Error handling
