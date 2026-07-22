@@ -48,7 +48,11 @@ router.get('/', async (req, res, next) => {
       ],
     });
     return ResponseFormatter.success(res, 'Sizes retrieved successfully', sizes);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2021') {
+      console.warn('Size table does not exist in database yet. Run `npx prisma db push`.');
+      return ResponseFormatter.success(res, 'Sizes retrieved successfully (table pending migration)', []);
+    }
     return next(error);
   }
 });

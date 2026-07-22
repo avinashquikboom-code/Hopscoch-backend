@@ -46,7 +46,11 @@ router.get('/', async (req, res, next) => {
       orderBy: { name: 'asc' },
     });
     return ResponseFormatter.success(res, 'Colors retrieved successfully', colors);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2021') {
+      console.warn('Color table does not exist in database yet. Run `npx prisma db push`.');
+      return ResponseFormatter.success(res, 'Colors retrieved successfully (table pending migration)', []);
+    }
     return next(error);
   }
 });
