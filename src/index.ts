@@ -18,7 +18,7 @@ import swaggerUi from 'swagger-ui-express';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
-import { rateLimiter } from './middleware/rateLimiter';
+import { rateLimiter, readRateLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
 import authRoutes from './modules/auth/routes';
 import userRoutes from './modules/user/routes';
@@ -102,7 +102,13 @@ const assetsPath = path.resolve(process.cwd(), 'assets');
 app.use('/assets', express.static(assetsPath));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(rateLimiter);
+// Rate limiting: generous readRateLimiter for GET requests, state-changing rateLimiter for mutations
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    return readRateLimiter(req, res, next);
+  }
+  return rateLimiter(req, res, next);
+});
 
 // Request logging
 app.use((req, res, next) => {

@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import { calculateCartTaxes } from '../../../utils/tax.utils';
 
 export class CartService {
   async getCart(userId: any) {
@@ -15,7 +16,10 @@ export class CartService {
                   where: { sortOrder: 0 },
                   take: 1,
                 },
-                category: true,
+                category: {
+                  include: { taxRule: true },
+                },
+                taxRule: true,
                 brand: true,
               },
             },
@@ -39,7 +43,10 @@ export class CartService {
                     where: { sortOrder: 0 },
                     take: 1,
                   },
-                  category: true,
+                  category: {
+                    include: { taxRule: true },
+                  },
+                  taxRule: true,
                   brand: true,
                 },
               },
@@ -50,7 +57,21 @@ export class CartService {
       });
     }
 
-    return cart;
+    const items = cart.items || [];
+    const taxCalculation = calculateCartTaxes(items);
+    const shippingAmount = taxCalculation.subtotal > 999 || taxCalculation.subtotal === 0 ? 0 : 99;
+    const grandTotal = Math.round((taxCalculation.subtotal + taxCalculation.totalExclusiveTax + shippingAmount) * 100) / 100;
+
+    return {
+      ...cart,
+      subtotal: taxCalculation.subtotal,
+      taxAmount: taxCalculation.totalTax,
+      totalExclusiveTax: taxCalculation.totalExclusiveTax,
+      totalInclusiveTax: taxCalculation.totalInclusiveTax,
+      taxBreakdown: taxCalculation.taxBreakdown,
+      shippingAmount,
+      total: grandTotal,
+    };
   }
 
   async addToCart(userId: any, data: { productId: any; variantId: any; quantity: number }) {

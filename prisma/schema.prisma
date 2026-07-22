@@ -338,6 +338,9 @@ model Category {
   parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Category[] @relation("CategoryTree")
 
+  taxRuleId Int? @map("tax_rule_id")
+  taxRule   Tax? @relation(fields: [taxRuleId], references: [id], onDelete: SetNull)
+
   products Product[]
 
   deletedAt DateTime? @map("deleted_at")
@@ -345,6 +348,7 @@ model Category {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([parentId])
+  @@index([taxRuleId])
   @@index([slug])
   @@map("categories")
 }
@@ -379,6 +383,10 @@ model Product {
   category   Category @relation(fields: [categoryId], references: [id])
   brandId    Int @map("brand_id")
   brand      Brand    @relation(fields: [brandId], references: [id])
+
+  taxRuleId Int? @map("tax_rule_id")
+  taxRule   Tax? @relation(fields: [taxRuleId], references: [id], onDelete: SetNull)
+  hsnCode   String? @map("hsn_code")
 
   thumbnailUrl String? @map("thumbnail_url")
   gender       Gender?
@@ -423,6 +431,7 @@ model Product {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([categoryId])
+  @@index([taxRuleId])
   @@index([brandId])
   @@index([status])
   @@index([isFeatured])
@@ -709,6 +718,11 @@ model OrderItem {
   variantSnapshot     Json @map("variant_snapshot") // size/color/material/sku at time of order
   priceSnapshot       Decimal @db.Decimal(10, 2) @map("price_snapshot")
   quantity            Int
+
+  taxAmount        Decimal  @db.Decimal(10, 2) @default(0) @map("tax_amount")
+  taxRateSnapshot  Decimal? @db.Decimal(5, 2) @map("tax_rate_snapshot")
+  taxTypeSnapshot  String?  @map("tax_type_snapshot") // 'INCLUSIVE' | 'EXCLUSIVE'
+  hsnSnapshot      String?  @map("hsn_snapshot")
 
   @@index([orderId])
   @@map("order_items")
@@ -1099,10 +1113,15 @@ model Tax {
   name      String
   rate      Decimal @db.Decimal(10, 2)
   type      String  // 'PERCENTAGE' | 'FIXED'
+  taxType   String  @default("EXCLUSIVE") @map("tax_type") // 'INCLUSIVE' | 'EXCLUSIVE'
+  hsnCode   String? @map("hsn_code")
   country   String?
   state     String?
   zipCode   String? @map("zip_code")
   isActive  Boolean @default(true) @map("is_active")
+
+  categories Category[]
+  products   Product[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

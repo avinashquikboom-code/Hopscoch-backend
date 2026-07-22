@@ -47,7 +47,10 @@ export class CatalogService {
       prisma.product.findMany({
         where,
         include: {
-          category: true,
+          category: {
+            include: { taxRule: true },
+          },
+          taxRule: true,
           brand: true,
           images: {
             where: { sortOrder: 0 },
@@ -68,8 +71,10 @@ export class CatalogService {
       const vars = p.variants || [];
       const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
       const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
+      const effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
       return {
         ...p,
+        effectiveTaxRule,
         colors,
         sizes,
       };
@@ -90,7 +95,10 @@ export class CatalogService {
     const product = await prisma.product.findUnique({
       where: { id: Number(productId), deletedAt: null },
       include: {
-        category: true,
+        category: {
+          include: { taxRule: true },
+        },
+        taxRule: true,
         brand: true,
         images: {
           orderBy: { sortOrder: 'asc' },
@@ -108,9 +116,11 @@ export class CatalogService {
     const vars = product.variants || [];
     const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
     const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
+    const effectiveTaxRule = product.taxRule || (product.category as any)?.taxRule || null;
 
     return {
       ...product,
+      effectiveTaxRule,
       colors,
       sizes,
     };

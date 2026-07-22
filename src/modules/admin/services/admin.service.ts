@@ -792,6 +792,8 @@ export class AdminService {
           slug: true,
           status: true,
           basePrice: true,
+          taxRuleId: true,
+          hsnCode: true,
           thumbnailUrl: true,
           gender: true,
           ageGroup: true,
@@ -803,6 +805,7 @@ export class AdminService {
           reviewCount: true,
           createdAt: true,
           updatedAt: true,
+          taxRule: true,
           images: {
             select: {
               id: true,
@@ -822,6 +825,7 @@ export class AdminService {
             select: {
               id: true,
               name: true,
+              taxRule: true,
             },
           },
           brand: {
@@ -844,8 +848,13 @@ export class AdminService {
       prisma.product.count({ where }),
     ]);
 
+    const mappedProducts = products.map((p: any) => ({
+      ...p,
+      effectiveTaxRule: p.taxRule || p.category?.taxRule || null,
+    }));
+
     return {
-      products,
+      products: mappedProducts,
       pagination: {
         page,
         limit,
@@ -911,6 +920,8 @@ export class AdminService {
         thumbnailUrl: data.thumbnailUrl || null,
         categoryId: categoryId!,
         brandId: brandId!,
+        taxRuleId: data.taxRuleId ? Number(data.taxRuleId) : null,
+        hsnCode: data.hsnCode || null,
         basePrice: basePrice,
         status: data.status || ProductStatus.PUBLISHED,
         gender: data.gender || 'UNISEX',
@@ -1148,16 +1159,20 @@ export class AdminService {
 
     const allowedFields = [
       'name', 'slug', 'description', 'status', 'categoryId', 'brandId',
-      'thumbnailUrl', 'gender', 'ageGroup', 'basePrice', 'discountType',
-      'discountValue', 'discountStartsAt', 'discountEndsAt', 'isFeatured',
-      'isTrending', 'isNewArrival', 'isBestSeller', 'avgRating', 'reviewCount',
-      'seoTitle', 'seoDescription'
+      'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice',
+      'discountType', 'discountValue', 'discountStartsAt', 'discountEndsAt',
+      'isFeatured', 'isTrending', 'isNewArrival', 'isBestSeller', 'avgRating',
+      'reviewCount', 'seoTitle', 'seoDescription'
     ];
 
     const cleanUpdateData: any = {};
     for (const key of allowedFields) {
       if (updateData[key] !== undefined) {
-        cleanUpdateData[key] = updateData[key];
+        if (key === 'taxRuleId') {
+          cleanUpdateData[key] = updateData[key] ? Number(updateData[key]) : null;
+        } else {
+          cleanUpdateData[key] = updateData[key];
+        }
       }
     }
 
@@ -1165,14 +1180,20 @@ export class AdminService {
       where: { id },
       data: cleanUpdateData,
       include: {
-        category: true,
+        category: {
+          include: { taxRule: true },
+        },
+        taxRule: true,
         brand: true,
         variants: true,
       },
     });
 
     logger.info(`Product updated: ${id}`);
-    return updatedProduct;
+    return {
+      ...updatedProduct,
+      effectiveTaxRule: updatedProduct.taxRule || (updatedProduct.category as any)?.taxRule || null,
+    };
   }
 
   async getProductDetails(productId: any) {
@@ -1180,12 +1201,17 @@ export class AdminService {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        category: true,
+        category: {
+          include: { taxRule: true },
+        },
+        taxRule: true,
         brand: true,
         images: {
           orderBy: { sortOrder: 'asc' },
         },
-        variants: true,
+        variants: {
+          where: { deletedAt: null },
+        },
         reviews: {
           take: 10,
           orderBy: { createdAt: 'desc' },
@@ -2805,6 +2831,8 @@ export class AdminService {
           name: true,
           rate: true,
           type: true,
+          taxType: true,
+          hsnCode: true,
           country: true,
           state: true,
           zipCode: true,
@@ -2835,16 +2863,23 @@ export class AdminService {
         name: data.name,
         rate: data.rate,
         type: data.type,
+        taxType: data.taxType,
+        hsnCode: data.hsnCode,
         country: data.country,
         state: data.state,
         zipCode: data.zipCode,
-        isActive: true,
+        isActive: data.isActive !== undefined ? data.isActive : true,
       },
       select: {
         id: true,
         name: true,
         rate: true,
         type: true,
+        taxType: true,
+        hsnCode: true,
+        country: true,
+        state: true,
+        zipCode: true,
         isActive: true,
         createdAt: true,
       },
@@ -2871,6 +2906,12 @@ export class AdminService {
         id: true,
         name: true,
         rate: true,
+        type: true,
+        taxType: true,
+        hsnCode: true,
+        country: true,
+        state: true,
+        zipCode: true,
         isActive: true,
         updatedAt: true,
       },

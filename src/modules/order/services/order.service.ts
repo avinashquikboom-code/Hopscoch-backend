@@ -2,6 +2,7 @@ import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import { reserveStock, releaseReservation } from '../../inventory/services/inventory.service';
+import { calculateCartTaxes } from '../../../utils/tax.utils';
 
 export class OrderService {
   async createOrder(userId: any, data: any) {
@@ -78,14 +79,7 @@ export class OrderService {
     }
 
     // 2. Resolve Items & Calculate Server-Side Prices
-    let preparedItems: Array<{
-      productId: number;
-      variantId: number;
-      productName: string;
-      variantSnapshot: any;
-      price: number;
-      quantity: number;
-    }> = [];
+    let rawItemsToCalculate: Array<any> = [];
 
     // Try DB Cart first
     const cart: any = await prisma.cart.findUnique({
@@ -93,7 +87,12 @@ export class OrderService {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                category: { include: { taxRule: true } },
+                taxRule: true,
+              },
+            },
             variant: true,
           },
         },
@@ -101,22 +100,7 @@ export class OrderService {
     });
 
     if (cart && cart.items && cart.items.length > 0) {
-      for (const item of cart.items) {
-        preparedItems.push({
-          productId: item.productId,
-          variantId: item.variantId,
-          productName: item.product.name || 'Product',
-          variantSnapshot: {
-            size: item.variant.size,
-            color: item.variant.color,
-            material: item.variant.material,
-            sku: item.variant.sku,
-            price: Number(item.variant.price),
-          },
-          price: Number(item.variant.price),
-          quantity: item.quantity,
-        });
-      }
+      rawItemsToCalculate = cart.items;
     } else if (Array.isArray(inputItems) && inputItems.length > 0) {
       for (const rawItem of inputItems) {
         let pId = rawItem.productId ? Number(rawItem.productId) : null;
@@ -130,7 +114,11 @@ export class OrderService {
 
         const product = await prisma.product.findUnique({
           where: { id: pId },
-          include: { variants: true },
+          include: {
+            category: { include: { taxRule: true } },
+            taxRule: true,
+            variants: true,
+          },
         });
 
         if (!product) continue;
@@ -140,50 +128,26 @@ export class OrderService {
           variant = product.variants[0];
         }
 
-        if (!variant) {
-          // Virtual fallback variant if no variants in DB
-          const itemPrice = Number(product.basePrice || 0);
-          preparedItems.push({
-            productId: product.id,
-            variantId: 0,
-            productName: product.name || 'Product',
-            variantSnapshot: { sku: `${product.slug}-default`, price: itemPrice },
-            price: itemPrice,
-            quantity: Number(rawItem.quantity || 1),
-          });
-          continue;
-        }
-
-        preparedItems.push({
-          productId: product.id,
-          variantId: variant.id,
-          productName: product.name || 'Product',
-          variantSnapshot: {
-            size: variant.size,
-            color: variant.color,
-            sku: variant.sku,
-            price: Number(variant.price),
-          },
-          price: Number(variant.price),
-          quantity: Number(rawItem.quantity || 1),
+        const quantity = Number(rawItem.quantity || 1);
+        rawItemsToCalculate.push({
+          product,
+          variant,
+          quantity,
         });
       }
     }
 
-    if (preparedItems.length === 0) {
+    if (rawItemsToCalculate.length === 0) {
       throw new AppError('Cart is empty and no valid products were provided', 400);
     }
 
-    // 3. Server-side Financial Calculations
-    let subtotal = 0;
-    for (const item of preparedItems) {
-      subtotal += item.price * item.quantity;
-    }
-
-    const taxAmount = Math.round(subtotal * 0.18 * 100) / 100;
+    // 3. Server-side Tax & Financial Calculations
+    const taxCalculation = calculateCartTaxes(rawItemsToCalculate);
+    const subtotal = taxCalculation.subtotal;
+    const taxAmount = taxCalculation.totalTax;
     const shippingAmount = subtotal > 999 ? 0 : 99;
     const discountAmount = 0;
-    const totalAmount = subtotal + taxAmount + shippingAmount - discountAmount;
+    const totalAmount = Math.round((subtotal + taxCalculation.totalExclusiveTax + shippingAmount - discountAmount) * 100) / 100;
 
     // 4. Determine Status & Payment Method
     const validPaymentMethods = ['RAZORPAY', 'STRIPE', 'UPI', 'CARD', 'WALLET', 'COD'];
@@ -209,13 +173,17 @@ export class OrderService {
           discountAmount,
           totalAmount,
           items: {
-            create: preparedItems.map((item) => ({
+            create: taxCalculation.itemsWithTax.map((item) => ({
               productId: item.productId,
-              variantId: item.variantId > 0 ? item.variantId : undefined,
-              productNameSnapshot: item.productName,
-              variantSnapshot: item.variantSnapshot,
-              priceSnapshot: item.price,
+              variantId: item.variantId && item.variantId > 0 ? item.variantId : undefined,
+              productNameSnapshot: item.productName || 'Product',
+              variantSnapshot: item.variantId ? { price: item.unitPrice } : { sku: 'default', price: item.unitPrice },
+              priceSnapshot: item.unitPrice,
               quantity: item.quantity,
+              taxAmount: item.taxAmount,
+              taxRateSnapshot: item.rate,
+              taxTypeSnapshot: item.taxType,
+              hsnSnapshot: item.hsnCode,
             }) as any),
           },
           timeline: {
@@ -255,9 +223,9 @@ export class OrderService {
 
     // 6. Reserve Inventory Stock (non-blocking safe call)
     try {
-      const validVariantReservations = preparedItems
-        .filter((i) => i.variantId > 0)
-        .map((i) => ({ variantId: i.variantId, quantity: i.quantity }));
+      const validVariantReservations = taxCalculation.itemsWithTax
+        .filter((i: any) => i.variantId && i.variantId > 0)
+        .map((i: any) => ({ variantId: i.variantId!, quantity: i.quantity }));
 
       if (validVariantReservations.length > 0) {
         await reserveStock(validVariantReservations, String(order.id));
