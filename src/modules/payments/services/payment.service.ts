@@ -3,6 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import { confirmSale, releaseReservation } from '../../inventory/services/inventory.service';
 import razorpayClient from './razorpay.client';
+import CartService from '../../cart/services/cart.service';
 
 export class PaymentService {
   async createPayment(userId: any, data: {
@@ -21,29 +22,20 @@ export class PaymentService {
       throw new AppError('Order not found', 404);
     }
 
-    if (order.payment) {
-      throw new AppError('Payment already exists for this order', 400);
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        orderId: Number(orderId),
+    const payment = await prisma.payment.upsert({
+      where: { orderId: Number(orderId) },
+      update: {
         method,
-        status: 'PENDING',
         providerRef,
         amount: order.totalAmount,
+        status: method === 'COD' ? 'PENDING' : 'PENDING',
       },
-      include: {
-        order: {
-          include: {
-            items: {
-              include: {
-                product: true,
-              },
-            },
-            address: true,
-          },
-        },
+      create: {
+        orderId: Number(orderId),
+        method,
+        providerRef,
+        amount: order.totalAmount,
+        status: 'PENDING',
       },
     });
 
@@ -51,40 +43,67 @@ export class PaymentService {
     return payment;
   }
 
-  async createRazorpayOrder(userId: any, orderId: any) {
-    const order = await prisma.order.findFirst({
-      where: { id: Number(orderId), userId },
-    });
+  async createRazorpayOrder(userId: any, orderId?: any) {
+    let amount = 0;
+    let targetOrderId: number | null = null;
 
-    if (!order) {
-      throw new AppError('Order not found', 404);
+    if (orderId) {
+      const order = await prisma.order.findFirst({
+        where: { id: Number(orderId), userId },
+      });
+      if (!order) {
+        throw new AppError('Order not found', 404);
+      }
+      amount = Number(order.totalAmount);
+      targetOrderId = order.id;
+    } else {
+      const cart = await CartService.getCart(userId);
+      if (!cart || cart.items.length === 0) {
+        throw new AppError('Cart is empty', 400);
+      }
+      amount = Number(cart.total);
     }
 
-    const amount = Number(order.totalAmount);
-    const rzpOrder = await razorpayClient.createOrder(amount, 'INR', `receipt_order_${orderId}`);
+    if (amount <= 0) {
+      throw new AppError('Invalid order amount for Razorpay payment', 400);
+    }
 
-    const payment = await prisma.payment.upsert({
-      where: { orderId: Number(orderId) },
-      update: {
-        razorpayOrderId: rzpOrder.id,
-        amount: order.totalAmount,
-        status: 'PENDING',
-        method: 'RAZORPAY',
-      },
-      create: {
-        orderId: Number(orderId),
-        method: 'RAZORPAY',
-        status: 'PENDING',
-        amount: order.totalAmount,
-        razorpayOrderId: rzpOrder.id,
-      },
-    });
+    const rzpOrder = await razorpayClient.createOrder(amount, 'INR', `receipt_${userId}_${Date.now()}`);
+
+    let paymentId: any = null;
+    if (targetOrderId) {
+      const payment = await prisma.payment.upsert({
+        where: { orderId: targetOrderId },
+        update: {
+          razorpayOrderId: rzpOrder.id,
+          amount: amount,
+          status: 'PENDING',
+          method: 'RAZORPAY',
+        },
+        create: {
+          orderId: targetOrderId,
+          method: 'RAZORPAY',
+          status: 'PENDING',
+          amount: amount,
+          razorpayOrderId: rzpOrder.id,
+        },
+      });
+      paymentId = payment.id;
+    }
+
+    let keyId = process.env.RAZORPAY_KEY_ID || '';
+    try {
+      const settingsService = require('../../settings/services/settings.service').default;
+      const fetchedKey = await settingsService.getIntegrationKey('razorpay', 'key_id');
+      if (fetchedKey) keyId = fetchedKey;
+    } catch (_) {}
 
     return {
       razorpayOrderId: rzpOrder.id,
       amount: rzpOrder.amount, // in paise
       currency: rzpOrder.currency,
-      paymentId: payment.id,
+      keyId,
+      paymentId,
     };
   }
 

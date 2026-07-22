@@ -32,11 +32,7 @@ export class PaymentController {
         ResponseFormatter.error(res, 'Authentication required', 401);
         return;
       }
-      const { orderId } = req.body;
-      if (!orderId) {
-        ResponseFormatter.error(res, 'Order ID is required', 400);
-        return;
-      }
+      const { orderId } = req.body || {};
       const data = await PaymentService.createRazorpayOrder(req.user.id, orderId);
       ResponseFormatter.success(res, 'Razorpay order created successfully', data);
     } catch (error) {
