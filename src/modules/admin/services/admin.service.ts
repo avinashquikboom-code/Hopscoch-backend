@@ -1348,16 +1348,47 @@ export class AdminService {
   }
 
   async createCategory(data: any) {
+    let slug = data.slug;
+    if (!slug && data.name) {
+      slug = data.name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+    if (!slug) slug = `category-${Date.now()}`;
+
+    // Check if a category with this slug already exists in DB
+    const existingBySlug = await prisma.category.findUnique({ where: { slug } });
+    if (existingBySlug) {
+      if (existingBySlug.deletedAt !== null) {
+        // Soft-deleted row exists — hard-delete it to release the unique slug constraint!
+        await prisma.category.delete({ where: { id: existingBySlug.id } }).catch(() => {});
+      } else {
+        // Active category with exact slug exists — auto-append unique suffix
+        slug = `${slug}-${Date.now().toString().slice(-4)}`;
+      }
+    }
+
+    // Also purge any soft-deleted categories matching exact name
+    if (data.name) {
+      const softDeletedNameMatches = await prisma.category.findMany({
+        where: {
+          name: { equals: data.name, mode: 'insensitive' },
+          deletedAt: { not: null }
+        }
+      });
+      for (const cat of softDeletedNameMatches) {
+        await prisma.category.delete({ where: { id: cat.id } }).catch(() => {});
+      }
+    }
+
     const category = await prisma.category.create({
       data: {
         name: data.name,
-        slug: data.slug,
-        description: data.description,
-        parentId: data.parentId,
+        slug: slug,
+        description: data.description || null,
+        parentId: data.parentId ? Number(data.parentId) : null,
         isFeatured: data.isFeatured || false,
-        sortOrder: data.sortOrder || 0,
-        iconUrl: data.iconUrl,
-        bannerUrl: data.bannerUrl,
+        sortOrder: data.sortOrder ? Number(data.sortOrder) : 0,
+        iconUrl: data.iconUrl || null,
+        bannerUrl: data.bannerUrl || null,
       },
       select: {
         id: true,
@@ -1370,7 +1401,7 @@ export class AdminService {
       },
     });
 
-    logger.info(`Category created: ${category.id}`);
+    logger.info(`Category created: ${category.id} (slug: ${category.slug})`);
     return category;
   }
 
@@ -1487,14 +1518,43 @@ export class AdminService {
   }
 
   async createBrand(data: any) {
+    let slug = data.slug;
+    if (!slug && data.name) {
+      slug = data.name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+    if (!slug) slug = `brand-${Date.now()}`;
+
+    // Check if a brand with this slug exists
+    const existingBySlug = await prisma.brand.findUnique({ where: { slug } });
+    if (existingBySlug) {
+      if (existingBySlug.deletedAt !== null) {
+        await prisma.brand.delete({ where: { id: existingBySlug.id } }).catch(() => {});
+      } else {
+        slug = `${slug}-${Date.now().toString().slice(-4)}`;
+      }
+    }
+
+    // Also check soft-deleted brands matching exact name
+    if (data.name) {
+      const softDeletedNameMatches = await prisma.brand.findMany({
+        where: {
+          name: { equals: data.name, mode: 'insensitive' },
+          deletedAt: { not: null }
+        }
+      });
+      for (const b of softDeletedNameMatches) {
+        await prisma.brand.delete({ where: { id: b.id } }).catch(() => {});
+      }
+    }
+
     const brand = await prisma.brand.create({
       data: {
         name: data.name,
-        slug: data.slug,
-        description: data.description,
+        slug: slug,
+        description: data.description || null,
         isFeatured: data.isFeatured || false,
-        logoUrl: data.logoUrl,
-        bannerUrl: data.bannerUrl,
+        logoUrl: data.logoUrl || null,
+        bannerUrl: data.bannerUrl || null,
       },
       select: {
         id: true,
@@ -1507,7 +1567,7 @@ export class AdminService {
       },
     });
 
-    logger.info(`Brand created: ${brand.id}`);
+    logger.info(`Brand created: ${brand.id} (slug: ${brand.slug})`);
     return brand;
   }
 
@@ -3780,6 +3840,8 @@ export class AdminService {
       prisma.productImage.deleteMany(),
       prisma.product.deleteMany(),
       prisma.collection.deleteMany(),
+      prisma.category.deleteMany(),
+      prisma.brand.deleteMany(),
       prisma.coupon.deleteMany(),
       prisma.user.deleteMany({ where: { role: 'CUSTOMER' } }),
     ]);
