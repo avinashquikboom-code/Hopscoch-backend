@@ -43,7 +43,7 @@ export class CatalogService {
     else if (sort === 'newest') orderBy.createdAt = 'desc';
     else orderBy.createdAt = 'desc';
 
-    const [products, total] = await Promise.all([
+    const [rawProducts, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
@@ -63,6 +63,17 @@ export class CatalogService {
       }),
       prisma.product.count({ where }),
     ]);
+
+    const products = rawProducts.map((p) => {
+      const vars = p.variants || [];
+      const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
+      const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
+      return {
+        ...p,
+        colors,
+        sizes,
+      };
+    });
 
     return {
       products,
@@ -94,7 +105,15 @@ export class CatalogService {
       throw new AppError('Product not found', 404);
     }
 
-    return product;
+    const vars = product.variants || [];
+    const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
+    const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
+
+    return {
+      ...product,
+      colors,
+      sizes,
+    };
   }
 
   async getProductImages(productId: any) {
