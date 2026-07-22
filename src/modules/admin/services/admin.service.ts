@@ -896,6 +896,30 @@ export class AdminService {
       throw new Error('Brand is required and must exist in the database. Please create the brand first.');
     }
 
+    // Deduplication safeguard: check if a product with identical name, categoryId, and brandId was created in the last 10 seconds
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const recentDuplicate = await prisma.product.findFirst({
+      where: {
+        name: { equals: data.name, mode: 'insensitive' },
+        categoryId: categoryId,
+        brandId: brandId,
+        createdAt: { gte: tenSecondsAgo },
+        deletedAt: null,
+      },
+      include: {
+        category: { include: { taxRule: true } },
+        taxRule: true,
+        brand: true,
+        images: true,
+        variants: true,
+      }
+    });
+
+    if (recentDuplicate) {
+      logger.info(`[Deduplication Safeguard] Product id=${recentDuplicate.id} was created <10s ago. Returning existing product.`);
+      return recentDuplicate;
+    }
+
     // Resolve price
     const basePrice = data.basePrice !== undefined ? Number(data.basePrice) : (data.price !== undefined ? Number(data.price) : 0);
     
@@ -3436,6 +3460,40 @@ export class AdminService {
     return updatedVariant;
   }
 
+  async deleteProductVariant(productId: any, variantId: any) {
+    const vid = Number(variantId);
+    const pid = Number(productId);
+
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: vid, productId: pid },
+      include: {
+        _count: {
+          select: { orderItems: true, cartItems: true }
+        }
+      }
+    });
+
+    if (!variant) {
+      throw new AppError('Product variant not found', 404);
+    }
+
+    if (variant._count.orderItems > 0) {
+      const softDeleted = await prisma.productVariant.update({
+        where: { id: vid },
+        data: { deletedAt: new Date() }
+      });
+      logger.info(`Product variant soft-deleted: ${vid} (referenced in ${variant._count.orderItems} orders)`);
+      return { softDeleted: true, message: `Variant soft-deleted because ${variant._count.orderItems} orders reference it.` };
+    }
+
+    await prisma.warehouseInventory.deleteMany({ where: { variantId: vid } });
+    await prisma.cartItem.deleteMany({ where: { variantId: vid } });
+    await prisma.productVariant.delete({ where: { id: vid } });
+
+    logger.info(`Product variant deleted: ${vid}`);
+    return { deleted: true };
+  }
+
   async getReviews(filters: {
     page: number;
     limit: number;
@@ -3680,6 +3738,54 @@ export class AdminService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async resetData(adminUserId: number, password: string) {
+    const adminUser = await prisma.user.findUnique({ where: { id: Number(adminUserId) } });
+    if (!adminUser || !adminUser.passwordHash) {
+      throw new AppError('Admin user not found', 404);
+    }
+
+    const bcrypt = require('bcrypt');
+    const isPasswordValid = await bcrypt.compare(password, adminUser.passwordHash);
+    if (!isPasswordValid) {
+      throw new AppError('Invalid admin password provided for system reset', 401);
+    }
+
+    logger.warn(`[SYSTEM RESET EXECUTED] Admin ID: ${adminUserId} (${adminUser.email}) triggered full data reset at ${new Date().toISOString()}`);
+
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: Number(adminUserId),
+          activity: 'SYSTEM_RESET_DATA',
+          entityType: 'System',
+          entityId: String(adminUserId),
+          metadata: { details: `Full data reset performed by admin ${adminUser.email}` },
+        }
+      });
+    } catch {
+      // ActivityLog optional fallback
+    }
+
+    await prisma.$transaction([
+      prisma.orderItem.deleteMany(),
+      prisma.payment.deleteMany(),
+      prisma.order.deleteMany(),
+      prisma.cartItem.deleteMany(),
+      prisma.cart.deleteMany(),
+      prisma.review.deleteMany(),
+      prisma.warehouseInventory.deleteMany(),
+      prisma.productVariant.deleteMany(),
+      prisma.productImage.deleteMany(),
+      prisma.product.deleteMany(),
+      prisma.collection.deleteMany(),
+      prisma.coupon.deleteMany(),
+      prisma.user.deleteMany({ where: { role: 'CUSTOMER' } }),
+    ]);
+
+    logger.info(`System data reset successfully completed by admin ${adminUser.email}`);
+    return { success: true, message: 'System data reset completed successfully.' };
   }
 }
 

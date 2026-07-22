@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import IntegrationController from '../modules/settings/controllers/integration.controller';
 import PaymentController from '../modules/payments/controllers/payment.controller';
 import ShipmentController from '../modules/shipments/controllers/shipment.controller';
@@ -170,7 +170,7 @@ router.get(
 );
 router.post(
   '/mobile/payments/order',
-  authenticate,
+  optionalAuth,
   PaymentController.createRazorpayOrder.bind(PaymentController)
 );
 router.post(

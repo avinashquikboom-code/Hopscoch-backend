@@ -203,3 +203,19 @@ export const authorize = (...roles: string[]) => {
     next();
   };
 };
+
+export const optionalAuth = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      await authenticate(req, res, () => {});
+    }
+  } catch (_) {
+    // Ignore errors for optional auth
+  }
+  next();
+};

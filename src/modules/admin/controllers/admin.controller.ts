@@ -1006,6 +1006,16 @@ export class AdminController {
     }
   }
 
+  async deleteProductVariant(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { productId, variantId } = req.params;
+      const result = await AdminService.deleteProductVariant(productId, variantId);
+      ResponseFormatter.success(res, `Product variant deleted successfully`, result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getReviews(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { page = '1', limit = '20', status, productId } = req.query;
@@ -1103,6 +1113,23 @@ export class AdminController {
         userId: userId as string,
       });
       ResponseFormatter.success(res, `Retrieved ${cart.cart.length} cart items (page ${page} of ${cart.pagination.totalPages})`, cart);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async resetData(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const adminUserId = req.user?.id;
+      const { password } = req.body;
+      if (!adminUserId) {
+        throw new AppError('Unauthorized admin session', 401);
+      }
+      if (!password) {
+        throw new AppError('Password confirmation is required for system reset', 400);
+      }
+      const result = await AdminService.resetData(adminUserId, password);
+      ResponseFormatter.success(res, 'System data reset completed successfully', result);
     } catch (error) {
       throw error;
     }

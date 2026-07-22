@@ -43,32 +43,36 @@ export class PaymentService {
     return payment;
   }
 
-  async createRazorpayOrder(userId: any, orderId?: any) {
+  async createRazorpayOrder(userId?: any, orderId?: any, customAmount?: number) {
     let amount = 0;
     let targetOrderId: number | null = null;
 
     if (orderId) {
       const order = await prisma.order.findFirst({
-        where: { id: Number(orderId), userId },
+        where: { id: Number(orderId), ...(userId ? { userId: Number(userId) } : {}) },
       });
       if (!order) {
         throw new AppError('Order not found', 404);
       }
       amount = Number(order.totalAmount);
       targetOrderId = order.id;
-    } else {
+    } else if (userId) {
       const cart = await CartService.getCart(userId);
       if (!cart || cart.items.length === 0) {
         throw new AppError('Cart is empty', 400);
       }
       amount = Number(cart.total);
+    } else if (customAmount && customAmount > 0) {
+      amount = Number(customAmount);
+    } else {
+      amount = 100;
     }
 
     if (amount <= 0) {
       throw new AppError('Invalid order amount for Razorpay payment', 400);
     }
 
-    const rzpOrder = await razorpayClient.createOrder(amount, 'INR', `receipt_${userId}_${Date.now()}`);
+    const rzpOrder = await razorpayClient.createOrder(amount, 'INR', `receipt_${userId || 'guest'}_${Date.now()}`);
 
     let paymentId: any = null;
     if (targetOrderId) {

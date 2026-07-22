@@ -2794,6 +2794,7 @@ router.post('/products/:productId/variants', authenticate, adminController.creat
  *         description: Authentication required
  */
 router.put('/products/:productId/variants/:variantId', authenticate, adminController.updateProductVariant.bind(adminController));
+router.delete('/products/:productId/variants/:variantId', authenticate, adminController.deleteProductVariant.bind(adminController));
 
 /**
  * @swagger
@@ -2974,5 +2975,6 @@ router.get('/wishlist', authenticate, adminController.getWishlist.bind(adminCont
  *         description: Authentication required
  */
 router.get('/cart', authenticate, adminController.getCart.bind(adminController));
+router.post('/reset-data', authenticate, adminController.resetData.bind(adminController));
 
 export default router;
