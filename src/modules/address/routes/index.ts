@@ -1,11 +1,14 @@
 import { Router } from 'express';
+import { authenticate } from '../../../middleware/auth';
+import addressController from '../controllers/address.controller';
 
 const router = Router();
 
-// Placeholder routes - will be implemented
-router.get('/', (req, res) => res.json({ message: 'Get addresses endpoint' }));
-router.post('/', (req, res) => res.json({ message: 'Add address endpoint' }));
-router.put('/:id', (req, res) => res.json({ message: 'Update address endpoint' }));
-router.delete('/:id', (req, res) => res.json({ message: 'Delete address endpoint' }));
+// Address Management API endpoints
+router.get('/', authenticate, addressController.getAddresses.bind(addressController));
+router.post('/', authenticate, addressController.createAddress.bind(addressController));
+router.put('/:id', authenticate, addressController.updateAddress.bind(addressController));
+router.delete('/:id', authenticate, addressController.deleteAddress.bind(addressController));
+router.patch('/:id/default', authenticate, addressController.setDefaultAddress.bind(addressController));
 
 export default router;

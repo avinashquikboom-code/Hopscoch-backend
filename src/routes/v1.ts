@@ -4,6 +4,7 @@ import IntegrationController from '../modules/settings/controllers/integration.c
 import PaymentController from '../modules/payments/controllers/payment.controller';
 import ShipmentController from '../modules/shipments/controllers/shipment.controller';
 import OrderController from '../modules/order/controllers/order.controller';
+import addressRoutes from '../modules/address/routes';
 
 const router = Router();
 
@@ -194,5 +195,7 @@ router.post('/payments/webhook', PaymentController.handleWebhook.bind(PaymentCon
 // Web and Mobile Order Creation Routes (Phase 1)
 router.post('/web/orders', authenticate, OrderController.createOrder.bind(OrderController));
 router.post('/mobile/orders', authenticate, OrderController.createOrder.bind(OrderController));
+
+router.use('/addresses', addressRoutes);
 
 export default router;
