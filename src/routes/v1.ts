@@ -30,6 +30,12 @@ router.post(
   authorize('ADMIN'),
   IntegrationController.testConnection.bind(IntegrationController)
 );
+router.get(
+  '/admin/settings/integrations/test',
+  authenticate,
+  authorize('ADMIN'),
+  IntegrationController.testConnection.bind(IntegrationController)
+);
 
 // Shipping Admin Operations
 router.get(
