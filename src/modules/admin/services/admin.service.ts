@@ -882,6 +882,23 @@ export class AdminService {
       throw new Error('Category is required and must exist in the database. Please create the category first.');
     }
 
+    // Override categoryId with sub-category if provided
+    if (data.subCategory) {
+      const subCat = await prisma.category.findFirst({
+        where: {
+          name: { equals: data.subCategory, mode: 'insensitive' },
+          parentId: categoryId,
+          deletedAt: null,
+        }
+      });
+      if (subCat) {
+        categoryId = subCat.id;
+        logger.info(`[createProduct] Sub-category resolved: "${data.subCategory}" → id=${subCat.id}`);
+      } else {
+        logger.warn(`[createProduct] Sub-category "${data.subCategory}" not found under parent id=${categoryId}, using parent.`);
+      }
+    }
+
     // Resolve brandId if missing
     if (!brandId) {
       const brandName = data.brand || data.brandName;
@@ -894,6 +911,29 @@ export class AdminService {
     }
     if (!brandId) {
       throw new Error('Brand is required and must exist in the database. Please create the brand first.');
+    }
+
+    // Resolve taxRuleId from taxType + taxPercent if provided
+    let taxRuleId: number | null = data.taxRuleId ? Number(data.taxRuleId) : null;
+    if (!taxRuleId && data.taxType && data.taxType !== 'NONE' && data.taxPercent != null) {
+      const taxRate = Number(data.taxPercent);
+      const taxLabel = `${data.taxType} ${taxRate}%`;
+      let existingTax = await prisma.tax.findFirst({
+        where: { name: { equals: taxLabel, mode: 'insensitive' }, isActive: true }
+      });
+      if (!existingTax) {
+        existingTax = await prisma.tax.create({
+          data: {
+            name: taxLabel,
+            rate: taxRate,
+            type: 'PERCENTAGE',
+            taxType: data.taxType,
+            isActive: true,
+          }
+        });
+        logger.info(`[createProduct] Created Tax rule: "${taxLabel}" id=${existingTax.id}`);
+      }
+      taxRuleId = existingTax.id;
     }
 
     // Deduplication safeguard: check if a product with identical name, categoryId, and brandId was created in the last 10 seconds
@@ -944,7 +984,7 @@ export class AdminService {
         thumbnailUrl: data.thumbnailUrl || null,
         categoryId: categoryId!,
         brandId: brandId!,
-        taxRuleId: data.taxRuleId ? Number(data.taxRuleId) : null,
+        taxRuleId: taxRuleId,
         hsnCode: data.hsnCode || null,
         basePrice: basePrice,
         status: data.status || ProductStatus.PUBLISHED,
