@@ -884,13 +884,22 @@ export class AdminService {
 
     // Override categoryId with sub-category if provided
     if (data.subCategory) {
-      const subCat = await prisma.category.findFirst({
+      let subCat = await prisma.category.findFirst({
         where: {
           name: { equals: data.subCategory, mode: 'insensitive' },
           parentId: categoryId,
           deletedAt: null,
         }
       });
+      if (!subCat) {
+        subCat = await prisma.category.findFirst({
+          where: {
+            name: { equals: data.subCategory, mode: 'insensitive' },
+            parentId: { not: null },
+            deletedAt: null,
+          }
+        });
+      }
       if (subCat) {
         categoryId = subCat.id;
         logger.info(`[createProduct] Sub-category resolved: "${data.subCategory}" → id=${subCat.id}`);
