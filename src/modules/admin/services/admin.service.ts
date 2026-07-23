@@ -3829,20 +3829,29 @@ export class AdminService {
     }
 
     await prisma.$transaction([
+      prisma.orderTimelineEvent.deleteMany(),
+      prisma.returnRequest.deleteMany(),
       prisma.orderItem.deleteMany(),
       prisma.payment.deleteMany(),
       prisma.order.deleteMany(),
       prisma.cartItem.deleteMany(),
       prisma.cart.deleteMany(),
+      prisma.wishlistItem.deleteMany(),
+      prisma.recentlyViewed.deleteMany(),
+      prisma.reviewMedia.deleteMany(),
       prisma.review.deleteMany(),
+      prisma.stockMovement.deleteMany(),
       prisma.warehouseInventory.deleteMany(),
       prisma.productVariant.deleteMany(),
       prisma.productImage.deleteMany(),
+      prisma.productCollection.deleteMany(),
       prisma.product.deleteMany(),
       prisma.collection.deleteMany(),
       prisma.category.deleteMany(),
       prisma.brand.deleteMany(),
+      prisma.couponUsage.deleteMany(),
       prisma.coupon.deleteMany(),
+      prisma.address.deleteMany({ where: { user: { role: 'CUSTOMER' } } }),
       prisma.user.deleteMany({ where: { role: 'CUSTOMER' } }),
     ]);
 
