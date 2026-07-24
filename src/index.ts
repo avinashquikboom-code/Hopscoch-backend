@@ -201,6 +201,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/colors', colorRoutes);
+app.use('/api/sizes', sizeRoutes);
 import taxRoutes from './modules/tax/routes/tax.routes';
 
 app.use('/api/taxes', taxRoutes);
