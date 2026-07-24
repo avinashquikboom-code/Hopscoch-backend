@@ -28,15 +28,17 @@ export function decrypt(text: string): string {
   return decrypted.toString();
 }
 
+export type IntegrationProvider = 'shiprocket' | 'razorpay' | 'google' | 'aws';
+
 export class SettingsService {
   private cache: Map<string, string> = new Map();
-  private updateListeners: ((provider: 'shiprocket' | 'razorpay' | 'google') => void)[] = [];
+  private updateListeners: ((provider: IntegrationProvider) => void)[] = [];
 
-  registerUpdateListener(listener: (provider: 'shiprocket' | 'razorpay' | 'google') => void) {
+  registerUpdateListener(listener: (provider: IntegrationProvider) => void) {
     this.updateListeners.push(listener);
   }
 
-  onKeyUpdate(provider: 'shiprocket' | 'razorpay' | 'google') {
+  onKeyUpdate(provider: IntegrationProvider) {
     for (const listener of this.updateListeners) {
       try {
         listener(provider);
@@ -46,7 +48,7 @@ export class SettingsService {
     }
   }
 
-  async getIntegrationKey(provider: 'shiprocket' | 'razorpay' | 'google', keyName: string): Promise<string> {
+  async getIntegrationKey(provider: IntegrationProvider, keyName: string): Promise<string> {
     const cacheKey = `${provider}:${keyName}`;
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
@@ -73,7 +75,13 @@ export class SettingsService {
     }
 
     // Fallback to env/config
-    const envKey = `${provider.toUpperCase()}_${keyName.toUpperCase()}`;
+    let envKey = `${provider.toUpperCase()}_${keyName.toUpperCase()}`;
+    if (provider === 'aws') {
+      if (keyName === 'access_key_id') envKey = 'AWS_ACCESS_KEY_ID';
+      else if (keyName === 'secret_access_key') envKey = 'AWS_SECRET_ACCESS_KEY';
+      else if (keyName === 'region') envKey = 'AWS_REGION';
+      else if (keyName === 'bucket_name') envKey = 'AWS_S3_BUCKET_NAME';
+    }
     const envValue = process.env[envKey] || '';
     if (envValue) {
       this.cache.set(cacheKey, envValue);
@@ -82,7 +90,7 @@ export class SettingsService {
   }
 
   async updateIntegrationKey(
-    provider: 'shiprocket' | 'razorpay' | 'google',
+    provider: IntegrationProvider,
     keyName: string,
     value: string,
     updatedBy?: string
@@ -117,7 +125,7 @@ export class SettingsService {
   }
 
   // Audit Logs Helper
-  async logAudit(provider: 'shiprocket' | 'razorpay' | 'google', action: string, updatedBy?: string) {
+  async logAudit(provider: IntegrationProvider, action: string, updatedBy?: string) {
     try {
       await prisma.auditLog.create({
         data: {
@@ -278,6 +286,62 @@ export class SettingsService {
     this.writeSettingsFile(data);
     logger.info('Currencies updated in config file');
     return currencies;
+  }
+
+  async resetData(scope: 'all' | 'orders' | 'products' | 'customers' | 'logs' = 'all') {
+    logger.info(`Admin initiated database reset with scope: ${scope}`);
+
+    if (scope === 'orders' || scope === 'all') {
+      await prisma.orderTimelineEvent.deleteMany({});
+      await prisma.returnRequest.deleteMany({});
+      await prisma.payment.deleteMany({});
+      await prisma.orderItem.deleteMany({});
+      await prisma.order.deleteMany({});
+      await prisma.stockMovement.deleteMany({});
+      await prisma.couponUsage.deleteMany({});
+    }
+
+    if (scope === 'products' || scope === 'all') {
+      await prisma.reviewMedia.deleteMany({});
+      await prisma.review.deleteMany({});
+      await prisma.cartItem.deleteMany({});
+      await prisma.cart.deleteMany({});
+      await prisma.wishlistItem.deleteMany({});
+      await prisma.recentlyViewed.deleteMany({});
+      await prisma.productImage.deleteMany({});
+      await prisma.productVideo.deleteMany({});
+      await prisma.productVariant.deleteMany({});
+      await prisma.relatedProduct.deleteMany({});
+      await prisma.warehouseInventory.deleteMany({});
+      await prisma.product.deleteMany({});
+      await prisma.category.deleteMany({});
+      await prisma.brand.deleteMany({});
+    }
+
+    if (scope === 'customers' || scope === 'all') {
+      await prisma.recentSearch.deleteMany({});
+      await prisma.searchLog.deleteMany({});
+      await prisma.aIImageSearchLog.deleteMany({});
+      await prisma.rewardPointsTransaction.deleteMany({});
+      await prisma.supportTicket.deleteMany({});
+      await prisma.contactRequest.deleteMany({});
+      await prisma.address.deleteMany({ where: { user: { role: 'CUSTOMER' } } });
+      await prisma.session.deleteMany({ where: { user: { role: 'CUSTOMER' } } });
+      await prisma.refreshToken.deleteMany({ where: { user: { role: 'CUSTOMER' } } });
+      await prisma.userPreference.deleteMany({ where: { user: { role: 'CUSTOMER' } } });
+      await prisma.user.deleteMany({ where: { role: 'CUSTOMER' } });
+    }
+
+    if (scope === 'logs' || scope === 'all') {
+      await prisma.notification.deleteMany({});
+      await prisma.analyticsEvent.deleteMany({});
+      await prisma.activityLog.deleteMany({});
+      await prisma.banner.deleteMany({});
+      await prisma.campaign.deleteMany({});
+    }
+
+    logger.info(`Database reset successfully completed for scope: ${scope}`);
+    return { success: true, message: `Database reset completed for scope: ${scope}` };
   }
 }
 

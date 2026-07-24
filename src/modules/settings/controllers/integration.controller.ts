@@ -4,6 +4,7 @@ import { ResponseFormatter } from '../../../utils/responseFormatter';
 import settingsService from '../services/settings.service';
 import shiprocketClient from '../../shipments/services/shiprocket.client';
 import razorpayClient from '../../payments/services/razorpay.client';
+import { testS3Connection } from '../../../config/s3';
 
 function maskSecret(val: string): string {
   if (!val || val.length <= 8) return '********';
@@ -30,6 +31,11 @@ export class IntegrationController {
       const googleGeminiApiKey = await settingsService.getIntegrationKey('google', 'gemini_api_key');
       const googleMapsApiKey = await settingsService.getIntegrationKey('google', 'maps_api_key');
 
+      const awsAccessKeyId = await settingsService.getIntegrationKey('aws', 'access_key_id');
+      const awsSecretAccessKey = await settingsService.getIntegrationKey('aws', 'secret_access_key');
+      const awsRegion = await settingsService.getIntegrationKey('aws', 'region');
+      const awsBucketName = await settingsService.getIntegrationKey('aws', 'bucket_name');
+
       ResponseFormatter.success(res, 'Integration settings retrieved', {
         shiprocket: {
           email: shiprocketEmail,
@@ -44,6 +50,12 @@ export class IntegrationController {
         google: {
           gemini_api_key: googleGeminiApiKey,
           maps_api_key: googleMapsApiKey,
+        },
+        aws: {
+          access_key_id: awsAccessKeyId,
+          secret_access_key: awsSecretAccessKey,
+          region: awsRegion,
+          bucket_name: awsBucketName,
         }
       });
     } catch (err: any) {
@@ -58,7 +70,7 @@ export class IntegrationController {
         return;
       }
 
-      const { provider, settings } = req.body; // provider: 'shiprocket' | 'razorpay'
+      const { provider, settings } = req.body; // provider: 'shiprocket' | 'razorpay' | 'google' | 'aws'
 
       if (provider === 'shiprocket') {
         const { email, password, base_url } = settings;
@@ -90,6 +102,22 @@ export class IntegrationController {
         }
         
         await settingsService.logAudit('google', 'update', String(req.user.id));
+      } else if (provider === 'aws') {
+        const { access_key_id, secret_access_key, region, bucket_name } = settings;
+        if (access_key_id !== undefined) {
+          await settingsService.updateIntegrationKey('aws', 'access_key_id', access_key_id, String(req.user.id));
+        }
+        if (secret_access_key !== undefined) {
+          await settingsService.updateIntegrationKey('aws', 'secret_access_key', secret_access_key, String(req.user.id));
+        }
+        if (region !== undefined) {
+          await settingsService.updateIntegrationKey('aws', 'region', region, String(req.user.id));
+        }
+        if (bucket_name !== undefined) {
+          await settingsService.updateIntegrationKey('aws', 'bucket_name', bucket_name, String(req.user.id));
+        }
+
+        await settingsService.logAudit('aws', 'update', String(req.user.id));
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;
@@ -139,6 +167,12 @@ export class IntegrationController {
         const gemini_api_key = settings.gemini_api_key || (req.query?.gemini_api_key as string);
         const currentGemini = gemini_api_key || await settingsService.getIntegrationKey('google', 'gemini_api_key');
         isSuccess = !!currentGemini;
+      } else if (provider === 'aws') {
+        const accessKeyId = settings.access_key_id || await settingsService.getIntegrationKey('aws', 'access_key_id');
+        const secretAccessKey = settings.secret_access_key || await settingsService.getIntegrationKey('aws', 'secret_access_key');
+        const region = settings.region || await settingsService.getIntegrationKey('aws', 'region');
+        const bucketName = settings.bucket_name || await settingsService.getIntegrationKey('aws', 'bucket_name');
+        isSuccess = await testS3Connection(accessKeyId, secretAccessKey, region, bucketName);
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;
@@ -151,6 +185,21 @@ export class IntegrationController {
       }
     } catch (err: any) {
       ResponseFormatter.error(res, err.message || 'Connection test failed', 500);
+    }
+  }
+
+  async resetData(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        ResponseFormatter.error(res, 'Access denied', 403);
+        return;
+      }
+
+      const scope = req.body?.scope || 'all';
+      const result = await settingsService.resetData(scope);
+      ResponseFormatter.success(res, result.message, result);
+    } catch (err: any) {
+      ResponseFormatter.error(res, err.message || 'Failed to reset data', 500);
     }
   }
 }

@@ -245,7 +245,7 @@ export class AdminController {
       // Check for single file uploads (thumbnail)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+        const fileUrl = await AdminService.processFileUpload(file, 'products', baseUrl);
         if (file.fieldname === 'thumbnail') {
           body.thumbnailUrl = fileUrl;
         } else if (file.fieldname === 'video') {
@@ -257,13 +257,15 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.images && files.images.length > 0) {
-          body.imageUrls = files.images.map((img: any) => `${baseUrl}/uploads/${img.filename}`);
+          body.imageUrls = await Promise.all(
+            files.images.map((img: any) => AdminService.processFileUpload(img, 'products', baseUrl))
+          );
         }
         if (files.thumbnail && files.thumbnail[0]) {
-          body.thumbnailUrl = `${baseUrl}/uploads/${files.thumbnail[0].filename}`;
+          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products', baseUrl);
         }
         if (files.video && files.video[0]) {
-          body.videoUrl = `${baseUrl}/uploads/${files.video[0].filename}`;
+          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos', baseUrl);
         }
       }
       
@@ -297,7 +299,7 @@ export class AdminController {
       // Check for single file uploads (thumbnail)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+        const fileUrl = await AdminService.processFileUpload(file, 'products', baseUrl);
         if (file.fieldname === 'thumbnail') {
           body.thumbnailUrl = fileUrl;
         } else if (file.fieldname === 'video') {
@@ -309,13 +311,15 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.images && files.images.length > 0) {
-          body.imageUrls = files.images.map((img: any) => `${baseUrl}/uploads/${img.filename}`);
+          body.imageUrls = await Promise.all(
+            files.images.map((img: any) => AdminService.processFileUpload(img, 'products', baseUrl))
+          );
         }
         if (files.thumbnail && files.thumbnail[0]) {
-          body.thumbnailUrl = `${baseUrl}/uploads/${files.thumbnail[0].filename}`;
+          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products', baseUrl);
         }
         if (files.video && files.video[0]) {
-          body.videoUrl = `${baseUrl}/uploads/${files.video[0].filename}`;
+          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos', baseUrl);
         }
       }
       
@@ -380,7 +384,7 @@ export class AdminController {
       // Check for single file uploads (icon or banner)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+        const fileUrl = await AdminService.processFileUpload(file, 'categories', baseUrl);
         if (file.fieldname === 'icon') {
           body.iconUrl = fileUrl;
         } else if (file.fieldname === 'banner') {
@@ -392,10 +396,10 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.icon && files.icon[0]) {
-          body.iconUrl = `${baseUrl}/uploads/${files.icon[0].filename}`;
+          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories', baseUrl);
         }
         if (files.banner && files.banner[0]) {
-          body.bannerUrl = `${baseUrl}/uploads/${files.banner[0].filename}`;
+          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories', baseUrl);
         }
       }
       
@@ -419,7 +423,7 @@ export class AdminController {
       // Check for single file uploads (icon or banner)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+        const fileUrl = await AdminService.processFileUpload(file, 'categories', baseUrl);
         if (file.fieldname === 'icon') {
           body.iconUrl = fileUrl;
         } else if (file.fieldname === 'banner') {
@@ -431,10 +435,10 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.icon && files.icon[0]) {
-          body.iconUrl = `${baseUrl}/uploads/${files.icon[0].filename}`;
+          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories', baseUrl);
         }
         if (files.banner && files.banner[0]) {
-          body.bannerUrl = `${baseUrl}/uploads/${files.banner[0].filename}`;
+          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories', baseUrl);
         }
       }
       

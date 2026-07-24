@@ -38,6 +38,14 @@ router.get(
   IntegrationController.testConnection.bind(IntegrationController)
 );
 
+// Reset System Data (Admin only)
+router.post(
+  '/admin/settings/reset-data',
+  authenticate,
+  authorize('ADMIN'),
+  IntegrationController.resetData.bind(IntegrationController)
+);
+
 // Shipping Admin Operations
 router.get(
   '/admin/shipping/dashboard',

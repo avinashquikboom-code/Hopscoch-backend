@@ -3,20 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import bcrypt from 'bcrypt';
 import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
-import { v2 as cloudinary } from 'cloudinary';
-
-// Configure Cloudinary using environment variables
-if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL,
-  });
-} else if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name') {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
+import { isS3Configured, uploadToS3 } from '../../../config/s3';
 
 export class AdminService {
   async createAdminUser(data: {
@@ -2747,24 +2734,16 @@ export class AdminService {
       throw new AppError('No file provided', 400);
     }
 
-    let url: string;
-    const isCloudinaryConfigured = 
-      Boolean(process.env.CLOUDINARY_URL) ||
-      (Boolean(process.env.CLOUDINARY_CLOUD_NAME) && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name');
-
-    if (isCloudinaryConfigured) {
+    let url = '';
+    if (await isS3Configured()) {
       try {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'hopscotch',
-          resource_type: 'image',
-        });
-        url = result.secure_url;
+        url = await uploadToS3(file, 'images');
       } catch (err) {
-        logger.error(`Cloudinary upload failed, falling back to local: ${err}`);
-        const apiBase = process.env.API_URL || 'http://localhost:5001';
-        url = `${apiBase}/uploads/${file.filename}`;
+        logger.error(`S3 upload failed, falling back: ${err}`);
       }
-    } else {
+    }
+
+    if (!url) {
       const apiBase = process.env.API_URL || 'http://localhost:5001';
       url = `${apiBase}/uploads/${file.filename}`;
     }
@@ -3448,30 +3427,38 @@ export class AdminService {
       throw new AppError('No file provided', 400);
     }
 
-    let url: string;
-    const isCloudinaryConfigured = 
-      Boolean(process.env.CLOUDINARY_URL) ||
-      (Boolean(process.env.CLOUDINARY_CLOUD_NAME) && process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloud-name');
-
-    if (isCloudinaryConfigured) {
+    let url = '';
+    if (await isS3Configured()) {
       try {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'hopscotch',
-          resource_type: 'image',
-        });
-        url = result.secure_url;
+        url = await uploadToS3(file, 'files');
       } catch (err) {
-        logger.error(`Cloudinary upload failed, falling back to local: ${err}`);
-        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
-        url = `${base}/uploads/${file.filename}`;
+        logger.error(`S3 upload failed, falling back: ${err}`);
       }
-    } else {
+    }
+
+    if (!url) {
       const base = apiBase || process.env.API_URL || 'http://localhost:5001';
       url = `${base}/uploads/${file.filename}`;
     }
 
     return { url };
   }
+
+  async processFileUpload(file: any, folder: string = 'uploads', apiBase?: string): Promise<string> {
+    if (!file) return '';
+
+    if (await isS3Configured()) {
+      try {
+        return await uploadToS3(file, folder);
+      } catch (err) {
+        logger.error(`S3 upload failed for ${file.originalname}: ${err}`);
+      }
+    }
+
+    const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+    return `${base}/uploads/${file.filename}`;
+  }
+
 
   async updateVariantStock(variantId: any, data: any) {
     const id = Number(variantId);

@@ -46,8 +46,8 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
     subtotal += lineSubtotal;
 
     const rule = product.taxRule || product.category?.taxRule || null;
-    const rate = rule ? Number(rule.rate || 0) : 0;
-    const rawType = (rule?.taxType || rule?.type || 'EXCLUSIVE').toString().toUpperCase();
+    const rate = rule ? Number(rule.rate ?? 18) : (product.taxPercent !== undefined ? Number(product.taxPercent) : 18);
+    const rawType = (rule?.taxType || rule?.type || product.taxType || 'EXCLUSIVE').toString().toUpperCase();
     const taxType: 'INCLUSIVE' | 'EXCLUSIVE' = rawType === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE';
     const hsnCode = product.hsnCode || rule?.hsnCode || null;
 

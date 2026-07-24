@@ -45,6 +45,17 @@ const authController = AuthController;
  */
 router.post('/login', authRateLimiter, authController.login.bind(authController));
 
+router.post('/reset-data', authenticate, async (req, res, next) => {
+  try {
+    const settingsService = require('../../settings/services/settings.service').default;
+    const scope = req.body?.scope || 'all';
+    const result = await settingsService.resetData(scope);
+    return res.status(200).json({ success: true, message: 'All store data has been reset successfully', data: result });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 /**
  * @swagger
  * /admin/users:
