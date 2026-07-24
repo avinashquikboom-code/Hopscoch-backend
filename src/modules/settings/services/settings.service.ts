@@ -259,17 +259,82 @@ export class SettingsService {
 
   async getLanguages() {
     const data = this.readSettingsFile();
-    return data.languages || [];
+    if (!data.languages || !Array.isArray(data.languages) || data.languages.length === 0) {
+      data.languages = [
+        { id: '1', code: 'en', name: 'English', flag: '🇺🇸', isDefault: true, isEnabled: true },
+        { id: '2', code: 'hi', name: 'Hindi', flag: '🇮🇳', isDefault: false, isEnabled: true },
+        { id: '3', code: 'es', name: 'Spanish', flag: '🇪🇸', isDefault: false, isEnabled: true },
+        { id: '4', code: 'fr', name: 'French', flag: '🇫🇷', isDefault: false, isEnabled: true },
+        { id: '5', code: 'de', name: 'German', flag: '🇩🇪', isDefault: false, isEnabled: true },
+        { id: '6', code: 'ar', name: 'Arabic', flag: '🇸🇦', isDefault: false, isEnabled: true },
+        { id: '7', code: 'ms', name: 'Bahasa Melayu', flag: '🇲🇾', isDefault: false, isEnabled: true },
+        { id: '8', code: 'nl', name: 'Nederlands', flag: '🇳🇱', isDefault: false, isEnabled: true },
+      ];
+      this.writeSettingsFile(data);
+    }
+    return data.languages;
   }
 
   async getCurrencies() {
     const data = this.readSettingsFile();
-    return data.currencies || [];
+    if (!data.currencies || !Array.isArray(data.currencies) || data.currencies.length === 0) {
+      data.currencies = [
+        { id: '1', code: 'INR', symbol: '₹', name: 'Indian Rupee', exchangeRate: 1.00, isDefault: true, isEnabled: true },
+        { id: '2', code: 'USD', symbol: '$', name: 'US Dollar', exchangeRate: 0.012, isDefault: false, isEnabled: true },
+        { id: '3', code: 'EUR', symbol: '€', name: 'Euro', exchangeRate: 0.011, isDefault: false, isEnabled: true },
+        { id: '4', code: 'GBP', symbol: '£', name: 'British Pound', exchangeRate: 0.0095, isDefault: false, isEnabled: true },
+        { id: '5', code: 'AED', symbol: 'AED', name: 'UAE Dirham', exchangeRate: 0.044, isDefault: false, isEnabled: true },
+        { id: '6', code: 'BHD', symbol: 'BD', name: 'Bahraini Dinar', exchangeRate: 0.0045, isDefault: false, isEnabled: true },
+        { id: '7', code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit', exchangeRate: 0.057, isDefault: false, isEnabled: true },
+        { id: '8', code: 'MUR', symbol: '₨', name: 'Mauritian Rupee', exchangeRate: 0.54, isDefault: false, isEnabled: true },
+        { id: '9', code: 'FJD', symbol: 'FJ$', name: 'Fijian Dollar', exchangeRate: 0.027, isDefault: false, isEnabled: true },
+        { id: '10', code: 'GYD', symbol: 'G$', name: 'Guyanese Dollar', exchangeRate: 2.51, isDefault: false, isEnabled: true },
+        { id: '11', code: 'SRD', symbol: 'Sr$', name: 'Surinamese Dollar', exchangeRate: 0.39, isDefault: false, isEnabled: true },
+        { id: '12', code: 'TTD', symbol: 'TT$', name: 'Trinidad & Tobago Dollar', exchangeRate: 0.081, isDefault: false, isEnabled: true },
+      ];
+      this.writeSettingsFile(data);
+    }
+    return data.currencies;
   }
 
   async getCountries() {
     const data = this.readSettingsFile();
-    return data.countries || [];
+    if (!data.countries || !Array.isArray(data.countries) || data.countries.length === 0) {
+      data.countries = [
+        { code: 'IN', name: 'India' },
+        { code: 'US', name: 'United States' },
+        { code: 'GB', name: 'United Kingdom' },
+        { code: 'AE', name: 'UAE (Dubai)' },
+        { code: 'BH', name: 'Bahrain' },
+        { code: 'MY', name: 'Malaysia' },
+        { code: 'MU', name: 'Mauritius' },
+        { code: 'FJ', name: 'Fiji' },
+        { code: 'GY', name: 'Guyana' },
+        { code: 'SR', name: 'Suriname' },
+        { code: 'TT', name: 'Trinidad & Tobago' },
+        { code: 'AU', name: 'Australia' },
+        { code: 'CA', name: 'Canada' },
+        { code: 'DE', name: 'Germany' },
+        { code: 'FR', name: 'France' },
+        { code: 'JP', name: 'Japan' },
+        { code: 'SG', name: 'Singapore' },
+        { code: 'SA', name: 'Saudi Arabia' },
+        { code: 'QA', name: 'Qatar' },
+        { code: 'KW', name: 'Kuwait' },
+        { code: 'OM', name: 'Oman' },
+        { code: 'ZA', name: 'South Africa' },
+        { code: 'NZ', name: 'New Zealand' },
+        { code: 'NL', name: 'Netherlands' },
+        { code: 'ES', name: 'Spain' },
+        { code: 'IT', name: 'Italy' },
+        { code: 'CH', name: 'Switzerland' },
+        { code: 'CN', name: 'China' },
+        { code: 'BR', name: 'Brazil' },
+        { code: 'MX', name: 'Mexico' },
+      ];
+      this.writeSettingsFile(data);
+    }
+    return data.countries;
   }
 
   async updateLanguages(languages: any[]) {
