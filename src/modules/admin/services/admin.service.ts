@@ -983,6 +983,7 @@ export class AdminService {
         taxRuleId: taxRuleId,
         hsnCode: data.hsnCode || null,
         basePrice: basePrice,
+        shippingCharge: data.shippingCharge !== undefined ? Number(data.shippingCharge) : (data.shipping_charge !== undefined ? Number(data.shipping_charge) : 0),
         status: data.status || ProductStatus.PUBLISHED,
         gender: data.gender || 'UNISEX',
         ageGroup: data.ageGroup || 'ADULT',
@@ -1247,7 +1248,7 @@ export class AdminService {
 
     const allowedFields = [
       'name', 'slug', 'description', 'status', 'categoryId', 'brandId',
-      'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice',
+      'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice', 'shippingCharge',
       'discountType', 'discountValue', 'discountStartsAt', 'discountEndsAt',
       'isFeatured', 'isTrending', 'isNewArrival', 'isBestSeller', 'avgRating',
       'reviewCount', 'seoTitle', 'seoDescription'

@@ -392,8 +392,9 @@ model Product {
   gender       Gender?
   ageGroup     AgeGroup? @map("age_group")
 
-  basePrice     Decimal  @db.Decimal(10, 2) @map("base_price")
-  discountType  DiscountType? @map("discount_type")
+  basePrice      Decimal  @db.Decimal(10, 2) @map("base_price")
+  shippingCharge Decimal  @default(0) @db.Decimal(10, 2) @map("shipping_charge")
+  discountType   DiscountType? @map("discount_type")
   discountValue Decimal? @db.Decimal(10, 2) @map("discount_value")
   discountStartsAt DateTime? @map("discount_starts_at")
   discountEndsAt   DateTime? @map("discount_ends_at")
