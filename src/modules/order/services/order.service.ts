@@ -4,6 +4,36 @@ import prisma from '../../../utils/prisma';
 import { reserveStock, releaseReservation } from '../../inventory/services/inventory.service';
 import { calculateCartTaxes } from '../../../utils/tax.utils';
 
+function formatOrderSummary(order: any) {
+  if (!order) return order;
+  const subtotal = Number(order.subtotal || 0);
+  const taxAmount = Number(order.taxAmount || 0);
+  const shippingAmount = Number(order.shippingAmount || 0);
+  const discountAmount = Number(order.discountAmount || 0);
+  const totalAmount = Number(order.totalAmount || Math.max(0, subtotal + shippingAmount - discountAmount));
+
+  return {
+    ...order,
+    subtotal,
+    subTotal: subtotal,
+    itemsPrice: subtotal,
+    taxAmount,
+    tax: taxAmount,
+    totalTax: taxAmount,
+    shippingAmount,
+    shippingFee: shippingAmount,
+    shipping: shippingAmount,
+    deliveryFee: shippingAmount,
+    discountAmount,
+    discount: discountAmount,
+    couponDiscount: discountAmount,
+    totalAmount,
+    total: totalAmount,
+    grandTotal: totalAmount,
+    finalTotal: totalAmount,
+  };
+}
+
 export class OrderService {
   async createOrder(userId: any, data: any) {
     const uId = Number(userId);
@@ -231,7 +261,7 @@ export class OrderService {
           discountAmount,
           totalAmount,
           items: {
-            create: taxCalculation.itemsWithTax.map((item) => ({
+            create: taxCalculation.itemsWithTax.map((item: any) => ({
               productId: item.productId,
               variantId: item.variantId && item.variantId > 0 ? item.variantId : undefined,
               productNameSnapshot: item.productName || 'Product',
@@ -293,7 +323,7 @@ export class OrderService {
     }
 
     logger.info(`✅ Order created successfully: ID ${order.id}, Number ${order.orderNumber} for User ${uId}`);
-    return order;
+    return formatOrderSummary(order);
   }
 
   async getOrders(userId: any, filters: { page: number; limit: number; status?: string }) {
@@ -331,7 +361,7 @@ export class OrderService {
     ]);
 
     return {
-      orders,
+      orders: orders.map((o) => formatOrderSummary(o)),
       pagination: {
         page,
         limit,
@@ -368,7 +398,7 @@ export class OrderService {
       throw new AppError('Order not found', 404);
     }
 
-    return order;
+    return formatOrderSummary(order);
   }
 
   async cancelOrder(userId: any, orderId: any, reason?: string) {

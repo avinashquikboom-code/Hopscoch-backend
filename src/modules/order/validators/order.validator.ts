@@ -31,5 +31,11 @@ export const createOrderSchema = z.object({
   razorpayOrderId: z.string().optional(),
   razorpayPaymentId: z.string().optional(),
   razorpaySignature: z.string().optional(),
-});
+  discountAmount: z.union([z.string(), z.number()]).optional(),
+  discount: z.union([z.string(), z.number()]).optional(),
+  couponCode: z.string().optional(),
+  coupon: z.string().optional(),
+  shippingAmount: z.union([z.string(), z.number()]).optional(),
+  shipping: z.union([z.string(), z.number()]).optional(),
+}).passthrough();
 
