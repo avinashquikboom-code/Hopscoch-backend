@@ -3036,10 +3036,10 @@ export class AdminService {
       data: {
         name: data.name,
         rate: data.rate,
-        type: data.type,
-        taxType: data.taxType,
+        type: data.type || 'PERCENTAGE',
+        taxType: data.taxType || 'EXCLUSIVE',
         hsnCode: data.hsnCode,
-        country: data.country,
+        country: data.country || 'IN',
         state: data.state,
         zipCode: data.zipCode,
         isActive: data.isActive !== undefined ? data.isActive : true,
