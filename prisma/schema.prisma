@@ -425,6 +425,7 @@ model Product {
   relatedFrom RelatedProduct[] @relation("ProductRelatedTo")
 
   productCollections ProductCollection[]
+  productTaxes       ProductTax[]
 
   deletedAt DateTime? @map("deleted_at")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -1128,6 +1129,126 @@ model Tax {
 
   @@index([isActive])
   @@map("taxes")
+}
+
+model TaxType {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  taxRates TaxRate[]
+  taxRules TaxRule[]
+
+  @@map("tax_types")
+}
+
+model TaxRate {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  name         String
+  taxTypeId    Int      @map("tax_type_id")
+  taxType      TaxType  @relation(fields: [taxTypeId], references: [id])
+  rate         Decimal  @db.Decimal(10, 2)
+  cgstRate     Decimal? @default(0) @db.Decimal(10, 2) @map("cgst_rate")
+  sgstRate     Decimal? @default(0) @db.Decimal(10, 2) @map("sgst_rate")
+  igstRate     Decimal? @default(0) @db.Decimal(10, 2) @map("igst_rate")
+  calculationType String @default("PERCENTAGE") @map("calculation_type") // 'PERCENTAGE' | 'FIXED'
+  isInclusive  Boolean  @default(false) @map("is_inclusive")
+  country      String   @default("IN")
+  state        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  productTaxes ProductTax[]
+  taxRules     TaxRule[]
+
+  @@index([taxTypeId])
+  @@index([country])
+  @@index([isActive])
+  @@map("tax_rates")
+}
+
+model TaxRule {
+  id           Int       @id @default(autoincrement())
+  name         String
+  taxCode      String    @unique @map("tax_code")
+  taxTypeId    Int       @map("tax_type_id")
+  taxType      TaxType   @relation(fields: [taxTypeId], references: [id])
+  taxRateId    Int?      @map("tax_rate_id")
+  taxRate      TaxRate?  @relation(fields: [taxRateId], references: [id])
+  country      String    @default("IN")
+  state        String?
+  zipCode      String?   @map("zip_code")
+  rate         Decimal   @db.Decimal(10, 2)
+  cgst         Decimal?  @default(0) @db.Decimal(10, 2)
+  sgst         Decimal?  @default(0) @db.Decimal(10, 2)
+  igst         Decimal?  @default(0) @db.Decimal(10, 2)
+  description  String?
+  priority     Int       @default(0)
+  displayOrder Int       @default(0) @map("display_order")
+  isDefault    Boolean   @default(false) @map("is_default")
+  isActive     Boolean   @default(true) @map("is_active")
+  effectiveDate DateTime? @map("effective_date")
+  expiryDate   DateTime? @map("expiry_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  productTaxes ProductTax[]
+
+  @@index([country])
+  @@index([isActive])
+  @@map("tax_rules")
+}
+
+model CountryTax {
+  id           Int      @id @default(autoincrement())
+  countryCode  String   @unique @map("country_code")
+  countryName  String   @map("country_name")
+  defaultTaxType String @default("GST") @map("default_tax_type")
+  defaultRate  Decimal  @db.Decimal(10, 2) @map("default_rate")
+  taxNumberLabel String? @default("GSTIN") @map("tax_number_label")
+  isTaxEnabled Boolean  @default(true) @map("is_tax_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("country_taxes")
+}
+
+model ProductTax {
+  id          Int      @id @default(autoincrement())
+  productId   Int      @map("product_id")
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  taxRuleId   Int?     @map("tax_rule_id")
+  taxRule     TaxRule? @relation(fields: [taxRuleId], references: [id], onDelete: SetNull)
+  taxRateId   Int?     @map("tax_rate_id")
+  taxRate     TaxRate? @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  customRate  Decimal? @db.Decimal(10, 2) @map("custom_rate")
+  country     String   @default("IN")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, country])
+  @@map("product_taxes")
+}
+
+model TaxHistory {
+  id        Int      @id @default(autoincrement())
+  entityType String  @map("entity_type") // 'TaxRule' | 'TaxRate' | 'ProductTax'
+  entityId  Int      @map("entity_id")
+  action    String   // 'CREATE' | 'UPDATE' | 'DELETE' | 'ENABLE' | 'DISABLE'
+  changes   String   // JSON string of before & after values
+  userId    Int?     @map("user_id")
+  userEmail String?  @map("user_email")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("tax_history")
 }
 
 model Shipping {

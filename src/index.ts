@@ -201,9 +201,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/colors', colorRoutes);
-app.use('/api/sizes', sizeRoutes);
-app.use('/api/admin/colors', colorRoutes);
-app.use('/api/admin/sizes', sizeRoutes);
+import taxRoutes from './modules/tax/routes/tax.routes';
+
+app.use('/api/taxes', taxRoutes);
+app.use('/api/admin/taxes', taxRoutes);
 app.use('/api/search', searchRoutes);
 
 // Error handling
