@@ -1475,6 +1475,7 @@ export class AdminService {
         slug: slug,
         description: data.description || null,
         parentId: data.parentId ? Number(data.parentId) : null,
+        taxRuleId: data.taxRuleId ? Number(data.taxRuleId) : null,
         isFeatured: data.isFeatured || false,
         sortOrder: data.sortOrder ? Number(data.sortOrder) : 0,
         iconUrl: data.iconUrl || null,
@@ -1484,6 +1485,7 @@ export class AdminService {
         id: true,
         name: true,
         slug: true,
+        taxRuleId: true,
         isFeatured: true,
         iconUrl: true,
         bannerUrl: true,
@@ -1506,14 +1508,20 @@ export class AdminService {
     }
 
     const allowedFields = [
-      'name', 'slug', 'description', 'parentId', 'isFeatured', 'sortOrder',
+      'name', 'slug', 'description', 'parentId', 'taxRuleId', 'isFeatured', 'sortOrder',
       'iconUrl', 'bannerUrl', 'seoTitle', 'seoDescription'
     ];
 
     const cleanData: any = {};
     for (const key of allowedFields) {
       if (data[key] !== undefined) {
-        cleanData[key] = key === 'parentId' && data[key] !== null ? Number(data[key]) : data[key];
+        if (key === 'parentId') {
+          cleanData[key] = data[key] !== null && data[key] !== '' ? Number(data[key]) : null;
+        } else if (key === 'taxRuleId') {
+          cleanData[key] = data[key] !== null && data[key] !== '' && data[key] !== 'null' ? Number(data[key]) : null;
+        } else {
+          cleanData[key] = data[key];
+        }
       }
     }
 
@@ -1524,6 +1532,7 @@ export class AdminService {
         id: true,
         name: true,
         slug: true,
+        taxRuleId: true,
         isFeatured: true,
         updatedAt: true,
       },

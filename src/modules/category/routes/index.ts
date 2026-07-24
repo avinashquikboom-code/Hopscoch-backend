@@ -85,6 +85,10 @@ const translateCategoryBody = (req: any, res: any, next: any) => {
     if (req.body.isVisible !== undefined) {
       req.body.isFeatured = req.body.isVisible;
     }
+    if (req.body.taxRuleId !== undefined || req.body.tax_rule_id !== undefined || req.body.taxId !== undefined) {
+      const val = req.body.taxRuleId ?? req.body.tax_rule_id ?? req.body.taxId;
+      req.body.taxRuleId = val !== null && val !== '' && val !== 'null' && val !== 'undefined' ? Number(val) : null;
+    }
   }
   next();
 };
