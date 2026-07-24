@@ -1230,6 +1230,34 @@ export class AdminService {
       updateData.basePrice = Number(updateData.price);
     }
 
+    // Resolve taxRuleId from taxType + taxPercent if provided
+    let resolvedTaxRuleId: number | null | undefined = undefined;
+    if (updateData.taxRuleId !== undefined) {
+      resolvedTaxRuleId = updateData.taxRuleId ? Number(updateData.taxRuleId) : null;
+    }
+    if (!resolvedTaxRuleId && updateData.taxType && updateData.taxType !== 'NONE' && updateData.taxPercent != null && updateData.taxPercent !== '') {
+      const taxRate = Number(updateData.taxPercent);
+      const taxLabel = `${updateData.taxType} ${taxRate}%`;
+      let existingTax = await prisma.tax.findFirst({
+        where: { name: { equals: taxLabel, mode: 'insensitive' }, isActive: true }
+      });
+      if (!existingTax) {
+        existingTax = await prisma.tax.create({
+          data: {
+            name: taxLabel,
+            rate: taxRate,
+            type: 'PERCENTAGE',
+            taxType: updateData.taxType,
+            isActive: true,
+          }
+        });
+        logger.info(`[updateProduct] Created Tax rule: "${taxLabel}" id=${existingTax.id}`);
+      }
+      resolvedTaxRuleId = existingTax.id;
+    } else if (updateData.taxType === 'NONE') {
+      resolvedTaxRuleId = null;
+    }
+
     const allowedFields = [
       'name', 'slug', 'description', 'status', 'categoryId', 'brandId',
       'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice',
@@ -1249,6 +1277,10 @@ export class AdminService {
       }
     }
 
+    if (resolvedTaxRuleId !== undefined) {
+      cleanUpdateData.taxRuleId = resolvedTaxRuleId;
+    }
+
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: cleanUpdateData,
@@ -1263,9 +1295,18 @@ export class AdminService {
     });
 
     logger.info(`Product updated: ${id}`);
+    const effectiveTaxRule = updatedProduct.taxRule || (updatedProduct.category as any)?.taxRule || null;
+    const taxRate = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
+    const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
+    const taxAmount = Math.round(((Number(updatedProduct.basePrice || 0) * taxRate) / 100) * 100) / 100;
+
     return {
       ...updatedProduct,
-      effectiveTaxRule: updatedProduct.taxRule || (updatedProduct.category as any)?.taxRule || null,
+      effectiveTaxRule,
+      taxPercent: taxRate,
+      taxType,
+      taxAmount,
+      hsnCode: updatedProduct.hsnCode || effectiveTaxRule?.hsnCode || null,
     };
   }
 

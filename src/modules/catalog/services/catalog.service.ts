@@ -72,9 +72,16 @@ export class CatalogService {
       const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
       const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
       const effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
+      const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
+      const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
+      const taxAmount = Math.round(((Number(p.basePrice || 0) * taxPercent) / 100) * 100) / 100;
       return {
         ...p,
         effectiveTaxRule,
+        taxPercent,
+        taxType,
+        taxAmount,
+        hsnCode: p.hsnCode || effectiveTaxRule?.hsnCode || null,
         colors,
         sizes,
       };
@@ -117,10 +124,17 @@ export class CatalogService {
     const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
     const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
     const effectiveTaxRule = product.taxRule || (product.category as any)?.taxRule || null;
+    const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
+    const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
+    const taxAmount = Math.round(((Number(product.basePrice || 0) * taxPercent) / 100) * 100) / 100;
 
     return {
       ...product,
       effectiveTaxRule,
+      taxPercent,
+      taxType,
+      taxAmount,
+      hsnCode: product.hsnCode || effectiveTaxRule?.hsnCode || null,
       colors,
       sizes,
     };
