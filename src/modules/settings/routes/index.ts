@@ -144,6 +144,7 @@ router.get('/currencies', settingsController.getCurrencies.bind(settingsControll
 router.put('/currencies', authenticate, authorize('ADMIN'), settingsController.updateCurrencies.bind(settingsController));
 
 router.get('/countries', settingsController.getCountries.bind(settingsController));
+router.put('/countries', authenticate, authorize('ADMIN'), settingsController.updateCountries.bind(settingsController));
 
 // Banners management API routes
 router.get('/banners', authenticate, async (req, res, next) => {

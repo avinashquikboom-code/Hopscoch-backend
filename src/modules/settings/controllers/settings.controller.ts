@@ -99,6 +99,15 @@ export class SettingsController {
       throw error;
     }
   }
+
+  async updateCountries(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const countries = await SettingsService.updateCountries(req.body.countries || req.body);
+      ResponseFormatter.success(res, 'Countries updated successfully', countries);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new SettingsController();

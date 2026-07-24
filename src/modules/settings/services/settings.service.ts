@@ -288,6 +288,14 @@ export class SettingsService {
     return currencies;
   }
 
+  async updateCountries(countries: any[]) {
+    const data = this.readSettingsFile();
+    data.countries = countries;
+    this.writeSettingsFile(data);
+    logger.info('Countries updated in config file');
+    return countries;
+  }
+
   async resetData(scope: 'all' | 'orders' | 'products' | 'customers' | 'logs' = 'all') {
     logger.info(`Admin initiated database reset with scope: ${scope}`);
 
