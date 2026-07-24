@@ -7,7 +7,21 @@ import { calculateCartTaxes } from '../../../utils/tax.utils';
 export class OrderService {
   async createOrder(userId: any, data: any) {
     const uId = Number(userId);
-    const { addressId, address: rawAddress, items: inputItems, paymentMethod = 'COD', razorpayOrderId, razorpayPaymentId, razorpaySignature } = data;
+    const { 
+      addressId, 
+      address: rawAddress, 
+      items: inputItems, 
+      paymentMethod = 'COD', 
+      razorpayOrderId, 
+      razorpayPaymentId, 
+      razorpaySignature,
+      discountAmount: inputDiscountAmount,
+      discount: inputDiscount,
+      couponCode: inputCouponCode,
+      coupon: inputCoupon,
+      shippingAmount: inputShippingAmount,
+      shipping: inputShipping
+    } = data;
 
     // 1. Resolve Address
     let targetAddressId: number | null = null;
@@ -145,9 +159,53 @@ export class OrderService {
     const taxCalculation = calculateCartTaxes(rawItemsToCalculate);
     const subtotal = taxCalculation.subtotal;
     const taxAmount = taxCalculation.totalTax;
-    const shippingAmount = subtotal > 999 ? 0 : 99;
-    const discountAmount = 0;
-    const totalAmount = Math.round((subtotal + taxCalculation.totalExclusiveTax + shippingAmount - discountAmount) * 100) / 100;
+
+    let shippingAmount = (inputShippingAmount !== undefined && inputShippingAmount !== null)
+      ? Number(inputShippingAmount)
+      : (inputShipping !== undefined && inputShipping !== null)
+      ? Number(inputShipping)
+      : (subtotal > 999 || subtotal === 0 ? 0 : 99);
+
+    if (isNaN(shippingAmount) || shippingAmount < 0) {
+      shippingAmount = 0;
+    }
+
+    let discountAmount = Number(inputDiscountAmount ?? inputDiscount ?? 0);
+    if (isNaN(discountAmount) || discountAmount < 0) {
+      discountAmount = 0;
+    }
+
+    const couponCode = (inputCouponCode || inputCoupon)?.toString().trim();
+    if (couponCode) {
+      const cleanCode = couponCode.toUpperCase();
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: cleanCode }
+      });
+
+      if (coupon && coupon.isActive) {
+        const now = new Date();
+        const isValidDate = (!coupon.startsAt || coupon.startsAt <= now) && (!coupon.expiresAt || coupon.expiresAt >= now);
+        const isValidMinOrder = !coupon.minOrderValue || subtotal >= Number(coupon.minOrderValue);
+
+        if (isValidDate && isValidMinOrder) {
+          if (coupon.type === 'PERCENTAGE') {
+            let calcDiscount = subtotal * (Number(coupon.value) / 100);
+            if (coupon.maxDiscount && calcDiscount > Number(coupon.maxDiscount)) {
+              calcDiscount = Number(coupon.maxDiscount);
+            }
+            discountAmount = Math.max(discountAmount, Math.round(calcDiscount * 100) / 100);
+          } else if (coupon.type === 'FLAT') {
+            discountAmount = Math.max(discountAmount, Number(coupon.value));
+          } else if (coupon.type === 'FREE_SHIPPING') {
+            shippingAmount = 0;
+          }
+        }
+      }
+    }
+
+    const grossTotal = subtotal + taxCalculation.totalExclusiveTax + shippingAmount;
+    discountAmount = Math.min(discountAmount, grossTotal);
+    const totalAmount = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
 
     // 4. Determine Status & Payment Method
     const validPaymentMethods = ['RAZORPAY', 'STRIPE', 'UPI', 'CARD', 'WALLET', 'COD'];
