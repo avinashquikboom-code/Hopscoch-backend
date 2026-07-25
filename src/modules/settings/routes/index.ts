@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import SettingsController from '../controllers/settings.controller';
+import SettingsService from '../services/settings.service';
 import { authenticate, authorize } from '../../../middleware/auth';
 import MarketingService from '../../marketing/services/marketing.service';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
@@ -302,6 +303,10 @@ router.put('/', authenticate, async (req, res, next) => {
     const current = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
     const updated = { ...current, ...req.body };
     await writeJsonFile(storeSettingsFilePath, updated);
+
+    // Sync isDefault flags in app_settings.json
+    await SettingsService.syncCountryDefaults(updated.country, updated.currency, updated.language);
+
     return ResponseFormatter.success(res, 'Settings updated successfully', updated);
   } catch (error) {
     return next(error);

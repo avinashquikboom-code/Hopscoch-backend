@@ -367,6 +367,78 @@ export class SettingsService {
     return countries;
   }
 
+  async syncCountryDefaults(countryCode?: string, currencyCode?: string, languageCode?: string) {
+    await this.getLanguages();
+    await this.getCurrencies();
+    await this.getCountries();
+
+    const data = this.readSettingsFile();
+    let modified = false;
+
+    if (countryCode) {
+      const cleanCountry = countryCode.trim().toUpperCase();
+      data.countries = (data.countries || []).map((c: any) => ({
+        ...c,
+        isDefault: c.code === cleanCountry,
+      }));
+      modified = true;
+    }
+
+    if (currencyCode) {
+      const cleanCurrency = currencyCode.trim().toUpperCase();
+      let found = false;
+      data.currencies = (data.currencies || []).map((c: any) => {
+        if (c.code === cleanCurrency) {
+          found = true;
+          return { ...c, isDefault: true, isEnabled: true };
+        }
+        return { ...c, isDefault: false };
+      });
+
+      if (!found) {
+        data.currencies.push({
+          id: String(Date.now()),
+          code: cleanCurrency,
+          symbol: cleanCurrency === 'INR' ? '₹' : cleanCurrency === 'EUR' ? '€' : cleanCurrency === 'GBP' ? '£' : cleanCurrency === 'AED' ? 'AED' : '$',
+          name: cleanCurrency,
+          exchangeRate: 1.0,
+          isDefault: true,
+          isEnabled: true,
+        });
+      }
+      modified = true;
+    }
+
+    if (languageCode) {
+      const cleanLang = languageCode.trim().toLowerCase();
+      let found = false;
+      data.languages = (data.languages || []).map((l: any) => {
+        if (l.code === cleanLang) {
+          found = true;
+          return { ...l, isDefault: true, isEnabled: true };
+        }
+        return { ...l, isDefault: false };
+      });
+
+      if (!found) {
+        data.languages.push({
+          id: String(Date.now()),
+          code: cleanLang,
+          name: cleanLang.toUpperCase(),
+          flag: '🌐',
+          isDefault: true,
+          isEnabled: true,
+        });
+      }
+      modified = true;
+    }
+
+    if (modified) {
+      this.writeSettingsFile(data);
+    }
+    return data;
+  }
+
   async getCountryInfo(countryCode: string) {
     const cleanCode = (countryCode || 'IN').trim().toUpperCase();
     const currencyMap = (countryToCurrency as any) || {};
