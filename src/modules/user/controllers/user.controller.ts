@@ -24,7 +24,8 @@ export class UserController {
       }
       
       if (req.file) {
-        req.body.avatarUrl = `/uploads/${req.file.filename}`;
+        const { uploadToS3 } = require('../../../services/s3.service');
+        req.body.avatarUrl = await uploadToS3(req.file, 'avatars');
       }
       
       const validatedData = updateUserProfileSchema.parse(req.body);

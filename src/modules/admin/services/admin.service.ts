@@ -2736,17 +2736,16 @@ export class AdminService {
     }
 
     let url = '';
-    if (await isS3Configured()) {
-      try {
-        url = await uploadToS3(file, 'images');
-      } catch (err) {
-        logger.error(`S3 upload failed, falling back: ${err}`);
+    try {
+      url = await uploadToS3(file, 'images');
+    } catch (err) {
+      logger.error(`S3 upload failed: ${err}`);
+      if (file.filename) {
+        const apiBase = process.env.API_URL || 'http://localhost:5001';
+        url = `${apiBase}/uploads/${file.filename}`;
+      } else {
+        throw err;
       }
-    }
-
-    if (!url) {
-      const apiBase = process.env.API_URL || 'http://localhost:5001';
-      url = `${apiBase}/uploads/${file.filename}`;
     }
 
     // Save image record to database
@@ -3429,17 +3428,16 @@ export class AdminService {
     }
 
     let url = '';
-    if (await isS3Configured()) {
-      try {
-        url = await uploadToS3(file, 'files');
-      } catch (err) {
-        logger.error(`S3 upload failed, falling back: ${err}`);
+    try {
+      url = await uploadToS3(file, 'files');
+    } catch (err) {
+      logger.error(`S3 upload failed: ${err}`);
+      if (file.filename) {
+        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+        url = `${base}/uploads/${file.filename}`;
+      } else {
+        throw err;
       }
-    }
-
-    if (!url) {
-      const base = apiBase || process.env.API_URL || 'http://localhost:5001';
-      url = `${base}/uploads/${file.filename}`;
     }
 
     return { url };
@@ -3448,16 +3446,16 @@ export class AdminService {
   async processFileUpload(file: any, folder: string = 'uploads', apiBase?: string): Promise<string> {
     if (!file) return '';
 
-    if (await isS3Configured()) {
-      try {
-        return await uploadToS3(file, folder);
-      } catch (err) {
-        logger.error(`S3 upload failed for ${file.originalname}: ${err}`);
+    try {
+      return await uploadToS3(file, folder);
+    } catch (err) {
+      logger.error(`S3 upload failed for ${file.originalname || file.filename}: ${err}`);
+      if (file.filename) {
+        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+        return `${base}/uploads/${file.filename}`;
       }
+      throw err;
     }
-
-    const base = apiBase || process.env.API_URL || 'http://localhost:5001';
-    return `${base}/uploads/${file.filename}`;
   }
 
 
