@@ -60,7 +60,7 @@ export class CartService {
     const items = cart.items || [];
     const taxCalculation = calculateCartTaxes(items);
     const shippingAmount = taxCalculation.subtotal > 999 || taxCalculation.subtotal === 0 ? 0 : 99;
-    const grandTotal = Math.round((taxCalculation.subtotal + taxCalculation.totalExclusiveTax + shippingAmount) * 100) / 100;
+    const grandTotal = Math.round((taxCalculation.subtotal + taxCalculation.totalTax + shippingAmount) * 100) / 100;
 
     return {
       ...cart,

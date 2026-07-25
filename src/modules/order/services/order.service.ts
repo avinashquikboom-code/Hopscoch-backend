@@ -233,7 +233,7 @@ export class OrderService {
       }
     }
 
-    const grossTotal = subtotal + taxCalculation.totalExclusiveTax + shippingAmount;
+    const grossTotal = subtotal + taxCalculation.totalTax + shippingAmount;
     discountAmount = Math.min(discountAmount, grossTotal);
     const totalAmount = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
 
