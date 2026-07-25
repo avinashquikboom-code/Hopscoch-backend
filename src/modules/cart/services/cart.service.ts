@@ -57,13 +57,37 @@ export class CartService {
       });
     }
 
-    const items = cart.items || [];
+    const rawItems = cart.items || [];
+    const items = rawItems.map((item) => {
+      const p = item.product;
+      if (p) {
+        const effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
+        const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : (Number((p as any).taxPercent || 0) > 0 ? Number((p as any).taxPercent) : 18);
+        const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : ((p as any).taxType || 'EXCLUSIVE');
+        const unitPrice = Number(item.variant?.price ?? p.basePrice ?? 0);
+        const lineSubtotal = unitPrice * item.quantity;
+        const taxAmount = Math.round((lineSubtotal * (taxPercent / 100)) * 100) / 100;
+        return {
+          ...item,
+          product: {
+            ...p,
+            effectiveTaxRule,
+            taxPercent,
+            taxType,
+            taxAmount,
+          },
+        };
+      }
+      return item;
+    });
+
     const taxCalculation = calculateCartTaxes(items);
     const shippingAmount = taxCalculation.subtotal > 999 || taxCalculation.subtotal === 0 ? 0 : 99;
     const grandTotal = Math.round((taxCalculation.subtotal + taxCalculation.totalTax + shippingAmount) * 100) / 100;
 
     return {
       ...cart,
+      items,
       subtotal: taxCalculation.subtotal,
       taxAmount: taxCalculation.totalTax,
       totalExclusiveTax: taxCalculation.totalExclusiveTax,
