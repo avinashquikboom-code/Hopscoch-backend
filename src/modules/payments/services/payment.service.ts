@@ -43,7 +43,7 @@ export class PaymentService {
     return payment;
   }
 
-  async createRazorpayOrder(userId?: any, orderId?: any, customAmount?: number) {
+  async createRazorpayOrder(userId?: any, orderId?: any, customAmount?: number, items?: any[]) {
     let amount = 0;
     let targetOrderId: number | null = null;
 
@@ -56,16 +56,62 @@ export class PaymentService {
       }
       amount = Number(order.totalAmount);
       targetOrderId = order.id;
-    } else if (userId) {
-      const cart = await CartService.getCart(userId);
-      if (!cart || cart.items.length === 0) {
-        throw new AppError('Cart is empty', 400);
+    } else if (items && Array.isArray(items) && items.length > 0) {
+      // Calculate server-authoritative total from items array by querying live DB prices & tax rules
+      let subtotal = 0;
+      let totalTax = 0;
+
+      for (const item of items) {
+        const productId = item.productId ?? item.product?.id;
+        if (!productId) continue;
+        const product = await prisma.product.findUnique({
+          where: { id: Number(productId) },
+          include: {
+            taxRule: true,
+            category: { include: { taxRule: true } },
+          },
+        });
+        if (!product) continue;
+
+        let unitPrice = Number(product.basePrice || 0);
+        if (item.variantId) {
+          const variant = await prisma.productVariant.findUnique({
+            where: { id: Number(item.variantId) },
+          });
+          if (variant && variant.price != null) {
+            unitPrice = Number(variant.price);
+          }
+        }
+
+        const qty = Number(item.quantity || 1);
+        const lineSubtotal = unitPrice * qty;
+        subtotal += lineSubtotal;
+
+        const rule = product.taxRule || (product.category as any)?.taxRule || null;
+        let rate = rule ? Number(rule.rate ?? 0) : ((product as any).taxPercent != null && Number((product as any).taxPercent) > 0 ? Number((product as any).taxPercent) : 18);
+        if (rate <= 0) rate = 18;
+
+        const lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
+        totalTax += lineTaxAmount;
       }
-      amount = Number(cart.total);
-    } else if (customAmount && customAmount > 0) {
+
+      if (subtotal > 0) {
+        const shippingAmount = subtotal > 999 ? 0 : 99;
+        amount = Math.round((subtotal + totalTax + shippingAmount) * 100) / 100;
+      } else if (customAmount && customAmount > 0) {
+        amount = Number(customAmount);
+      }
+    } else if (userId) {
+      try {
+        const cart = await CartService.getCart(userId);
+        if (cart && cart.items && cart.items.length > 0) {
+          amount = Number(cart.total);
+        }
+      } catch (_) {}
+    }
+
+    if (amount <= 0 && customAmount && customAmount > 0) {
       amount = Number(customAmount);
-    } else {
-      amount = 100;
     }
 
     if (amount <= 0) {

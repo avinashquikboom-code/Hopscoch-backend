@@ -42,6 +42,8 @@ const paymentController = PaymentController;
  *         description: Validation error or order not eligible for payment
  */
 router.post('/', authenticate, paymentController.createPayment.bind(paymentController));
+router.post('/create-order', paymentController.createRazorpayOrder.bind(paymentController));
+router.post('/verify', paymentController.verifyRazorpayPayment.bind(paymentController));
 
 /**
  * @swagger
