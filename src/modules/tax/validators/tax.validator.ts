@@ -1,5 +1,5 @@
 import { CreateTaxRuleDto, UpdateTaxRuleDto } from '../dto/tax.dto';
-import { TAX_ERROR_MESSAGES, TAX_TYPES } from '../constants/tax.constants';
+import { TAX_ERROR_MESSAGES } from '../types/tax.types';
 
 export class TaxValidator {
   static validateCreateDto(dto: CreateTaxRuleDto): { isValid: boolean; errors: string[] } {

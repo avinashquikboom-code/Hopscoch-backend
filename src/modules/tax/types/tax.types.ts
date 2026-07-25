@@ -1,4 +1,13 @@
-import { TaxTypeEnum } from '../constants/tax.constants';
+export type TaxTypeEnum = string;
+
+export const TAX_ERROR_MESSAGES = {
+  DUPLICATE_CODE: 'Tax code already exists. Please use a unique tax code.',
+  DUPLICATE_NAME: 'Tax rule name already exists. Please choose a different name.',
+  INVALID_RATE: 'Tax rate percentage must be between 0 and 100.',
+  INVALID_COUNTRY: 'Invalid 2-letter ISO country code.',
+  TAX_NOT_FOUND: 'Tax rule not found.',
+  INVALID_DATES: 'Expiry date must be after the effective date.',
+};
 
 export interface TaxCalculationParams {
   price: number;

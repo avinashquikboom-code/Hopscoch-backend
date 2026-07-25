@@ -1,7 +1,6 @@
 import { taxRepository, TaxRepository } from '../repositories/tax.repository';
 import { CreateTaxRuleDto, UpdateTaxRuleDto, AssignProductTaxDto } from '../dto/tax.dto';
-import { TaxFilterQuery, BulkTaxActionParams } from '../types/tax.types';
-import { TAX_ERROR_MESSAGES } from '../constants/tax.constants';
+import { TaxFilterQuery, BulkTaxActionParams, TAX_ERROR_MESSAGES } from '../types/tax.types';
 import { taxEvents } from '../events/tax.events';
 import { AppError } from '../../../middleware/errorHandler';
 
@@ -85,6 +84,10 @@ export class TaxService {
 
   async removeProductTax(productId: number, country = 'IN') {
     return this.repository.removeProductTax(productId, country);
+  }
+
+  async getTaxTypes() {
+    return this.repository.getTaxTypes();
   }
 }
 

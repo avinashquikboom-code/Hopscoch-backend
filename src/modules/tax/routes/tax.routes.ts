@@ -6,6 +6,7 @@ import { authenticate } from '../../../middleware/auth';
 const router = Router();
 
 // Public / Authenticated read routes
+router.get('/types', taxController.getTaxTypes.bind(taxController));
 router.get('/', taxController.getTaxList.bind(taxController));
 router.get('/:id', taxController.getTax.bind(taxController));
 

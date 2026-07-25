@@ -148,10 +148,11 @@ export const errorHandler = (
     path: req.path,
     method: req.method,
   });
+  console.error(`[INTERNAL_SERVER_ERROR] ${req.method} ${req.path}:`, err);
 
   ResponseFormatter.error(
     res,
-    process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    err.message || 'Internal server error',
     500,
     'INTERNAL_SERVER_ERROR'
   );

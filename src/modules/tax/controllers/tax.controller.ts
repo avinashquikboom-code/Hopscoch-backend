@@ -102,6 +102,15 @@ export class TaxController {
       next(error);
     }
   };
+
+  getTaxTypes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const types = await this.service.getTaxTypes();
+      ResponseFormatter.success(res, 'Tax types fetched successfully', types);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const taxController = new TaxController();

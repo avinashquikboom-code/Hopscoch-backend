@@ -50,12 +50,13 @@ export class TaxRepository {
     const igstVal = dto.igst !== undefined ? Number(dto.igst) : rateVal;
 
     // Create legacy Tax record to maintain 100% backward compatibility with Tax table
+    const mappedLegacyTaxType = (dto.taxType || '').toUpperCase().includes('INCLUSIVE') ? 'INCLUSIVE' : 'EXCLUSIVE';
     const legacyTax = await prisma.tax.create({
       data: {
         name: dto.name,
         rate: rateVal,
         type: 'PERCENTAGE',
-        taxType: dto.taxType || 'GST',
+        taxType: mappedLegacyTaxType,
         country: dto.country || 'IN',
         state: dto.state || null,
         zipCode: dto.zipCode || null,
@@ -269,6 +270,40 @@ export class TaxRepository {
 
     await this.logHistory('ProductTax', productId, 'REMOVE', JSON.stringify({ productId, country }));
     return true;
+  }
+
+  async getTaxTypes() {
+    const dbTypes = await prisma.taxType.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const defaultTypes = [
+      'GST',
+      'VAT',
+      'Sales Tax',
+      'Inclusive',
+      'Exclusive',
+      'HST',
+      'PST',
+      'QST',
+      'Luxury Tax',
+      'Import Duty',
+      'Service Tax',
+      'No Tax',
+    ];
+
+    const typeNames = new Set([
+      ...defaultTypes,
+      ...dbTypes.map((t) => t.name),
+      ...dbTypes.map((t) => t.code),
+    ]);
+
+    return Array.from(typeNames).map((name) => ({
+      id: name,
+      code: name.toUpperCase().replace(/\s+/g, '_'),
+      name,
+    }));
   }
 
   async logHistory(entityType: string, entityId: number, action: string, changes: string, userId?: number, userEmail?: string) {
