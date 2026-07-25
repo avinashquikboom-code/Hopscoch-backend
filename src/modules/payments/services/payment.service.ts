@@ -43,7 +43,14 @@ export class PaymentService {
     return payment;
   }
 
-  async createRazorpayOrder(userId?: any, orderId?: any, customAmount?: number, items?: any[]) {
+  async createRazorpayOrder(
+    userId?: any,
+    orderId?: any,
+    customAmount?: number,
+    items?: any[],
+    couponCode?: string,
+    discountAmount?: number
+  ) {
     let amount = 0;
     let targetOrderId: number | null = null;
 
@@ -61,7 +68,7 @@ export class PaymentService {
       let subtotal = 0;
       let totalTax = 0;
 
-      logger.info(`[PaymentService] Calculating server-authoritative total for ${items.length} item(s). Client sent customAmount: ₹${customAmount}`);
+      logger.info(`[PaymentService] Calculating server-authoritative total for ${items.length} item(s). Client sent customAmount: ₹${customAmount}, couponCode=${couponCode}, discountAmount=₹${discountAmount}`);
 
       for (const item of items) {
         const productId = item.productId ?? item.product?.id;
@@ -111,9 +118,11 @@ export class PaymentService {
       }
 
       if (subtotal > 0) {
-        const shippingAmount = subtotal > 999 ? 0 : 99;
-        amount = Math.round((subtotal + totalTax + shippingAmount) * 100) / 100;
-        logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount} => Authoritative Total: ₹${amount}`);
+        const appliedDiscount = Number(discountAmount || 0);
+        const discountedSubtotal = Math.max(0, subtotal - appliedDiscount);
+        const shippingAmount = discountedSubtotal >= 999 ? 0 : 99;
+        amount = Math.round((discountedSubtotal + totalTax + shippingAmount) * 100) / 100;
+        logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, discount=₹${appliedDiscount}, discountedSubtotal=₹${discountedSubtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount} => Authoritative Total: ₹${amount}`);
       } else if (customAmount && customAmount > 0) {
         amount = Number(customAmount);
       }
