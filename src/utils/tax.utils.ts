@@ -42,33 +42,29 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
     const variant = item.variant;
     const quantity = item.quantity || 1;
     const unitPrice = variant && variant.price !== undefined ? Number(variant.price) : Number(product.basePrice || 0);
-    const lineGross = unitPrice * quantity;
+    const lineSubtotal = unitPrice * quantity;
+    subtotal += lineSubtotal;
 
     const rule = product.taxRule || product.category?.taxRule || null;
     const rate = rule ? Number(rule.rate ?? 0) : (product.taxPercent !== undefined ? Number(product.taxPercent) : 0);
-    const rawType = (rule?.taxType || rule?.type || product.taxType || 'INCLUSIVE').toString().toUpperCase();
-    const taxType: 'INCLUSIVE' | 'EXCLUSIVE' = rawType === 'EXCLUSIVE' ? 'EXCLUSIVE' : 'INCLUSIVE';
+    const rawType = (rule?.taxType || rule?.type || product.taxType || 'EXCLUSIVE').toString().toUpperCase();
+    const taxType: 'INCLUSIVE' | 'EXCLUSIVE' = rawType === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE';
     const hsnCode = product.hsnCode || rule?.hsnCode || null;
 
     let lineTaxAmount = 0;
-    let lineBase = lineGross;
-
     if (rate > 0) {
-      if (taxType === 'EXCLUSIVE') {
-        lineBase = lineGross;
-        lineTaxAmount = Math.round((lineGross * (rate / 100)) * 100) / 100;
-        totalExclusiveTax += lineTaxAmount;
-      } else {
-        // INCLUSIVE: extract base price and tax amount
-        lineBase = Math.round((lineGross / (1 + (rate / 100))) * 100) / 100;
-        lineTaxAmount = Math.round((lineGross - lineBase) * 100) / 100;
+      // Always calculate tax as rate/100 of listed price to be added to total
+      lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
+      if (taxType === 'INCLUSIVE') {
         totalInclusiveTax += lineTaxAmount;
+      } else {
+        totalExclusiveTax += lineTaxAmount;
       }
 
       const key = `${rule?.id || 0}_${rate}_${taxType}`;
       const existing = breakdownMap.get(key);
       if (existing) {
-        existing.taxableAmount = Math.round((existing.taxableAmount + lineBase) * 100) / 100;
+        existing.taxableAmount = Math.round((existing.taxableAmount + lineSubtotal) * 100) / 100;
         existing.taxAmount = Math.round((existing.taxAmount + lineTaxAmount) * 100) / 100;
       } else {
         breakdownMap.set(key, {
@@ -76,13 +72,11 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
           name: rule?.name || `GST ${rate}%`,
           rate,
           taxType,
-          taxableAmount: lineBase,
+          taxableAmount: lineSubtotal,
           taxAmount: lineTaxAmount,
         });
       }
     }
-
-    subtotal += lineBase;
 
     return {
       cartItemId: item.id,
@@ -91,7 +85,7 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
       productName: product.name || '',
       quantity,
       unitPrice,
-      lineSubtotal: lineBase,
+      lineSubtotal,
       effectiveTaxRule: rule,
       rate,
       taxType,

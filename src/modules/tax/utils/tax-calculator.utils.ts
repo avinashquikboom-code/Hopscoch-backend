@@ -12,12 +12,7 @@ export function calculateSingleTax(params: TaxCalculationParams): SingleTaxCalcu
   let taxableAmount = lineSubtotal;
 
   if (rate > 0) {
-    if (isInclusive) {
-      taxableAmount = Math.round((lineSubtotal / (1 + rate / 100)) * 100) / 100;
-      taxAmount = Math.round((lineSubtotal - taxableAmount) * 100) / 100;
-    } else {
-      taxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
-    }
+    taxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
   }
 
   // GST Component Breakdown (India GST logic)
@@ -38,7 +33,7 @@ export function calculateSingleTax(params: TaxCalculationParams): SingleTaxCalcu
     }
   }
 
-  const finalPrice = isInclusive ? lineSubtotal : Math.round((lineSubtotal + taxAmount) * 100) / 100;
+  const finalPrice = Math.round((lineSubtotal + taxAmount) * 100) / 100;
 
   return {
     unitPrice,
