@@ -17,7 +17,8 @@ export class AuthController {
   async register(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (req.file) {
-        req.body.avatarUrl = `/uploads/${req.file.filename}`;
+        const { uploadToS3 } = require('../../../services/s3.service');
+        req.body.avatarUrl = await uploadToS3(req.file, 'avatars');
       }
       const validatedData = registerSchema.parse(req.body);
       const deviceInfo = {
