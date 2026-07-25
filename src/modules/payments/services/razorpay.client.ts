@@ -33,6 +33,7 @@ export class RazorpayClient {
   public async createOrder(amount: number, currency: string = 'INR', receipt: string): Promise<any> {
     const { keyId, keySecret } = await this.getCredentials();
     const amountInPaise = Math.round(amount * 100);
+    logger.info(`[RazorpayClient] Creating order: amountInRupees=₹${amount}, amountInPaise=${amountInPaise}`);
 
     if (!keyId || !keySecret || keyId.startsWith('YOUR_') || keySecret.startsWith('YOUR_')) {
       logger.warn('Razorpay live credentials not configured, returning test order payload');

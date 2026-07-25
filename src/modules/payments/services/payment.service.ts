@@ -61,6 +61,8 @@ export class PaymentService {
       let subtotal = 0;
       let totalTax = 0;
 
+      logger.info(`[PaymentService] Calculating server-authoritative total for ${items.length} item(s). Client sent customAmount: ₹${customAmount}`);
+
       for (const item of items) {
         const productId = item.productId ?? item.product?.id;
         if (!productId) continue;
@@ -73,14 +75,25 @@ export class PaymentService {
         });
         if (!product) continue;
 
-        let unitPrice = Number(product.basePrice || 0);
+        let unitPrice = Number((product as any).salePrice ?? product.basePrice ?? 0);
+        let variant: any = null;
+
         if (item.variantId) {
-          const variant = await prisma.productVariant.findUnique({
+          variant = await prisma.productVariant.findUnique({
             where: { id: Number(item.variantId) },
           });
-          if (variant && variant.price != null) {
-            unitPrice = Number(variant.price);
-          }
+        } else if (item.size || item.color) {
+          variant = await prisma.productVariant.findFirst({
+            where: {
+              productId: Number(productId),
+              ...(item.size ? { size: String(item.size) } : {}),
+              ...(item.color ? { color: String(item.color) } : {}),
+            },
+          });
+        }
+
+        if (variant && variant.price != null && Number(variant.price) > 0) {
+          unitPrice = Number(variant.price);
         }
 
         const qty = Number(item.quantity || 1);
@@ -93,11 +106,14 @@ export class PaymentService {
 
         const lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
         totalTax += lineTaxAmount;
+
+        logger.info(`[PaymentService] Item productId=${productId}, variantId=${variant?.id || 'none'}, unitPrice=₹${unitPrice}, qty=${qty}, lineSubtotal=₹${lineSubtotal}, taxRate=${rate}%, lineTax=₹${lineTaxAmount}`);
       }
 
       if (subtotal > 0) {
         const shippingAmount = subtotal > 999 ? 0 : 99;
         amount = Math.round((subtotal + totalTax + shippingAmount) * 100) / 100;
+        logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount} => Authoritative Total: ₹${amount}`);
       } else if (customAmount && customAmount > 0) {
         amount = Number(customAmount);
       }
