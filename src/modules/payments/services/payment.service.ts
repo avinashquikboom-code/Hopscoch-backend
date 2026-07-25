@@ -49,7 +49,8 @@ export class PaymentService {
     customAmount?: number,
     items?: any[],
     couponCode?: string,
-    discountAmount?: number
+    discountAmount?: number,
+    giftWrap?: boolean
   ) {
     let amount = 0;
     let targetOrderId: number | null = null;
@@ -68,7 +69,7 @@ export class PaymentService {
       let subtotal = 0;
       let totalTax = 0;
 
-      logger.info(`[PaymentService] Calculating server-authoritative total for ${items.length} item(s). Client sent customAmount: ₹${customAmount}, couponCode=${couponCode}, discountAmount=₹${discountAmount}`);
+      logger.info(`[PaymentService] Calculating server-authoritative total for ${items.length} item(s). Client sent customAmount: ₹${customAmount}, couponCode=${couponCode}, discountAmount=₹${discountAmount}, giftWrap=${giftWrap}`);
 
       for (const item of items) {
         const productId = item.productId ?? item.product?.id;
@@ -121,8 +122,13 @@ export class PaymentService {
         const appliedDiscount = Number(discountAmount || 0);
         const discountedSubtotal = Math.max(0, subtotal - appliedDiscount);
         const shippingAmount = discountedSubtotal >= 999 ? 0 : 99;
-        amount = Math.round((discountedSubtotal + totalTax + shippingAmount) * 100) / 100;
-        logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, discount=₹${appliedDiscount}, discountedSubtotal=₹${discountedSubtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount} => Authoritative Total: ₹${amount}`);
+
+        const settingsService = (await import('../../settings/services/settings.service')).default;
+        const giftWrapConfig = await settingsService.getGiftWrapConfig();
+        const giftWrapFee = (giftWrap && giftWrapConfig.enabled) ? giftWrapConfig.charge : 0;
+
+        amount = Math.round((discountedSubtotal + totalTax + shippingAmount + giftWrapFee) * 100) / 100;
+        logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, discount=₹${appliedDiscount}, discountedSubtotal=₹${discountedSubtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount}, giftWrapFee=₹${giftWrapFee} => Authoritative Total: ₹${amount}`);
       } else if (customAmount && customAmount > 0) {
         amount = Number(customAmount);
       }

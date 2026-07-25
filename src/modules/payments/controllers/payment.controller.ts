@@ -28,9 +28,9 @@ export class PaymentController {
 
   async createRazorpayOrder(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { orderId, amount, items, couponCode, discountAmount } = req.body || {};
+      const { orderId, amount, items, couponCode, discountAmount, giftWrap, giftWrapped } = req.body || {};
       const userId = req.user?.id;
-      const data = await PaymentService.createRazorpayOrder(userId, orderId, amount, items, couponCode, discountAmount);
+      const data = await PaymentService.createRazorpayOrder(userId, orderId, amount, items, couponCode, discountAmount, giftWrap || giftWrapped);
       ResponseFormatter.success(res, 'Razorpay order created successfully', data);
     } catch (error) {
       ResponseFormatter.error(res, (error as Error).message || 'Failed to create Razorpay order', 500);

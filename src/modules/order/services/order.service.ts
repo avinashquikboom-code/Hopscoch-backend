@@ -233,7 +233,13 @@ export class OrderService {
       }
     }
 
-    const grossTotal = subtotal + taxCalculation.totalTax + shippingAmount;
+    const isGiftWrapRequested = Boolean(data.giftWrap || data.giftWrapped);
+    const settingsService = (await import('../../settings/services/settings.service')).default;
+    const giftWrapConfig = await settingsService.getGiftWrapConfig();
+    const isGiftWrapped = isGiftWrapRequested && giftWrapConfig.enabled;
+    const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
+
+    const grossTotal = subtotal + taxCalculation.totalTax + shippingAmount + giftWrapCharge;
     discountAmount = Math.min(discountAmount, grossTotal);
     const totalAmount = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
 
@@ -259,6 +265,8 @@ export class OrderService {
           taxAmount,
           shippingAmount,
           discountAmount,
+          giftWrapped: isGiftWrapped,
+          giftWrapCharge,
           totalAmount,
           items: {
             create: taxCalculation.itemsWithTax.map((item: any) => ({

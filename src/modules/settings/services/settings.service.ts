@@ -75,7 +75,6 @@ export class SettingsService {
       }
     }
 
-    // Fallback to env/config
     let envKey = `${provider.toUpperCase()}_${keyName.toUpperCase()}`;
     if (provider === 'aws') {
       if (keyName === 'access_key_id') envKey = 'AWS_ACCESS_KEY_ID';
@@ -88,6 +87,24 @@ export class SettingsService {
       this.cache.set(cacheKey, envValue);
     }
     return envValue;
+  }
+
+  async getGiftWrapConfig(): Promise<{ enabled: boolean; charge: number }> {
+    try {
+      const enabledStr = await this.getIntegrationKey('aws', 'gift_wrap_enabled');
+      const chargeStr = await this.getIntegrationKey('aws', 'gift_wrap_charge');
+      return {
+        enabled: enabledStr !== 'false',
+        charge: chargeStr && Number(chargeStr) > 0 ? Number(chargeStr) : 49,
+      };
+    } catch (_) {
+      return { enabled: true, charge: 49 };
+    }
+  }
+
+  async updateGiftWrapConfig(enabled: boolean, charge: number): Promise<void> {
+    await this.updateIntegrationKey('aws', 'gift_wrap_enabled', String(enabled));
+    await this.updateIntegrationKey('aws', 'gift_wrap_charge', String(charge));
   }
 
   async updateIntegrationKey(

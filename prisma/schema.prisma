@@ -684,6 +684,8 @@ model Order {
   taxAmount     Decimal     @db.Decimal(10, 2) @default(0) @map("tax_amount")
   shippingAmount Decimal    @db.Decimal(10, 2) @default(0) @map("shipping_amount")
   discountAmount Decimal    @db.Decimal(10, 2) @default(0) @map("discount_amount")
+  giftWrapped   Boolean     @default(false) @map("gift_wrapped")
+  giftWrapCharge Decimal    @db.Decimal(10, 2) @default(0) @map("gift_wrap_charge")
   totalAmount   Decimal     @db.Decimal(10, 2) @map("total_amount")
 
   couponId Int? @map("coupon_id")

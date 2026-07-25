@@ -210,6 +210,16 @@ app.get('/api/banners', async (req, res, next) => {
   }
 });
 
+app.get('/api/config/gift-wrap', async (req, res) => {
+  try {
+    const { default: settingsService } = await import('./modules/settings/services/settings.service');
+    const config = await settingsService.getGiftWrapConfig();
+    return ResponseFormatter.success(res, 'Gift wrap config retrieved', config);
+  } catch (error) {
+    return ResponseFormatter.error(res, 'Failed to fetch gift wrap config', 500);
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api', catalogRoutes);
 app.use('/api', visualSearchRoutes);

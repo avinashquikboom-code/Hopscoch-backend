@@ -202,6 +202,34 @@ export class IntegrationController {
       ResponseFormatter.error(res, err.message || 'Failed to reset data', 500);
     }
   }
+
+  async getGiftWrapConfig(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const config = await settingsService.getGiftWrapConfig();
+      ResponseFormatter.success(res, 'Gift wrap config retrieved', config);
+    } catch (error) {
+      ResponseFormatter.error(res, 'Failed to fetch gift wrap config', 500);
+    }
+  }
+
+  async updateGiftWrapConfig(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        ResponseFormatter.error(res, 'Access denied', 403);
+        return;
+      }
+      const { enabled, charge } = req.body || {};
+      const isEnabled = enabled !== false && enabled !== 'false';
+      const numCharge = Number(charge) > 0 ? Number(charge) : 49;
+      await settingsService.updateGiftWrapConfig(isEnabled, numCharge);
+      ResponseFormatter.success(res, 'Gift wrap config updated successfully', {
+        enabled: isEnabled,
+        charge: numCharge,
+      });
+    } catch (error) {
+      ResponseFormatter.error(res, 'Failed to update gift wrap config', 500);
+    }
+  }
 }
 
 export default new IntegrationController();

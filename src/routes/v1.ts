@@ -46,6 +46,18 @@ router.post(
   IntegrationController.resetData.bind(IntegrationController)
 );
 
+// Gift Wrap Config (Public GET + Admin PUT)
+router.get(
+  '/config/gift-wrap',
+  IntegrationController.getGiftWrapConfig.bind(IntegrationController)
+);
+router.put(
+  '/admin/settings/gift-wrap',
+  authenticate,
+  authorize('ADMIN'),
+  IntegrationController.updateGiftWrapConfig.bind(IntegrationController)
+);
+
 // Shipping Admin Operations
 router.get(
   '/admin/shipping/dashboard',
