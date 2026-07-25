@@ -145,6 +145,7 @@ router.put('/currencies', authenticate, authorize('ADMIN'), settingsController.u
 
 router.get('/countries', settingsController.getCountries.bind(settingsController));
 router.put('/countries', authenticate, authorize('ADMIN'), settingsController.updateCountries.bind(settingsController));
+router.get('/country-info/:countryCode', settingsController.getCountryInfo.bind(settingsController));
 
 // Banners management API routes
 router.get('/banners', authenticate, async (req, res, next) => {
@@ -260,6 +261,10 @@ const readJsonFile = async <T>(filePath: string, fallback: T): Promise<T> => {
 };
 
 const writeJsonFile = async (filePath: string, data: unknown): Promise<void> => {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    await fs.promises.mkdir(dir, { recursive: true });
+  }
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 };
 

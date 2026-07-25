@@ -108,6 +108,16 @@ export class SettingsController {
       throw error;
     }
   }
+
+  async getCountryInfo(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { countryCode } = req.params;
+      const info = await SettingsService.getCountryInfo(countryCode);
+      ResponseFormatter.success(res, 'Country information retrieved successfully', info);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new SettingsController();

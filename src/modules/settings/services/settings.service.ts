@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
+import countryToCurrency from 'country-to-currency';
 
 // Encryption setup
 const ALGORITHM = 'aes-256-cbc';
@@ -249,8 +250,13 @@ export class SettingsService {
 
   private writeSettingsFile(data: any): void {
     const fs = require('fs');
+    const path = require('path');
     try {
       const filePath = this.getSettingsFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       logger.error(`Failed to write app settings file: ${err}`);
@@ -359,6 +365,63 @@ export class SettingsService {
     this.writeSettingsFile(data);
     logger.info('Countries updated in config file');
     return countries;
+  }
+
+  async getCountryInfo(countryCode: string) {
+    const cleanCode = (countryCode || 'IN').trim().toUpperCase();
+    const currencyMap = (countryToCurrency as any) || {};
+    const currencyCode = currencyMap[cleanCode] || (cleanCode === 'IN' ? 'INR' : 'USD');
+    
+    const currencySymbols: Record<string, string> = {
+      INR: '₹', USD: '$', EUR: '€', GBP: '£', JPY: '¥', CAD: 'CA$', AUD: 'A$', SGD: 'S$', AED: 'AED', SAR: 'SAR', BHD: 'BD', MYR: 'RM', MUR: '₨', FJD: 'FJ$', GYD: 'G$', SRD: 'Sr$', TTD: 'TT$',
+    };
+
+    const countryToLang: Record<string, { code: string; name: string }> = {
+      IN: { code: 'en', name: 'English' },
+      US: { code: 'en', name: 'English' },
+      GB: { code: 'en', name: 'English' },
+      CA: { code: 'en', name: 'English' },
+      AU: { code: 'en', name: 'English' },
+      NZ: { code: 'en', name: 'English' },
+      SG: { code: 'en', name: 'English' },
+      ES: { code: 'es', name: 'Spanish' },
+      MX: { code: 'es', name: 'Spanish' },
+      BR: { code: 'es', name: 'Spanish' },
+      AR: { code: 'es', name: 'Spanish' },
+      FR: { code: 'fr', name: 'French' },
+      DE: { code: 'de', name: 'German' },
+      AT: { code: 'de', name: 'German' },
+      CH: { code: 'de', name: 'German' },
+      IT: { code: 'it', name: 'Italian' },
+      AE: { code: 'ar', name: 'Arabic' },
+      SA: { code: 'ar', name: 'Arabic' },
+      QA: { code: 'ar', name: 'Arabic' },
+      KW: { code: 'ar', name: 'Arabic' },
+      OM: { code: 'ar', name: 'Arabic' },
+      BH: { code: 'ar', name: 'Arabic' },
+      MY: { code: 'ms', name: 'Bahasa Melayu' },
+      NL: { code: 'nl', name: 'Nederlands' },
+      SR: { code: 'nl', name: 'Nederlands' },
+      JP: { code: 'ja', name: 'Japanese' },
+      CN: { code: 'zh', name: 'Chinese' },
+    };
+
+    const countryNames: Record<string, string> = {
+      IN: 'India', US: 'United States', GB: 'United Kingdom', AE: 'UAE (Dubai)', CA: 'Canada', DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', MY: 'Malaysia', AU: 'Australia', NZ: 'New Zealand', SG: 'Singapore', SA: 'Saudi Arabia', JP: 'Japan', CN: 'China', BR: 'Brazil', MX: 'Mexico', NL: 'Netherlands', BH: 'Bahrain', MU: 'Mauritius', FJ: 'Fiji', GY: 'Guyana', SR: 'Suriname', TT: 'Trinidad & Tobago',
+    };
+
+    const langInfo = countryToLang[cleanCode] || { code: 'en', name: 'English' };
+    const currencySymbol = currencySymbols[currencyCode] || '$';
+    const countryName = countryNames[cleanCode] || cleanCode;
+
+    return {
+      countryCode: cleanCode,
+      countryName,
+      currencyCode,
+      currencySymbol,
+      languageCode: langInfo.code,
+      languageName: langInfo.name,
+    };
   }
 
   async resetData(scope: 'all' | 'orders' | 'products' | 'customers' | 'logs' = 'all') {
