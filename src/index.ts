@@ -98,6 +98,44 @@ app.use('/uploads', express.static(uploadsPath, {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   }
 }));
+
+app.get(['/api/uploads/*', '/uploads/*'], async (req, res): Promise<void> => {
+  try {
+    const rawKey = req.params[0];
+    if (!rawKey) {
+      res.status(404).json({ success: false, message: 'File key missing' });
+      return;
+    }
+    const key = rawKey.startsWith('/') ? rawKey.substring(1) : rawKey;
+    const localPath = path.resolve(process.cwd(), 'uploads', key);
+
+    if (fs.existsSync(localPath)) {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.sendFile(localPath);
+      return;
+    }
+
+    const { getObjectFromS3 } = require('./services/s3.service');
+    const s3Object = await getObjectFromS3(key);
+
+    res.setHeader('Content-Type', s3Object.ContentType || 'image/jpeg');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+    if (s3Object.Body && typeof (s3Object.Body as any).pipe === 'function') {
+      (s3Object.Body as any).pipe(res);
+    } else if (s3Object.Body) {
+      const bytes = await s3Object.Body.transformToByteArray();
+      res.send(Buffer.from(bytes));
+    } else {
+      res.status(404).json({ success: false, message: 'File body empty' });
+    }
+  } catch (error) {
+    logger.error(`Failed to serve uploaded file key=${req.params[0]}: ${error}`);
+    res.status(404).json({ success: false, message: 'File not found' });
+  }
+});
 const assetsPath = path.resolve(process.cwd(), 'assets');
 app.use('/assets', express.static(assetsPath));
 app.use(express.json({ limit: '10mb' }));

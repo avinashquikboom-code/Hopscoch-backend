@@ -166,10 +166,32 @@ export async function uploadToS3(
 
   await client.send(command);
 
-  // Return public S3 URL without ACL parameter
-  const publicUrl = `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${key}`;
-  logger.info(`Successfully uploaded to S3: ${publicUrl}`);
+  // Return proxied public uploads URL accessible to client apps and browsers
+  const publicUrl = `/api/uploads/${key}`;
+  logger.info(`Successfully uploaded to S3: key=${key}, publicUrl=${publicUrl}`);
   return publicUrl;
+}
+
+/**
+ * Fetches an object directly from AWS S3 bucket by Key.
+ */
+export async function getObjectFromS3(key: string) {
+  const config = await getS3Config();
+  if (!config.accessKeyId || !config.secretAccessKey || !config.bucketName) {
+    throw new Error('AWS S3 credentials missing');
+  }
+  const client = new S3Client({
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
+  const { GetObjectCommand } = require('@aws-sdk/client-s3');
+  return await client.send(new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  }));
 }
 
 /**
