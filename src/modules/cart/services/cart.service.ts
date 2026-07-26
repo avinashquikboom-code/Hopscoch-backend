@@ -67,6 +67,17 @@ export class CartService {
             where: { id: Number(p.taxRuleId) },
           });
         }
+        if (!effectiveTaxRule && (p.category as any)?.taxRuleId) {
+          effectiveTaxRule = await prisma.tax.findUnique({
+            where: { id: Number((p.category as any).taxRuleId) },
+          });
+        }
+        if (!effectiveTaxRule) {
+          effectiveTaxRule = await prisma.tax.findFirst({
+            where: { isActive: true },
+            orderBy: { id: 'asc' },
+          });
+        }
         const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
         const taxPercent = effectiveTaxRule
             ? Number(effectiveTaxRule.rate || 0)

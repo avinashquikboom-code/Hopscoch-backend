@@ -132,8 +132,14 @@ app.get(['/api/uploads/*', '/uploads/*'], async (req, res): Promise<void> => {
     } else {
       res.status(404).json({ success: false, message: 'File body empty' });
     }
-  } catch (error) {
-    logger.error(`Failed to serve uploaded file key=${req.params[0]}: ${error}`);
+  } catch (error: any) {
+    const errStr = String(error?.name || '') + String(error?.message || '') + String(error?.code || '') + String(error || '');
+    const isNotFound = errStr.includes('NoSuchKey') || error?.statusCode === 404 || error?.$metadata?.httpStatusCode === 404;
+    if (isNotFound) {
+      logger.warn(`Uploaded file not found (key=${req.params[0]})`);
+    } else {
+      logger.error(`Failed to serve uploaded file key=${req.params[0]}: ${error}`);
+    }
     res.status(404).json({ success: false, message: 'File not found' });
   }
 });

@@ -17,7 +17,7 @@ export class CatalogService {
       minPrice,
       maxPrice,
       page = 1,
-      limit = 20,
+      limit = 100,
       sort = 'createdAt',
     } = filters;
 
@@ -75,6 +75,17 @@ export class CatalogService {
       if (!effectiveTaxRule && p.taxRuleId) {
         effectiveTaxRule = await prisma.tax.findUnique({
           where: { id: Number(p.taxRuleId) },
+        });
+      }
+      if (!effectiveTaxRule && (p.category as any)?.taxRuleId) {
+        effectiveTaxRule = await prisma.tax.findUnique({
+          where: { id: Number((p.category as any).taxRuleId) },
+        });
+      }
+      if (!effectiveTaxRule) {
+        effectiveTaxRule = await prisma.tax.findFirst({
+          where: { isActive: true },
+          orderBy: { id: 'asc' },
         });
       }
       const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
@@ -152,6 +163,17 @@ export class CatalogService {
     if (!effectiveTaxRule && product.taxRuleId) {
       effectiveTaxRule = await prisma.tax.findUnique({
         where: { id: Number(product.taxRuleId) },
+      });
+    }
+    if (!effectiveTaxRule && (product.category as any)?.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number((product.category as any).taxRuleId) },
+      });
+    }
+    if (!effectiveTaxRule) {
+      effectiveTaxRule = await prisma.tax.findFirst({
+        where: { isActive: true },
+        orderBy: { id: 'asc' },
       });
     }
     const rawRate = (product as any).taxPercent ?? (product as any).tax_percent ?? (product as any).taxRate ?? (product as any).tax_rate;

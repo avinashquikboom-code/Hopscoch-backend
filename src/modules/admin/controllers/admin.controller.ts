@@ -197,7 +197,7 @@ export class AdminController {
 
   async getProducts(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { page = '1', limit = '20', search, status, categoryId, brandId } = req.query;
+      const { page = '1', limit = '1000', search, status, categoryId, brandId } = req.query;
       const products = await AdminService.getProducts({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
