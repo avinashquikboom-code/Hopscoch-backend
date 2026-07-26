@@ -60,11 +60,11 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
 
     let lineTaxAmount = 0;
     if (rate > 0) {
-      // Always calculate tax as rate/100 of listed price to be added to total
-      lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
       if (taxType === 'INCLUSIVE') {
+        lineTaxAmount = Math.round((lineSubtotal - (lineSubtotal / (1 + rate / 100))) * 100) / 100;
         totalInclusiveTax += lineTaxAmount;
       } else {
+        lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
         totalExclusiveTax += lineTaxAmount;
       }
 
