@@ -244,6 +244,7 @@ export class OrderService {
     const isGiftWrapped = isGiftWrapRequested && giftWrapConfig.enabled;
     const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
 
+    const grossTotal = subtotal + taxAmount + shippingAmount + giftWrapCharge;
     const calculatedTotal = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
     const totalAmount = (data.totalAmount != null && Number(data.totalAmount) > 0)
       ? Number(data.totalAmount)
