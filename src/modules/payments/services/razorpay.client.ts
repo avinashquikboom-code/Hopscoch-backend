@@ -15,8 +15,12 @@ export class RazorpayClient {
     let keyId = await settingsService.getIntegrationKey('razorpay', 'key_id');
     let keySecret = await settingsService.getIntegrationKey('razorpay', 'key_secret');
 
-    if (!keyId) keyId = process.env.RAZORPAY_KEY_ID || '';
-    if (!keySecret) keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+    if (!keyId || keyId.startsWith('YOUR_') || keyId === 'your-razorpay-key-id') {
+      keyId = process.env.RAZORPAY_KEY_ID || '';
+    }
+    if (!keySecret || keySecret.startsWith('YOUR_') || keySecret === 'your-razorpay-key-secret') {
+      keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+    }
 
     return { keyId, keySecret };
   }
@@ -24,7 +28,7 @@ export class RazorpayClient {
   private async getAuthHeader(): Promise<string> {
     const { keyId, keySecret } = await this.getCredentials();
     if (!keyId || !keySecret) {
-      throw new Error('Razorpay credentials missing. Please configure them in Integration Settings.');
+      throw new Error('Razorpay credentials missing. Please configure them in Integration Settings or .env');
     }
     const token = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
     return `Basic ${token}`;
@@ -71,18 +75,7 @@ export class RazorpayClient {
       const data = (await response.json()) as any;
       if (!response.ok) {
         logger.error(`Razorpay API error: ${JSON.stringify(data)}`);
-        return {
-          id: `order_test_${Date.now()}`,
-          entity: 'order',
-          amount: amountInPaise,
-          amount_paid: 0,
-          amount_due: amountInPaise,
-          currency,
-          receipt,
-          status: 'created',
-          attempts: 0,
-          created_at: Math.floor(Date.now() / 1000),
-        };
+        throw new Error(data.error?.description || data.message || 'Razorpay order creation failed');
       }
       return data;
     } catch (err) {

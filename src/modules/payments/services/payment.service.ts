@@ -212,10 +212,16 @@ export class PaymentService {
 
     let keyId = process.env.RAZORPAY_KEY_ID || '';
     try {
-      const settingsService = require('../../settings/services/settings.service').default;
+      const settingsService = (await import('../../settings/services/settings.service')).default;
       const fetchedKey = await settingsService.getIntegrationKey('razorpay', 'key_id');
-      if (fetchedKey) keyId = fetchedKey;
+      if (fetchedKey && !fetchedKey.startsWith('YOUR_') && fetchedKey !== 'your-razorpay-key-id') {
+        keyId = fetchedKey;
+      }
     } catch (_) {}
+
+    if (!keyId || keyId.startsWith('YOUR_') || keyId === 'your-razorpay-key-id') {
+      keyId = process.env.RAZORPAY_KEY_ID || '';
+    }
 
     return {
       razorpayOrderId: rzpOrder.id,
