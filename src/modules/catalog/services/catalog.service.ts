@@ -72,8 +72,14 @@ export class CatalogService {
       const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
       const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
       const effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
-      const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
-      const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
+      const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
+      const taxPercent = effectiveTaxRule
+          ? Number(effectiveTaxRule.rate || 0)
+          : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+      const rawType = (p as any).taxType ?? (p as any).tax_type ?? (p as any).type;
+      const taxType = effectiveTaxRule
+          ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+          : (rawType ? String(rawType) : 'NONE');
       const taxAmount = Math.round(((Number(p.basePrice || 0) * taxPercent) / 100) * 100) / 100;
       return {
         ...p,
@@ -124,8 +130,14 @@ export class CatalogService {
     const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
     const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
     const effectiveTaxRule = product.taxRule || (product.category as any)?.taxRule || null;
-    const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
-    const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
+    const rawRate = (product as any).taxPercent ?? (product as any).tax_percent ?? (product as any).taxRate ?? (product as any).tax_rate;
+    const taxPercent = effectiveTaxRule
+        ? Number(effectiveTaxRule.rate || 0)
+        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+    const rawType = (product as any).taxType ?? (product as any).tax_type ?? (product as any).type;
+    const taxType = effectiveTaxRule
+        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+        : (rawType ? String(rawType) : 'NONE');
     const taxAmount = Math.round(((Number(product.basePrice || 0) * taxPercent) / 100) * 100) / 100;
 
     return {
