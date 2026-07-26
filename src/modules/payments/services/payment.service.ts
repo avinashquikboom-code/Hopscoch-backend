@@ -109,8 +109,10 @@ export class PaymentService {
         subtotal += lineSubtotal;
 
         const rule = product.taxRule || (product.category as any)?.taxRule || null;
-        let rate = rule ? Number(rule.rate ?? 0) : ((product as any).taxPercent != null && Number((product as any).taxPercent) > 0 ? Number((product as any).taxPercent) : 18);
-        if (rate <= 0) rate = 18;
+        let rate = rule
+          ? Number(rule.rate ?? 0)
+          : ((product as any).taxPercent != null ? Number((product as any).taxPercent) : 0);
+        if (isNaN(rate) || rate < 0) rate = 0;
 
         const lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
         totalTax += lineTaxAmount;
@@ -121,7 +123,22 @@ export class PaymentService {
       if (subtotal > 0) {
         const appliedDiscount = Number(discountAmount || 0);
         const discountedSubtotal = Math.max(0, subtotal - appliedDiscount);
-        const shippingAmount = discountedSubtotal >= 999 ? 0 : 99;
+
+        let productShipping = 0;
+        let hasProductShipping = false;
+        for (const item of items) {
+          const productId = item.productId ?? item.product?.id;
+          if (!productId) continue;
+          const product = await prisma.product.findUnique({ where: { id: Number(productId) } });
+          if (product && product.shippingCharge != null) {
+            hasProductShipping = true;
+            productShipping += Number(product.shippingCharge) * Number(item.quantity || 1);
+          }
+        }
+
+        const shippingAmount = discountedSubtotal >= 999
+          ? 0
+          : (hasProductShipping ? productShipping : 0);
 
         const settingsService = (await import('../../settings/services/settings.service')).default;
         const giftWrapConfig = await settingsService.getGiftWrapConfig();

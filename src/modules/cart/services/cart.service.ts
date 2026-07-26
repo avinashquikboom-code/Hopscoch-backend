@@ -82,7 +82,11 @@ export class CartService {
     });
 
     const taxCalculation = calculateCartTaxes(items);
-    const shippingAmount = taxCalculation.subtotal > 999 || taxCalculation.subtotal === 0 ? 0 : 99;
+    const productShippingSum = items.reduce((sum, item) => {
+      const shipCharge = item.product?.shippingCharge != null ? Number(item.product.shippingCharge) : 0;
+      return sum + (shipCharge * Number(item.quantity || 1));
+    }, 0);
+    const shippingAmount = taxCalculation.subtotal >= 999 || taxCalculation.subtotal === 0 ? 0 : productShippingSum;
     const grandTotal = Math.round((taxCalculation.subtotal + taxCalculation.totalTax + shippingAmount) * 100) / 100;
 
     return {

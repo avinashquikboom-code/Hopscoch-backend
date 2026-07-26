@@ -190,11 +190,16 @@ export class OrderService {
     const subtotal = taxCalculation.subtotal;
     const taxAmount = taxCalculation.totalTax;
 
+    const productShippingSum = rawItemsToCalculate.reduce((sum: number, item: any) => {
+      const shipCharge = item.product?.shippingCharge != null ? Number(item.product.shippingCharge) : 0;
+      return sum + (shipCharge * Number(item.quantity || 1));
+    }, 0);
+
     let shippingAmount = (inputShippingAmount !== undefined && inputShippingAmount !== null)
       ? Number(inputShippingAmount)
       : (inputShipping !== undefined && inputShipping !== null)
       ? Number(inputShipping)
-      : (subtotal > 999 || subtotal === 0 ? 0 : 99);
+      : (subtotal >= 999 || subtotal === 0 ? 0 : productShippingSum);
 
     if (isNaN(shippingAmount) || shippingAmount < 0) {
       shippingAmount = 0;
