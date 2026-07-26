@@ -2744,7 +2744,7 @@ export class AdminService {
     } catch (err) {
       logger.error(`S3 upload failed: ${err}`);
       if (file.filename) {
-        const apiBase = process.env.API_URL || 'http://localhost:5001';
+        const apiBase = process.env.API_URL || 'https://api.fciseller.com';
         url = `${apiBase}/uploads/${file.filename}`;
       } else {
         throw err;
@@ -3436,7 +3436,7 @@ export class AdminService {
     } catch (err) {
       logger.error(`S3 upload failed: ${err}`);
       if (file.filename) {
-        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+        const base = apiBase || process.env.API_URL || 'https://api.fciseller.com';
         url = `${base}/uploads/${file.filename}`;
       } else {
         throw err;
@@ -3454,7 +3454,7 @@ export class AdminService {
     } catch (err) {
       logger.error(`S3 upload failed for ${file.originalname || file.filename}: ${err}`);
       if (file.filename) {
-        const base = apiBase || process.env.API_URL || 'http://localhost:5001';
+        const base = apiBase || process.env.API_URL || 'https://api.fciseller.com';
         return `${base}/uploads/${file.filename}`;
       }
       throw err;

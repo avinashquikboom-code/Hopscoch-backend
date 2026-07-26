@@ -295,7 +295,19 @@ export class OrderService {
               note: isPaid ? 'Order placed and payment verified' : 'Order placed (Payment pending / COD)',
             },
           },
-          payment: {
+          payment: razorpayOrderId ? {
+            connectOrCreate: {
+              where: { razorpayOrderId },
+              create: {
+                method: pMethod,
+                status: isPaid ? 'PAID' : 'PENDING',
+                amount: totalAmount,
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySignature,
+              },
+            },
+          } : {
             create: {
               method: pMethod,
               status: isPaid ? 'PAID' : 'PENDING',

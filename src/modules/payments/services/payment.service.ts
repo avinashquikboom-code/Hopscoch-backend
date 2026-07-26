@@ -208,6 +208,16 @@ export class PaymentService {
         },
       });
       paymentId = payment.id;
+    } else {
+      const payment = await prisma.payment.create({
+        data: {
+          method: 'RAZORPAY',
+          status: 'PENDING',
+          amount: amount,
+          razorpayOrderId: rzpOrder.id,
+        },
+      });
+      paymentId = payment.id;
     }
 
     let keyId = process.env.RAZORPAY_KEY_ID || '';
@@ -240,25 +250,33 @@ export class PaymentService {
       throw new AppError('Invalid payment signature', 400);
     }
 
-    const payment = await prisma.payment.findFirst({
+    let payment = await prisma.payment.findFirst({
       where: { razorpayOrderId },
     });
 
     if (!payment) {
-      throw new AppError('Payment record not found', 404);
+      payment = await prisma.payment.create({
+        data: {
+          method: 'RAZORPAY',
+          status: 'PAID',
+          amount: 0,
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature,
+        },
+      });
+    } else {
+      await this.updatePaymentStatus(payment.id, 'PAID', razorpayPaymentId);
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          razorpayPaymentId,
+          razorpaySignature,
+        },
+      });
     }
 
-    const updatedPayment = await this.updatePaymentStatus(payment.id, 'PAID', razorpayPaymentId);
-    
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        razorpayPaymentId,
-        razorpaySignature,
-      },
-    });
-
-    return updatedPayment;
+    return payment;
   }
 
   async updatePaymentStatus(paymentId: any, status: 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED', providerRef?: string) {
@@ -286,7 +304,7 @@ export class PaymentService {
       },
     });
 
-    if (status === 'PAID') {
+    if (status === 'PAID' && payment.orderId) {
       await prisma.order.update({
         where: { id: payment.orderId },
         data: {
@@ -300,12 +318,14 @@ export class PaymentService {
         },
       });
 
-      // Confirm sale in default warehouse
-      await confirmSale(
-        updatedPayment.order.items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
-        String(updatedPayment.order.id)
-      );
-    } else if (status === 'FAILED') {
+      if (updatedPayment.order) {
+        // Confirm sale in default warehouse
+        await confirmSale(
+          updatedPayment.order.items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
+          String(updatedPayment.order.id)
+        );
+      }
+    } else if (status === 'FAILED' && payment.orderId) {
       await prisma.order.update({
         where: { id: payment.orderId },
         data: {
@@ -382,13 +402,15 @@ export class PaymentService {
       },
     });
 
-    await prisma.orderTimelineEvent.create({
-      data: {
-        orderId: payment.orderId,
-        status: payment.order.status,
-        note: `Refund processed: ₹${refundAmount}. Reason: ${refundReason}`,
-      },
-    });
+    if (payment.orderId && payment.order) {
+      await prisma.orderTimelineEvent.create({
+        data: {
+          orderId: payment.orderId,
+          status: payment.order.status,
+          note: `Refund processed: ₹${refundAmount}. Reason: ${refundReason}`,
+        },
+      });
+    }
 
     logger.info(`Refund processed: ${paymentId} amount: ₹${refundAmount}`);
     return updatedPayment;

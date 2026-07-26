@@ -55,7 +55,8 @@ export class PaymentController {
       });
       ResponseFormatter.success(res, 'Payment verified and captured successfully', payment);
     } catch (error) {
-      ResponseFormatter.error(res, (error as Error).message || 'Payment verification failed', 500);
+      const status = (error as any).statusCode || 500;
+      ResponseFormatter.error(res, (error as Error).message || 'Payment verification failed', status);
     }
   }
 
