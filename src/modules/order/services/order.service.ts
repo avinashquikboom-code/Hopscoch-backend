@@ -487,6 +487,108 @@ export class OrderService {
     logger.info(`Order cancelled: ${orderId} by user: ${userId}. Reason: ${reason || 'N/A'}`);
     return updatedOrder;
   }
+
+  async calculateCheckout(userId: any, data: any) {
+    const uId = Number(userId);
+    const { items: inputItems, couponCode: inputCouponCode, giftWrap } = data;
+
+    let rawItemsToCalculate: Array<any> = [];
+
+    const cart: any = await prisma.cart.findUnique({
+      where: { userId: uId },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                category: { include: { taxRule: true } },
+                taxRule: true,
+              },
+            },
+            variant: true,
+          },
+        },
+      },
+    });
+
+    if (cart && cart.items && cart.items.length > 0) {
+      rawItemsToCalculate = cart.items;
+    } else if (Array.isArray(inputItems) && inputItems.length > 0) {
+      for (const rawItem of inputItems) {
+        let pId = rawItem.productId ? Number(rawItem.productId) : null;
+        let vId = rawItem.variantId ? Number(rawItem.variantId) : null;
+        if (!pId && rawItem.product?.id) pId = Number(rawItem.product.id);
+        if (!pId || isNaN(pId)) continue;
+
+        const product = await prisma.product.findUnique({
+          where: { id: pId },
+          include: {
+            category: { include: { taxRule: true } },
+            taxRule: true,
+            variants: true,
+          },
+        });
+
+        if (!product) continue;
+        let variant = product.variants.find((v) => v.id === vId);
+        if (!variant && product.variants.length > 0) variant = product.variants[0];
+
+        const quantity = Number(rawItem.quantity || 1);
+        rawItemsToCalculate.push({ product, variant, quantity });
+      }
+    }
+
+    const taxCalculation = calculateCartTaxes(rawItemsToCalculate);
+    const subtotal = taxCalculation.subtotal;
+    const taxAmount = taxCalculation.totalTax;
+
+    const productShippingSum = rawItemsToCalculate.reduce((sum: number, item: any) => {
+      const shipCharge = item.product?.shippingCharge != null ? Number(item.product.shippingCharge) : 0;
+      return sum + (shipCharge * Number(item.quantity || 1));
+    }, 0);
+
+    let shippingFee = subtotal >= 999 || subtotal === 0 ? 0 : productShippingSum;
+
+    let couponDiscount = 0;
+    const cleanCoupon = inputCouponCode?.toString().trim().toUpperCase();
+    if (cleanCoupon) {
+      const coupon = await prisma.coupon.findUnique({ where: { code: cleanCoupon } });
+      if (coupon && coupon.isActive) {
+        const now = new Date();
+        const isValidDate = (!coupon.startsAt || coupon.startsAt <= now) && (!coupon.expiresAt || coupon.expiresAt >= now);
+        const isValidMinOrder = !coupon.minOrderValue || subtotal >= Number(coupon.minOrderValue);
+        if (isValidDate && isValidMinOrder) {
+          if (coupon.type === 'PERCENTAGE') {
+            let calcDiscount = subtotal * (Number(coupon.value) / 100);
+            if (coupon.maxDiscount && calcDiscount > Number(coupon.maxDiscount)) calcDiscount = Number(coupon.maxDiscount);
+            couponDiscount = Math.round(calcDiscount * 100) / 100;
+          } else if (coupon.type === 'FLAT') {
+            couponDiscount = Number(coupon.value);
+          } else if (coupon.type === 'FREE_SHIPPING') {
+            shippingFee = 0;
+          }
+        }
+      }
+    }
+
+    const settingsService = (await import('../../settings/services/settings.service')).default;
+    const giftWrapConfig = await settingsService.getGiftWrapConfig();
+    const isGiftWrapped = Boolean(giftWrap) && giftWrapConfig.enabled;
+    const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
+
+    const grossTotal = subtotal + taxAmount + shippingFee + giftWrapCharge;
+    const totalAmount = Math.max(0, Math.round((grossTotal - couponDiscount) * 100) / 100);
+
+    return {
+      subtotal,
+      taxAmount,
+      taxBreakdown: taxCalculation.taxBreakdown,
+      shippingFee,
+      couponDiscount,
+      giftWrapCharge,
+      totalAmount,
+    };
+  }
 }
 
 export default new OrderService();

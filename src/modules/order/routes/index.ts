@@ -32,6 +32,31 @@ const orderController = OrderController;
  *       400:
  *         description: Cart is empty or validation error
  */
+/**
+ * @swagger
+ * /orders/calculate:
+ *   post:
+ *     summary: Calculate checkout order summary (subtotal, tax breakdown, shipping fee, discounts)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               couponCode:
+ *                 type: string
+ *               giftWrap:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Calculation generated successfully
+ */
+router.post('/calculate', authenticate, orderController.calculateCheckout.bind(orderController));
+
 router.post('/', authenticate, orderController.createOrder.bind(orderController));
 
 /**

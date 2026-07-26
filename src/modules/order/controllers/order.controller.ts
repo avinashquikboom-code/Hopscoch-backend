@@ -70,6 +70,19 @@ export class OrderController {
       throw error;
     }
   }
+
+  async calculateCheckout(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        ResponseFormatter.error(res, 'Authentication required', 401);
+        return;
+      }
+      const summary = await OrderService.calculateCheckout(req.user.id, req.body || {});
+      ResponseFormatter.success(res, 'Checkout calculation generated successfully', summary);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new OrderController();
