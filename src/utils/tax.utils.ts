@@ -45,18 +45,15 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
     const lineSubtotal = unitPrice * quantity;
     subtotal += lineSubtotal;
 
-    const rule = product.taxRule || product.category?.taxRule || null;
+    const rule = product.taxRule || product.effectiveTaxRule || product.category?.taxRule || null;
+    const rawRateVal = product.taxPercent ?? product.tax_percent ?? product.taxRate ?? product.tax_rate ?? rule?.rate ?? rule?.taxPercent;
     let rate = rule
-      ? Number(rule.rate ?? 0)
-      : ((product.taxPercent != null && Number(product.taxPercent) > 0)
-          ? Number(product.taxPercent)
-          : ((product.tax_percent != null && Number(product.tax_percent) > 0)
-              ? Number(product.tax_percent)
-              : 0));
+      ? Number(rule.rate ?? rule.taxPercent ?? rawRateVal ?? 0)
+      : (rawRateVal != null && !isNaN(Number(rawRateVal)) ? Number(rawRateVal) : 0);
     if (isNaN(rate) || rate < 0) rate = 0;
-    const rawType = (rule?.taxType || rule?.type || product.taxType || 'EXCLUSIVE').toString().toUpperCase();
+    const rawType = (rule?.taxType || rule?.type || product.taxType || product.tax_type || 'EXCLUSIVE').toString().toUpperCase();
     const taxType: 'INCLUSIVE' | 'EXCLUSIVE' = rawType === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE';
-    const hsnCode = product.hsnCode || rule?.hsnCode || null;
+    const hsnCode = product.hsnCode || product.hsn_code || rule?.hsnCode || null;
 
     let lineTaxAmount = 0;
     if (rate > 0) {

@@ -512,7 +512,40 @@ export class OrderService {
     });
 
     if (cart && cart.items && cart.items.length > 0) {
-      rawItemsToCalculate = cart.items;
+      rawItemsToCalculate = await Promise.all(cart.items.map(async (item: any) => {
+        const p = item.product;
+        if (p) {
+          let effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
+          if (!effectiveTaxRule && p.taxRuleId) {
+            effectiveTaxRule = await prisma.tax.findUnique({
+              where: { id: Number(p.taxRuleId) },
+            });
+          }
+          const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
+          const taxPercent = effectiveTaxRule
+              ? Number(effectiveTaxRule.rate || 0)
+              : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+          const rawType = (p as any).taxType ?? (p as any).tax_type ?? (p as any).type;
+          const taxType = effectiveTaxRule
+              ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+              : (rawType ? String(rawType) : 'NONE');
+          return {
+            ...item,
+            product: {
+              ...p,
+              taxRule: effectiveTaxRule,
+              effectiveTaxRule,
+              taxPercent,
+              tax_percent: taxPercent,
+              taxRate: taxPercent,
+              tax_rate: taxPercent,
+              taxType,
+              tax_type: taxType,
+            },
+          };
+        }
+        return item;
+      }));
     } else if (Array.isArray(inputItems) && inputItems.length > 0) {
       for (const rawItem of inputItems) {
         let pId = rawItem.productId ? Number(rawItem.productId) : null;
@@ -533,8 +566,35 @@ export class OrderService {
         let variant = product.variants.find((v) => v.id === vId);
         if (!variant && product.variants.length > 0) variant = product.variants[0];
 
+        let effectiveTaxRule = product.taxRule || (product.category as any)?.taxRule || null;
+        if (!effectiveTaxRule && product.taxRuleId) {
+          effectiveTaxRule = await prisma.tax.findUnique({
+            where: { id: Number(product.taxRuleId) },
+          });
+        }
+        const rawRate = (product as any).taxPercent ?? (product as any).tax_percent ?? (product as any).taxRate ?? (product as any).tax_rate;
+        const taxPercent = effectiveTaxRule
+            ? Number(effectiveTaxRule.rate || 0)
+            : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+        const rawType = (product as any).taxType ?? (product as any).tax_type ?? (product as any).type;
+        const taxType = effectiveTaxRule
+            ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+            : (rawType ? String(rawType) : 'NONE');
+
+        const fullP = {
+          ...product,
+          taxRule: effectiveTaxRule,
+          effectiveTaxRule,
+          taxPercent,
+          tax_percent: taxPercent,
+          taxRate: taxPercent,
+          tax_rate: taxPercent,
+          taxType,
+          tax_type: taxType,
+        };
+
         const quantity = Number(rawItem.quantity || 1);
-        rawItemsToCalculate.push({ product, variant, quantity });
+        rawItemsToCalculate.push({ product: fullP, variant, quantity });
       }
     }
 
