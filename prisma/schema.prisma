@@ -394,6 +394,8 @@ model Product {
 
   basePrice      Decimal  @db.Decimal(10, 2) @map("base_price")
   shippingCharge Decimal  @default(0) @db.Decimal(10, 2) @map("shipping_charge")
+  isGiftWrapAvailable Boolean @default(true) @map("is_gift_wrap_available")
+  giftWrapCharge     Decimal @default(0) @db.Decimal(10, 2) @map("gift_wrap_charge")
   discountType   DiscountType? @map("discount_type")
   discountValue Decimal? @db.Decimal(10, 2) @map("discount_value")
   discountStartsAt DateTime? @map("discount_starts_at")
