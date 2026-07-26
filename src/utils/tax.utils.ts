@@ -52,8 +52,8 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
           ? Number(product.taxPercent)
           : ((product.tax_percent != null && Number(product.tax_percent) > 0)
               ? Number(product.tax_percent)
-              : 18));
-    if (isNaN(rate) || rate < 0) rate = 18;
+              : 0));
+    if (isNaN(rate) || rate < 0) rate = 0;
     const rawType = (rule?.taxType || rule?.type || product.taxType || 'EXCLUSIVE').toString().toUpperCase();
     const taxType: 'INCLUSIVE' | 'EXCLUSIVE' = rawType === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE';
     const hsnCode = product.hsnCode || rule?.hsnCode || null;

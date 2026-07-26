@@ -62,11 +62,8 @@ export class CartService {
       const p = item.product;
       if (p) {
         const effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
-        const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : (Number((p as any).taxPercent || 0) > 0 ? Number((p as any).taxPercent) : 18);
+        const taxPercent = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : (Number((p as any).taxPercent || 0) > 0 ? Number((p as any).taxPercent) : 0);
         const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : ((p as any).taxType || 'EXCLUSIVE');
-        const unitPrice = Number(item.variant?.price ?? p.basePrice ?? 0);
-        const lineSubtotal = unitPrice * item.quantity;
-        const taxAmount = Math.round((lineSubtotal * (taxPercent / 100)) * 100) / 100;
         return {
           ...item,
           product: {
@@ -74,7 +71,6 @@ export class CartService {
             effectiveTaxRule,
             taxPercent,
             taxType,
-            taxAmount,
           },
         };
       }

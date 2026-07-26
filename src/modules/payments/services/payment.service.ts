@@ -111,8 +111,8 @@ export class PaymentService {
         const rule = product.taxRule || (product.category as any)?.taxRule || null;
         let rate = rule
           ? Number(rule.rate ?? 0)
-          : ((product as any).taxPercent != null && Number((product as any).taxPercent) > 0 ? Number((product as any).taxPercent) : 18);
-        if (isNaN(rate) || rate < 0) rate = 18;
+          : ((product as any).taxPercent != null && Number((product as any).taxPercent) > 0 ? Number((product as any).taxPercent) : 0);
+        if (isNaN(rate) || rate < 0) rate = 0;
 
         const lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
         totalTax += lineTaxAmount;

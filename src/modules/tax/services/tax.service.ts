@@ -26,7 +26,7 @@ export class TaxService {
   async updateTaxRule(id: number, dto: UpdateTaxRuleDto) {
     const existing = await this.repository.findById(id);
     if (!existing) {
-      throw new AppError(TAX_ERROR_MESSAGES.TAX_NOT_FOUND, 444);
+      throw new AppError(TAX_ERROR_MESSAGES.TAX_NOT_FOUND, 404);
     }
 
     if (dto.taxCode && dto.taxCode.toUpperCase().trim() !== existing.taxCode) {
