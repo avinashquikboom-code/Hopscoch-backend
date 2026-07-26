@@ -817,6 +817,12 @@ export class AdminService {
               id: true,
               name: true,
               taxRule: true,
+              parent: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
           brand: {
@@ -828,7 +834,6 @@ export class AdminService {
           _count: {
             select: {
               variants: true,
-              reviews: true,
             },
           },
         },
@@ -839,10 +844,18 @@ export class AdminService {
       prisma.product.count({ where }),
     ]);
 
-    const mappedProducts = products.map((p: any) => ({
-      ...p,
-      effectiveTaxRule: p.taxRule || p.category?.taxRule || null,
-    }));
+    const mappedProducts = products.map((p: any) => {
+      const catObj = p.category as any;
+      const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || null;
+      const subCategoryName = catObj?.parent ? catObj.name : null;
+      return {
+        ...p,
+        categoryName: mainCategoryName,
+        subCategoryName: subCategoryName,
+        subCategory: subCategoryName,
+        effectiveTaxRule: p.taxRule || p.category?.taxRule || null,
+      };
+    });
 
     return {
       products: mappedProducts,
@@ -874,18 +887,27 @@ export class AdminService {
     }
 
     // Override categoryId with sub-category if provided
-    if (data.subCategory) {
-      let subCat = await prisma.category.findFirst({
-        where: {
-          name: { equals: data.subCategory, mode: 'insensitive' },
-          parentId: categoryId,
-          deletedAt: null,
-        }
-      });
+    const subCatInput = data.subCategory || data.subCategoryId || data.sub_category || data.subCategoryName || data.subcategory;
+    if (subCatInput) {
+      let subCat = null;
+      if (!isNaN(Number(subCatInput))) {
+        subCat = await prisma.category.findFirst({
+          where: { id: Number(subCatInput), deletedAt: null }
+        });
+      }
       if (!subCat) {
         subCat = await prisma.category.findFirst({
           where: {
-            name: { equals: data.subCategory, mode: 'insensitive' },
+            name: { equals: String(subCatInput), mode: 'insensitive' },
+            parentId: categoryId,
+            deletedAt: null,
+          }
+        });
+      }
+      if (!subCat) {
+        subCat = await prisma.category.findFirst({
+          where: {
+            name: { equals: String(subCatInput), mode: 'insensitive' },
             parentId: { not: null },
             deletedAt: null,
           }
@@ -893,9 +915,9 @@ export class AdminService {
       }
       if (subCat) {
         categoryId = subCat.id;
-        logger.info(`[createProduct] Sub-category resolved: "${data.subCategory}" → id=${subCat.id}`);
+        logger.info(`[createProduct] Sub-category resolved: "${subCatInput}" → id=${subCat.id}`);
       } else {
-        logger.warn(`[createProduct] Sub-category "${data.subCategory}" not found under parent id=${categoryId}, using parent.`);
+        logger.warn(`[createProduct] Sub-category "${subCatInput}" not found under parent id=${categoryId}, using parent.`);
       }
     }
 
@@ -1237,13 +1259,19 @@ export class AdminService {
       delete updateData.category;
     }
 
-    if (updateData.subCategory) {
+    const subCatInput = updateData.subCategory || updateData.subCategoryId || updateData.sub_category || updateData.subCategoryName || updateData.subcategory;
+    if (subCatInput) {
       const parentCatId = updateData.categoryId || resolvedCategory?.id;
       let subCat = null;
-      if (parentCatId) {
+      if (!isNaN(Number(subCatInput))) {
+        subCat = await prisma.category.findFirst({
+          where: { id: Number(subCatInput), deletedAt: null }
+        });
+      }
+      if (!subCat && parentCatId) {
         subCat = await prisma.category.findFirst({
           where: {
-            name: { equals: updateData.subCategory, mode: 'insensitive' },
+            name: { equals: String(subCatInput), mode: 'insensitive' },
             parentId: parentCatId,
             deletedAt: null
           }
@@ -1251,13 +1279,17 @@ export class AdminService {
       }
       if (!subCat) {
         subCat = await prisma.category.findFirst({
-          where: { name: { equals: updateData.subCategory, mode: 'insensitive' }, deletedAt: null }
+          where: { name: { equals: String(subCatInput), mode: 'insensitive' }, deletedAt: null }
         });
       }
       if (subCat) {
         updateData.categoryId = subCat.id;
       }
       delete updateData.subCategory;
+      delete updateData.subCategoryId;
+      delete updateData.sub_category;
+      delete updateData.subCategoryName;
+      delete updateData.subcategory;
     }
 
     // Resolve brandId if brand name string is passed
