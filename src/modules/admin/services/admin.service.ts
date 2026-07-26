@@ -1362,11 +1362,45 @@ export class AdminService {
     const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || null;
     const subCategoryName = catObj?.parent ? catObj.name : null;
 
+    let effectiveTaxRule = product.taxRule || catObj?.taxRule || null;
+    if (!effectiveTaxRule && product.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number(product.taxRuleId) },
+      });
+    }
+    const rawRate = (product as any).taxPercent ?? (product as any).tax_percent ?? (product as any).taxRate ?? (product as any).tax_rate;
+    const taxPercent = effectiveTaxRule
+        ? Number(effectiveTaxRule.rate || 0)
+        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+    const rawType = (product as any).taxType ?? (product as any).tax_type ?? (product as any).type;
+    const taxType = effectiveTaxRule
+        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+        : (rawType ? String(rawType) : 'NONE');
+    const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
+    const baseP = Number(product.basePrice || 0);
+    const rawTaxVal = (taxPercent <= 0 || baseP <= 0)
+        ? 0
+        : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
+    const taxAmount = Math.round(rawTaxVal * 100) / 100;
+
     return {
       ...product,
       categoryName: mainCategoryName,
       subCategoryName: subCategoryName || mainCategoryName,
       subCategory: subCategoryName,
+      taxRule: effectiveTaxRule,
+      effectiveTaxRule,
+      taxPercent,
+      tax_percent: taxPercent,
+      taxRate: taxPercent,
+      tax_rate: taxPercent,
+      taxType,
+      tax_type: taxType,
+      taxAmount,
+      tax_amount: taxAmount,
+      taxValue: taxAmount,
+      tax_value: taxAmount,
+      hsnCode: product.hsnCode || effectiveTaxRule?.hsnCode || null,
     };
   }
 
