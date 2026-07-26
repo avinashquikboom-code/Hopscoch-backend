@@ -1071,7 +1071,10 @@ export class AdminService {
     const fullProduct = await prisma.product.findUnique({
       where: { id: product.id },
       include: {
-        category: true,
+        category: {
+          include: { taxRule: true },
+        },
+        taxRule: true,
         brand: true,
         variants: true,
       }
@@ -1081,7 +1084,44 @@ export class AdminService {
       throw new Error('Failed to retrieve newly created product');
     }
 
-    return fullProduct;
+    let effectiveTaxRule = fullProduct.taxRule || (fullProduct.category as any)?.taxRule || null;
+    if (!effectiveTaxRule && fullProduct.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number(fullProduct.taxRuleId) },
+      });
+    }
+    const rawRate = (fullProduct as any).taxPercent ?? (fullProduct as any).tax_percent ?? (fullProduct as any).taxRate ?? (fullProduct as any).tax_rate;
+    const taxRate = effectiveTaxRule
+        ? Number(effectiveTaxRule.rate || 0)
+        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+    const rawType = (fullProduct as any).taxType ?? (fullProduct as any).tax_type ?? (fullProduct as any).type;
+    const taxType = effectiveTaxRule
+        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+        : (rawType ? String(rawType) : 'NONE');
+
+    const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
+    const baseP = Number(fullProduct.basePrice || 0);
+    const rawTaxVal = (taxRate <= 0 || baseP <= 0)
+        ? 0
+        : (isInclusive ? baseP - (baseP / (1 + taxRate / 100)) : (baseP * taxRate) / 100);
+    const taxAmount = Math.round(rawTaxVal * 100) / 100;
+
+    return {
+      ...fullProduct,
+      taxRule: effectiveTaxRule,
+      effectiveTaxRule,
+      taxPercent: taxRate,
+      tax_percent: taxRate,
+      taxRate: taxRate,
+      tax_rate: taxRate,
+      taxType,
+      tax_type: taxType,
+      taxAmount,
+      tax_amount: taxAmount,
+      taxValue: taxAmount,
+      tax_value: taxAmount,
+      hsnCode: fullProduct.hsnCode || effectiveTaxRule?.hsnCode || null,
+    };
   }
 
   async updateProduct(productId: any, data: any) {
@@ -1306,17 +1346,42 @@ export class AdminService {
     });
 
     logger.info(`Product updated: ${id}`);
-    const effectiveTaxRule = updatedProduct.taxRule || (updatedProduct.category as any)?.taxRule || null;
-    const taxRate = effectiveTaxRule ? Number(effectiveTaxRule.rate || 0) : 0;
-    const taxType = effectiveTaxRule ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE') : 'NONE';
-    const taxAmount = Math.round(((Number(updatedProduct.basePrice || 0) * taxRate) / 100) * 100) / 100;
+    let effectiveTaxRule = updatedProduct.taxRule || (updatedProduct.category as any)?.taxRule || null;
+    if (!effectiveTaxRule && updatedProduct.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number(updatedProduct.taxRuleId) },
+      });
+    }
+    const rawRate = (updatedProduct as any).taxPercent ?? (updatedProduct as any).tax_percent ?? (updatedProduct as any).taxRate ?? (updatedProduct as any).tax_rate;
+    const taxRate = effectiveTaxRule
+        ? Number(effectiveTaxRule.rate || 0)
+        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+    const rawType = (updatedProduct as any).taxType ?? (updatedProduct as any).tax_type ?? (updatedProduct as any).type;
+    const taxType = effectiveTaxRule
+        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+        : (rawType ? String(rawType) : 'NONE');
+
+    const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
+    const baseP = Number(updatedProduct.basePrice || 0);
+    const rawTaxVal = (taxRate <= 0 || baseP <= 0)
+        ? 0
+        : (isInclusive ? baseP - (baseP / (1 + taxRate / 100)) : (baseP * taxRate) / 100);
+    const taxAmount = Math.round(rawTaxVal * 100) / 100;
 
     return {
       ...updatedProduct,
+      taxRule: effectiveTaxRule,
       effectiveTaxRule,
       taxPercent: taxRate,
+      tax_percent: taxRate,
+      taxRate: taxRate,
+      tax_rate: taxRate,
       taxType,
+      tax_type: taxType,
       taxAmount,
+      tax_amount: taxAmount,
+      taxValue: taxAmount,
+      tax_value: taxAmount,
       hsnCode: updatedProduct.hsnCode || effectiveTaxRule?.hsnCode || null,
     };
   }
