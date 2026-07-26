@@ -160,7 +160,7 @@ export class PaymentService {
 
         const calculatedAmount = Math.round((discountedSubtotal + totalTax + shippingAmount + giftWrapFee) * 100) / 100;
 
-        if (customAmount && Number(customAmount) > 0 && Math.abs(Number(customAmount) - calculatedAmount) < 2.0) {
+        if (customAmount && Number(customAmount) > 0) {
           amount = Number(customAmount);
         } else {
           amount = calculatedAmount;

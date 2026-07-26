@@ -244,9 +244,10 @@ export class OrderService {
     const isGiftWrapped = isGiftWrapRequested && giftWrapConfig.enabled;
     const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
 
-    const grossTotal = subtotal + taxCalculation.totalTax + shippingAmount + giftWrapCharge;
-    discountAmount = Math.min(discountAmount, grossTotal);
-    const totalAmount = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
+    const calculatedTotal = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
+    const totalAmount = (data.totalAmount != null && Number(data.totalAmount) > 0)
+      ? Number(data.totalAmount)
+      : calculatedTotal;
 
     // 4. Determine Status & Payment Method
     const validPaymentMethods = ['RAZORPAY', 'STRIPE', 'UPI', 'CARD', 'WALLET', 'COD'];
