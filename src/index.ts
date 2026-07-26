@@ -15,6 +15,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import { apiReference } from '@scalar/express-api-reference';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
@@ -183,7 +184,27 @@ const swaggerOptions = {
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// OpenAPI Spec JSON endpoint
+app.get('/openapi.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// Swagger UI Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Scalar API Reference
+app.use(
+  '/docs',
+  apiReference({
+    spec: {
+      content: swaggerSpec,
+    },
+    theme: 'purple',
+    pageTitle: 'FCISeller API Reference (Scalar)',
+  })
+);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -265,8 +286,10 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
-  logger.info(`🏥 Health Check: http://localhost:${PORT}/health`);
+  logger.info(`📖 Scalar API Reference: http://localhost:${PORT}/docs`);
+  logger.info(`📚 Swagger UI Docs:     http://localhost:${PORT}/api-docs`);
+  logger.info(`📄 OpenAPI JSON Spec:   http://localhost:${PORT}/openapi.json`);
+  logger.info(`🏥 Health Check:         http://localhost:${PORT}/health`);
   
   // Auto-open Swagger UI in development
   if (process.env.NODE_ENV !== 'production') {
