@@ -111,8 +111,8 @@ export class PaymentService {
         const rule = product.taxRule || (product.category as any)?.taxRule || null;
         let rate = rule
           ? Number(rule.rate ?? 0)
-          : ((product as any).taxPercent != null ? Number((product as any).taxPercent) : 0);
-        if (isNaN(rate) || rate < 0) rate = 0;
+          : ((product as any).taxPercent != null && Number((product as any).taxPercent) > 0 ? Number((product as any).taxPercent) : 18);
+        if (isNaN(rate) || rate < 0) rate = 18;
 
         const lineTaxAmount = Math.round((lineSubtotal * (rate / 100)) * 100) / 100;
         totalTax += lineTaxAmount;
@@ -142,9 +142,30 @@ export class PaymentService {
 
         const settingsService = (await import('../../settings/services/settings.service')).default;
         const giftWrapConfig = await settingsService.getGiftWrapConfig();
-        const giftWrapFee = (giftWrap && giftWrapConfig.enabled) ? giftWrapConfig.charge : 0;
 
-        amount = Math.round((discountedSubtotal + totalTax + shippingAmount + giftWrapFee) * 100) / 100;
+        let customGiftWrapSum = 0;
+        let hasCustomGiftWrap = false;
+        for (const item of items) {
+          const productId = item.productId ?? item.product?.id;
+          if (!productId) continue;
+          const product = await prisma.product.findUnique({ where: { id: Number(productId) } });
+          if (product && product.isGiftWrapAvailable && product.giftWrapCharge != null && Number(product.giftWrapCharge) > 0) {
+            hasCustomGiftWrap = true;
+            customGiftWrapSum += Number(product.giftWrapCharge);
+          }
+        }
+
+        const effectiveGiftWrapFee = (hasCustomGiftWrap && customGiftWrapSum > 0) ? customGiftWrapSum : giftWrapConfig.charge;
+        const giftWrapFee = (giftWrap && giftWrapConfig.enabled) ? effectiveGiftWrapFee : 0;
+
+        const calculatedAmount = Math.round((discountedSubtotal + totalTax + shippingAmount + giftWrapFee) * 100) / 100;
+
+        if (customAmount && Number(customAmount) > 0 && Math.abs(Number(customAmount) - calculatedAmount) < 2.0) {
+          amount = Number(customAmount);
+        } else {
+          amount = calculatedAmount;
+        }
+
         logger.info(`[PaymentService] Final Calculation: subtotal=₹${subtotal}, discount=₹${appliedDiscount}, discountedSubtotal=₹${discountedSubtotal}, totalTax=₹${totalTax}, shipping=₹${shippingAmount}, giftWrapFee=₹${giftWrapFee} => Authoritative Total: ₹${amount}`);
       } else if (customAmount && customAmount > 0) {
         amount = Number(customAmount);
