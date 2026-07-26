@@ -1097,30 +1097,26 @@ export class AdminService {
 
     const updateData: any = { ...data };
 
-    // If stock is passed directly, update the first/default variant's stock and associated inventory
-    if (updateData.stock !== undefined) {
-      const stockVal = parseInt(updateData.stock);
-      if (product.variants && product.variants.length > 0) {
+    // If stock, price, or sku is passed directly, update the first/default variant
+    if (product.variants && product.variants.length > 0) {
+      const vUpdate: any = {};
+      if (updateData.stock !== undefined) vUpdate.stock = parseInt(updateData.stock);
+      if (updateData.basePrice !== undefined) vUpdate.price = parseFloat(updateData.basePrice);
+      else if (updateData.price !== undefined) vUpdate.price = parseFloat(updateData.price);
+      if (updateData.sku !== undefined && updateData.sku !== '') vUpdate.sku = String(updateData.sku);
+
+      if (Object.keys(vUpdate).length > 0) {
         await prisma.productVariant.update({
           where: { id: product.variants[0].id },
-          data: { stock: stockVal },
+          data: vUpdate,
         });
-        await prisma.warehouseInventory.updateMany({
-          where: { variantId: product.variants[0].id },
-          data: { availableStock: stockVal },
-        });
-        logger.info(`Variant stock updated for product: ${id}, new stock: ${stockVal}`);
-      } else {
-        await prisma.productVariant.create({
-          data: {
-            productId: id,
-            sku: `${product.slug}-${Date.now().toString().slice(-4)}`,
-            price: product.basePrice,
-            stock: stockVal,
-            color: 'Default',
-            size: 'One Size',
-          }
-        });
+        if (vUpdate.stock !== undefined) {
+          await prisma.warehouseInventory.updateMany({
+            where: { variantId: product.variants[0].id },
+            data: { availableStock: vUpdate.stock },
+          });
+        }
+        logger.info(`Default variant updated for product ${id}:`, vUpdate);
       }
       delete updateData.stock;
     }
@@ -1185,15 +1181,39 @@ export class AdminService {
       delete updateData.variants;
     }
 
-    // Resolve categoryId if category name string is passed
+    // Resolve categoryId if category or subCategory name string is passed
+    let resolvedCategory: any = null;
     if (updateData.category) {
-      const cat = await prisma.category.findFirst({
+      resolvedCategory = await prisma.category.findFirst({
         where: { name: { equals: updateData.category, mode: 'insensitive' }, deletedAt: null }
       });
-      if (cat) {
-        updateData.categoryId = cat.id;
+      if (resolvedCategory) {
+        updateData.categoryId = resolvedCategory.id;
       }
       delete updateData.category;
+    }
+
+    if (updateData.subCategory) {
+      const parentCatId = updateData.categoryId || resolvedCategory?.id;
+      let subCat = null;
+      if (parentCatId) {
+        subCat = await prisma.category.findFirst({
+          where: {
+            name: { equals: updateData.subCategory, mode: 'insensitive' },
+            parentId: parentCatId,
+            deletedAt: null
+          }
+        });
+      }
+      if (!subCat) {
+        subCat = await prisma.category.findFirst({
+          where: { name: { equals: updateData.subCategory, mode: 'insensitive' }, deletedAt: null }
+        });
+      }
+      if (subCat) {
+        updateData.categoryId = subCat.id;
+      }
+      delete updateData.subCategory;
     }
 
     // Resolve brandId if brand name string is passed
@@ -1307,7 +1327,7 @@ export class AdminService {
       where: { id },
       include: {
         category: {
-          include: { taxRule: true },
+          include: { taxRule: true, parent: true },
         },
         taxRule: true,
         brand: true,
@@ -1338,7 +1358,16 @@ export class AdminService {
       throw new AppError('Product not found', 404);
     }
 
-    return product;
+    const catObj = product.category as any;
+    const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || null;
+    const subCategoryName = catObj?.parent ? catObj.name : null;
+
+    return {
+      ...product,
+      categoryName: mainCategoryName,
+      subCategoryName: subCategoryName || mainCategoryName,
+      subCategory: subCategoryName,
+    };
   }
 
 
