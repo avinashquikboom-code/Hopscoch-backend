@@ -28,8 +28,23 @@ export class CatalogService {
       deletedAt: null,
     };
 
-    if (categoryId) where.categoryId = categoryId;
-    if (brandId) where.brandId = brandId;
+    if (categoryId) {
+      const numCatId = Number(categoryId);
+      if (!isNaN(numCatId)) {
+        const childCategories = await prisma.category.findMany({
+          where: { parentId: numCatId, deletedAt: null },
+          select: { id: true },
+        });
+        const allCategoryIds = [numCatId, ...childCategories.map((c) => c.id)];
+        where.categoryId = { in: allCategoryIds };
+      } else {
+        where.categoryId = categoryId;
+      }
+    }
+    if (brandId) {
+      const numBrandId = Number(brandId);
+      where.brandId = !isNaN(numBrandId) ? numBrandId : brandId;
+    }
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.basePrice = {};
       if (minPrice !== undefined) where.basePrice.gte = minPrice;
@@ -48,7 +63,7 @@ export class CatalogService {
         where,
         include: {
           category: {
-            include: { taxRule: true },
+            include: { parent: true, taxRule: true },
           },
           taxRule: true,
           brand: true,
@@ -103,8 +118,19 @@ export class CatalogService {
           : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
       const taxAmount = Math.round(rawTaxVal * 100) / 100;
 
+      const catObj = p.category as any;
+      const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || null;
+      const mainCategoryId = catObj?.parent ? String(catObj.parent.id) : String(catObj?.id || p.categoryId);
+      const subCategoryName = catObj?.parent ? catObj.name : null;
+      const subCategoryId = catObj?.parent ? String(catObj.id) : null;
+
       return {
         ...p,
+        categoryName: mainCategoryName,
+        parentCategoryId: mainCategoryId,
+        subCategoryName: subCategoryName,
+        subCategory: subCategoryName,
+        subCategoryId: subCategoryId,
         taxRule: effectiveTaxRule,
         effectiveTaxRule,
         taxPercent,
