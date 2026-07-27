@@ -209,15 +209,19 @@ export class PaymentService {
       });
       paymentId = payment.id;
     } else {
-      const payment = await prisma.payment.create({
-        data: {
-          method: 'RAZORPAY',
-          status: 'PENDING',
-          amount: amount,
-          razorpayOrderId: rzpOrder.id,
-        },
-      });
-      paymentId = payment.id;
+      try {
+        const payment = await prisma.payment.create({
+          data: {
+            method: 'RAZORPAY',
+            status: 'PENDING',
+            amount: amount,
+            razorpayOrderId: rzpOrder.id,
+          },
+        });
+        paymentId = payment.id;
+      } catch (err: any) {
+        logger.warn(`Pre-creating payment record skipped for Razorpay order ${rzpOrder.id}: ${err?.message || err}`);
+      }
     }
 
     let keyId = process.env.RAZORPAY_KEY_ID || '';
@@ -255,16 +259,20 @@ export class PaymentService {
     });
 
     if (!payment) {
-      payment = await prisma.payment.create({
-        data: {
-          method: 'RAZORPAY',
-          status: 'PAID',
-          amount: 0,
-          razorpayOrderId,
-          razorpayPaymentId,
-          razorpaySignature,
-        },
-      });
+      try {
+        payment = await prisma.payment.create({
+          data: {
+            method: 'RAZORPAY',
+            status: 'PAID',
+            amount: 0,
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySignature,
+          },
+        });
+      } catch (err: any) {
+        logger.warn(`Standalone payment creation in verify call skipped: ${err?.message || err}`);
+      }
     } else {
       await this.updatePaymentStatus(payment.id, 'PAID', razorpayPaymentId);
       await prisma.payment.update({
