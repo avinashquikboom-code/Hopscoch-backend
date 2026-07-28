@@ -6,6 +6,7 @@ import shiprocketClient from '../../shipments/services/shiprocket.client';
 import razorpayClient from '../../payments/services/razorpay.client';
 import { testS3Connection } from '../../../config/s3';
 import msg91Client from '../../../services/msg91.client';
+import firebaseClient from '../../../services/firebase.client';
 
 function maskSecret(val: string): string {
   if (!val || val.length <= 8) return '********';
@@ -68,6 +69,13 @@ export class IntegrationController {
           sender_id: msg91SenderId,
           dlt_te_id: msg91DltTeId,
           flow_id: msg91FlowId,
+        },
+        firebase: {
+          api_key: await settingsService.getIntegrationKey('firebase', 'api_key'),
+          project_id: await settingsService.getIntegrationKey('firebase', 'project_id'),
+          messaging_sender_id: await settingsService.getIntegrationKey('firebase', 'messaging_sender_id'),
+          app_id: await settingsService.getIntegrationKey('firebase', 'app_id'),
+          fcm_server_key: await settingsService.getIntegrationKey('firebase', 'fcm_server_key'),
         }
       });
     } catch (err: any) {
@@ -146,6 +154,15 @@ export class IntegrationController {
         }
 
         await settingsService.logAudit('msg91', 'update', String(req.user.id));
+      } else if (provider === 'firebase') {
+        const { api_key, project_id, messaging_sender_id, app_id, fcm_server_key } = settings;
+        if (api_key !== undefined) await settingsService.updateIntegrationKey('firebase', 'api_key', api_key, String(req.user.id));
+        if (project_id !== undefined) await settingsService.updateIntegrationKey('firebase', 'project_id', project_id, String(req.user.id));
+        if (messaging_sender_id !== undefined) await settingsService.updateIntegrationKey('firebase', 'messaging_sender_id', messaging_sender_id, String(req.user.id));
+        if (app_id !== undefined) await settingsService.updateIntegrationKey('firebase', 'app_id', app_id, String(req.user.id));
+        if (fcm_server_key !== undefined) await settingsService.updateIntegrationKey('firebase', 'fcm_server_key', fcm_server_key, String(req.user.id));
+
+        await settingsService.logAudit('firebase', 'update', String(req.user.id));
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;
@@ -204,6 +221,10 @@ export class IntegrationController {
       } else if (provider === 'msg91') {
         const authKey = settings.auth_key || await settingsService.getIntegrationKey('msg91', 'auth_key');
         isSuccess = await msg91Client.testConnection(authKey);
+      } else if (provider === 'firebase') {
+        const apiKey = settings.api_key || await settingsService.getIntegrationKey('firebase', 'api_key');
+        const projectId = settings.project_id || await settingsService.getIntegrationKey('firebase', 'project_id');
+        isSuccess = await firebaseClient.testConnection(apiKey, projectId);
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;

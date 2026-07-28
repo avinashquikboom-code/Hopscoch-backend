@@ -1,4 +1,3 @@
-import axios from 'axios';
 import settingsService from '../modules/settings/services/settings.service';
 import { logger } from '../utils/logger';
 
@@ -12,22 +11,18 @@ export class Msg91Client {
       if (!key || key.trim().length < 8) return false;
 
       // MSG91 Auth Key validation request
-      const response = await axios.get('https://control.msg91.com/api/v5/flow/', {
+      const response = await fetch('https://control.msg91.com/api/v5/flow/', {
+        method: 'GET',
         headers: {
           authkey: key,
         },
-        timeout: 8000,
       });
 
       // HTTP 200 with status success means valid authkey
-      return response.status === 200 && response.data?.type !== 'error';
+      const data: any = await response.json().catch(() => ({}));
+      return response.status === 200 && data?.type !== 'error';
     } catch (err: any) {
-      // If error status is 401 or authkey invalid
-      if (err.response && (err.response.status === 401 || err.response.data?.type === 'error')) {
-        logger.warn(`MSG91 AuthKey verification failed: ${err.response.data?.message || err.message}`);
-        return false;
-      }
-      // If network timeout or valid format test fallback
+      logger.warn(`MSG91 AuthKey verification error: ${err.message}`);
       const key = authKey || await settingsService.getIntegrationKey('msg91', 'auth_key');
       return !!(key && key.trim().length >= 16);
     }
@@ -58,7 +53,6 @@ export class Msg91Client {
         throw new Error('MSG91 Flow ID / Template ID is missing.');
       }
 
-      // Format recipient mobile (ensure 91 prefix for India)
       let mobile = options.mobile.replace(/\D/g, '');
       if (mobile.length === 10) {
         mobile = '91' + mobile;
@@ -75,19 +69,21 @@ export class Msg91Client {
         ],
       };
 
-      const response = await axios.post('https://control.msg91.com/api/v5/flow/', payload, {
+      const response = await fetch('https://control.msg91.com/api/v5/flow/', {
+        method: 'POST',
         headers: {
           authkey: authKey,
           'content-type': 'application/json',
         },
-        timeout: 10000,
+        body: JSON.stringify(payload),
       });
 
-      if (response.data && response.data.type === 'success') {
+      const json: any = await response.json();
+      if (response.ok && json && json.type === 'success') {
         logger.info(`[MSG91] SMS sent successfully to ${mobile}`);
-        return { success: true, response: response.data };
+        return { success: true, response: json };
       } else {
-        const errorMsg = response.data?.message || 'Failed to send SMS via MSG91';
+        const errorMsg = json?.message || 'Failed to send SMS via MSG91';
         logger.error(`[MSG91] Error: ${errorMsg}`);
         return { success: false, error: errorMsg };
       }
@@ -120,18 +116,19 @@ export class Msg91Client {
 
       const url = `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=${mobile}&otp=${options.otp}`;
 
-      const response = await axios.get(url, {
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
           authkey: authKey,
         },
-        timeout: 10000,
       });
 
-      if (response.data && response.data.type === 'success') {
+      const json: any = await response.json();
+      if (response.ok && json && json.type === 'success') {
         logger.info(`[MSG91] OTP sent successfully to ${mobile}`);
-        return { success: true, response: response.data };
+        return { success: true, response: json };
       } else {
-        return { success: false, error: response.data?.message || 'OTP send failed' };
+        return { success: false, error: json?.message || 'OTP send failed' };
       }
     } catch (err: any) {
       return { success: false, error: err.message };
