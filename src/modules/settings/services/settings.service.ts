@@ -29,7 +29,7 @@ export function decrypt(text: string): string {
   return decrypted.toString();
 }
 
-export type IntegrationProvider = 'shiprocket' | 'razorpay' | 'google' | 'aws';
+export type IntegrationProvider = 'shiprocket' | 'razorpay' | 'google' | 'aws' | 'msg91';
 
 export class SettingsService {
   private cache: Map<string, string> = new Map();

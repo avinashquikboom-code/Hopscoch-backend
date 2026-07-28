@@ -5,6 +5,7 @@ import settingsService from '../services/settings.service';
 import shiprocketClient from '../../shipments/services/shiprocket.client';
 import razorpayClient from '../../payments/services/razorpay.client';
 import { testS3Connection } from '../../../config/s3';
+import msg91Client from '../../../services/msg91.client';
 
 function maskSecret(val: string): string {
   if (!val || val.length <= 8) return '********';
@@ -36,6 +37,11 @@ export class IntegrationController {
       const awsRegion = await settingsService.getIntegrationKey('aws', 'region');
       const awsBucketName = await settingsService.getIntegrationKey('aws', 'bucket_name');
 
+      const msg91AuthKey = await settingsService.getIntegrationKey('msg91', 'auth_key');
+      const msg91SenderId = await settingsService.getIntegrationKey('msg91', 'sender_id');
+      const msg91DltTeId = await settingsService.getIntegrationKey('msg91', 'dlt_te_id');
+      const msg91FlowId = await settingsService.getIntegrationKey('msg91', 'flow_id');
+
       ResponseFormatter.success(res, 'Integration settings retrieved', {
         shiprocket: {
           email: shiprocketEmail,
@@ -56,6 +62,12 @@ export class IntegrationController {
           secret_access_key: awsSecretAccessKey,
           region: awsRegion,
           bucket_name: awsBucketName,
+        },
+        msg91: {
+          auth_key: msg91AuthKey,
+          sender_id: msg91SenderId,
+          dlt_te_id: msg91DltTeId,
+          flow_id: msg91FlowId,
         }
       });
     } catch (err: any) {
@@ -118,6 +130,22 @@ export class IntegrationController {
         }
 
         await settingsService.logAudit('aws', 'update', String(req.user.id));
+      } else if (provider === 'msg91') {
+        const { auth_key, sender_id, dlt_te_id, flow_id } = settings;
+        if (auth_key !== undefined) {
+          await settingsService.updateIntegrationKey('msg91', 'auth_key', auth_key, String(req.user.id));
+        }
+        if (sender_id !== undefined) {
+          await settingsService.updateIntegrationKey('msg91', 'sender_id', sender_id, String(req.user.id));
+        }
+        if (dlt_te_id !== undefined) {
+          await settingsService.updateIntegrationKey('msg91', 'dlt_te_id', dlt_te_id, String(req.user.id));
+        }
+        if (flow_id !== undefined) {
+          await settingsService.updateIntegrationKey('msg91', 'flow_id', flow_id, String(req.user.id));
+        }
+
+        await settingsService.logAudit('msg91', 'update', String(req.user.id));
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;
@@ -173,6 +201,9 @@ export class IntegrationController {
         const region = settings.region || await settingsService.getIntegrationKey('aws', 'region');
         const bucketName = settings.bucket_name || await settingsService.getIntegrationKey('aws', 'bucket_name');
         isSuccess = await testS3Connection(accessKeyId, secretAccessKey, region, bucketName);
+      } else if (provider === 'msg91') {
+        const authKey = settings.auth_key || await settingsService.getIntegrationKey('msg91', 'auth_key');
+        isSuccess = await msg91Client.testConnection(authKey);
       } else {
         ResponseFormatter.error(res, 'Invalid provider name', 400);
         return;
