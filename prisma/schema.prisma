@@ -133,6 +133,42 @@ enum RewardTransactionType {
   REDEEMED
   EXPIRED
   ADJUSTED
+  REVERSED
+  PURCHASE
+  REFERRAL
+  REVIEW
+  CAMPAIGN
+  WELCOME
+  LOGIN
+  BIRTHDAY
+  FIRST_ORDER
+}
+
+enum WalletTransactionType {
+  TOPUP
+  REFUND
+  PAYMENT
+  CASHBACK
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+enum CashbackType {
+  ORDER_CASHBACK
+  ADMIN_CASHBACK
+  PROMOTIONAL
+}
+
+enum CashbackStatus {
+  PENDING
+  CREDITED
+  REVERSED
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
 }
 
 enum StockMovementType {
@@ -165,6 +201,9 @@ model User {
   deletedAt          DateTime? @map("deleted_at") // soft delete, 30-day grace period per backlog
   lastLoginAt        DateTime? @map("last_login_at")
 
+  referralCode        String?   @unique @map("referral_code")
+  rewardPointsBalance Int       @default(0) @map("reward_points_balance")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -181,6 +220,12 @@ model User {
   recentSearches     RecentSearch[]
   couponUsages       CouponUsage[]
   rewardTransactions RewardPointsTransaction[]
+  wallet             Wallet?
+  walletTransactions WalletTransaction[]
+  cashbackTransactions CashbackTransaction[]
+  referralsMade      Referral[] @relation("Referrer")
+  referralsReceived  Referral[] @relation("Referee")
+  giftCardsIssued    GiftCard[] @relation("IssuedToUser")
   supportTickets     SupportTicket[]
   analyticsEvents    AnalyticsEvent[]
   aiImageSearchLogs  AIImageSearchLog[]
@@ -188,6 +233,7 @@ model User {
   activityLogs       ActivityLog[]
 
   @@index([email])
+  @@index([referralCode])
   @@index([deletedAt])
   @@map("users")
 }
@@ -343,6 +389,13 @@ model Category {
 
   products Product[]
 
+  overrideGlobalReward  Boolean   @default(false) @map("override_global_reward")
+  rewardPointsEarned    Int       @default(0) @map("reward_points_earned")
+  maxRedeemablePoints   Int       @default(0) @map("max_redeemable_points")
+  rewardMultiplier      Decimal   @default(1.0) @db.Decimal(5, 2) @map("reward_multiplier")
+  allowRewardRedemption Boolean   @default(true) @map("allow_reward_redemption")
+  allowRewardEarning    Boolean   @default(true) @map("allow_reward_earning")
+
   deletedAt DateTime? @map("deleted_at")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -411,6 +464,18 @@ model Product {
 
   seoTitle       String? @map("seo_title")
   seoDescription String? @map("seo_description")
+
+  // Loyalty & Reward Configuration
+  enableReward           Boolean   @default(true) @map("enable_reward")
+  rewardPoints           Int       @default(0) @map("reward_points")
+  maxRedeemablePoints    Int       @default(0) @map("max_redeemable_points")
+  allowRewardRedemption  Boolean   @default(true) @map("allow_reward_redemption")
+  allowRewardEarning     Boolean   @default(true) @map("allow_reward_earning")
+  rewardMultiplier       Decimal   @default(1.0) @db.Decimal(5, 2) @map("reward_multiplier")
+  overrideGlobalReward   Boolean   @default(false) @map("override_global_reward")
+  overrideCategoryReward Boolean   @default(false) @map("override_category_reward")
+  campaignReward         Int       @default(0) @map("campaign_reward")
+  rewardExpiryDate       DateTime? @map("reward_expiry_date")
 
   // Full-text search vector, maintained via migration-level trigger or app-level update.
   searchVector Unsupported("tsvector")?
@@ -688,6 +753,10 @@ model Order {
   discountAmount Decimal    @db.Decimal(10, 2) @default(0) @map("discount_amount")
   giftWrapped   Boolean     @default(false) @map("gift_wrapped")
   giftWrapCharge Decimal    @db.Decimal(10, 2) @default(0) @map("gift_wrap_charge")
+  rewardPointsEarned   Int     @default(0) @map("reward_points_earned")
+  rewardPointsRedeemed Int     @default(0) @map("reward_points_redeemed")
+  rewardDiscount       Decimal @default(0) @db.Decimal(10, 2) @map("reward_discount")
+  walletAmountUsed     Decimal @default(0) @db.Decimal(10, 2) @map("wallet_amount_used")
   totalAmount   Decimal     @db.Decimal(10, 2) @map("total_amount")
 
   couponId Int? @map("coupon_id")
@@ -1360,5 +1429,128 @@ model Size {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("sizes")
+}
+
+// =====================================================================
+// LOYALTY, WALLET & REWARD MODULE
+// =====================================================================
+
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Decimal  @default(0) @db.Decimal(10, 2)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          Int                   @id @default(autoincrement())
+  walletId    Int                   @map("wallet_id")
+  wallet      Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId      Int                   @map("user_id")
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        WalletTransactionType
+  amount      Decimal               @db.Decimal(10, 2)
+  referenceId String?               @map("reference_id")
+  description String?
+  createdAt   DateTime              @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([walletId])
+  @@map("wallet_transactions")
+}
+
+model RewardRule {
+  id                           Int      @id @default(1)
+  enableRewardSystem           Boolean  @default(true) @map("enable_reward_system")
+  enableWallet                 Boolean  @default(true) @map("enable_wallet")
+  enableCashback               Boolean  @default(true) @map("enable_cashback")
+  enableReferral               Boolean  @default(true) @map("enable_referral")
+  defaultRewardPoints          Int      @default(10) @map("default_reward_points")
+  pointsPer100                 Decimal  @default(10) @db.Decimal(10, 2) @map("points_per_100")
+  rewardConversionRate         Decimal  @default(0.01) @db.Decimal(10, 4) @map("reward_conversion_rate") // 100 Pts = ₹1 INR
+  maxRedeemablePointsPerOrder  Int      @default(1000) @map("max_redeemable_points_per_order")
+  maxRedeemablePercentPerOrder Decimal  @default(50.0) @db.Decimal(5, 2) @map("max_redeemable_percent_per_order")
+  minOrderAmount               Decimal  @default(100) @db.Decimal(10, 2) @map("min_order_amount")
+  rewardExpiryDays             Int      @default(365) @map("reward_expiry_days")
+  dailyLoginReward             Int      @default(5) @map("daily_login_reward")
+  birthdayReward               Int      @default(100) @map("birthday_reward")
+  welcomeReward                Int      @default(50) @map("welcome_reward")
+  referralReward               Int      @default(100) @map("referral_reward")
+  reviewReward                 Int      @default(20) @map("review_reward")
+  firstOrderReward             Int      @default(100) @map("first_order_reward")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  @@map("reward_rules")
+}
+
+model CampaignReward {
+  id             Int      @id @default(autoincrement())
+  title          String
+  description    String?
+  code           String   @unique
+  bonusPoints    Int      @default(0) @map("bonus_points")
+  multiplier     Decimal  @default(1.0) @db.Decimal(5, 2)
+  minOrderAmount Decimal? @db.Decimal(10, 2) @map("min_order_amount")
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("campaign_rewards")
+}
+
+model CashbackTransaction {
+  id          Int            @id @default(autoincrement())
+  userId      Int            @map("user_id")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId     String?        @map("order_id")
+  amount      Decimal        @db.Decimal(10, 2)
+  type        CashbackType   @default(ORDER_CASHBACK)
+  status      CashbackStatus @default(CREDITED)
+  description String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("cashback_transactions")
+}
+
+model Referral {
+  id           Int            @id @default(autoincrement())
+  referrerId   Int            @map("referrer_id")
+  referrer     User           @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId    Int            @map("referee_id")
+  referee      User           @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+  referralCode String         @map("referral_code")
+  status       ReferralStatus @default(COMPLETED)
+  pointsEarned Int            @default(100) @map("points_earned")
+  completedAt  DateTime?      @map("completed_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@unique([refereeId])
+  @@index([referrerId])
+  @@map("referrals")
+}
+
+model GiftCard {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  initialBalance Decimal   @db.Decimal(10, 2) @map("initial_balance")
+  currentBalance Decimal   @db.Decimal(10, 2) @map("current_balance")
+  issuedToUserId Int?      @map("issued_to_user_id")
+  issuedToUser   User?     @relation("IssuedToUser", fields: [issuedToUserId], references: [id], onDelete: SetNull)
+  expiryDate     DateTime? @map("expiry_date")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("gift_cards")
 }
 

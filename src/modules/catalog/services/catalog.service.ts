@@ -1,5 +1,6 @@
 import { AppError } from '../../../middleware/errorHandler';
 import prisma from '../../../utils/prisma';
+import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
 
 export class CatalogService {
   async listProducts(filters: {
@@ -124,6 +125,8 @@ export class CatalogService {
       const subCategoryName = catObj?.parent ? catObj.name : null;
       const subCategoryId = catObj?.parent ? String(catObj.id) : null;
 
+      const rewardCalc = await loyaltyRuleEngine.calculateProductReward(p);
+
       return {
         ...p,
         categoryName: mainCategoryName,
@@ -146,6 +149,11 @@ export class CatalogService {
         hsnCode: p.hsnCode || effectiveTaxRule?.hsnCode || null,
         colors,
         sizes,
+        rewardEarned: rewardCalc.earnPoints,
+        maxRedeemable: rewardCalc.maxRedeemablePoints,
+        allowRedemption: rewardCalc.allowRedemption,
+        allowEarning: rewardCalc.allowEarning,
+        appliedRuleType: rewardCalc.appliedRuleType,
       };
     }));
 
@@ -218,6 +226,8 @@ export class CatalogService {
         : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
     const taxAmount = Math.round(rawTaxVal * 100) / 100;
 
+    const rewardCalc = await loyaltyRuleEngine.calculateProductReward(product);
+
     return {
       ...product,
       taxRule: effectiveTaxRule,
@@ -235,6 +245,11 @@ export class CatalogService {
       hsnCode: product.hsnCode || effectiveTaxRule?.hsnCode || null,
       colors,
       sizes,
+      rewardEarned: rewardCalc.earnPoints,
+      maxRedeemable: rewardCalc.maxRedeemablePoints,
+      allowRedemption: rewardCalc.allowRedemption,
+      allowEarning: rewardCalc.allowEarning,
+      appliedRuleType: rewardCalc.appliedRuleType,
     };
   }
 

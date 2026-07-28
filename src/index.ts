@@ -267,6 +267,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/shipments', shipmentRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/reports', reportRoutes);
+import loyaltyRoutes from './modules/loyalty/routes/loyalty.routes';
+
+app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/v1/loyalty', loyaltyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/v1', v1Routes);

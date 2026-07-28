@@ -3,6 +3,9 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import { reserveStock, releaseReservation } from '../../inventory/services/inventory.service';
 import { calculateCartTaxes } from '../../../utils/tax.utils';
+import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
+import rewardService from '../../loyalty/services/reward.service';
+import walletService from '../../loyalty/services/wallet.service';
 
 function formatOrderSummary(order: any) {
   if (!order) return order;
@@ -10,7 +13,9 @@ function formatOrderSummary(order: any) {
   const taxAmount = Number(order.taxAmount || 0);
   const shippingAmount = Number(order.shippingAmount || 0);
   const discountAmount = Number(order.discountAmount || 0);
-  const totalAmount = Number(order.totalAmount || Math.max(0, subtotal + shippingAmount - discountAmount));
+  const rewardDiscount = Number(order.rewardDiscount || 0);
+  const walletAmountUsed = Number(order.walletAmountUsed || 0);
+  const totalAmount = Number(order.totalAmount || Math.max(0, subtotal + shippingAmount - discountAmount - rewardDiscount - walletAmountUsed));
 
   return {
     ...order,
@@ -27,6 +32,11 @@ function formatOrderSummary(order: any) {
     discountAmount,
     discount: discountAmount,
     couponDiscount: discountAmount,
+    rewardDiscount,
+    walletAmountUsed,
+    walletUsed: walletAmountUsed,
+    rewardPointsEarned: order.rewardPointsEarned || 0,
+    rewardPointsRedeemed: order.rewardPointsRedeemed || 0,
     totalAmount,
     total: totalAmount,
     grandTotal: totalAmount,
@@ -244,9 +254,35 @@ export class OrderService {
     const isGiftWrapped = isGiftWrapRequested && giftWrapConfig.enabled;
     const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
 
+    // Calculate Loyalty Reward Points to Earn
+    const cartRewardCalc = await loyaltyRuleEngine.calculateCartRewards(
+      rawItemsToCalculate.map((item) => ({ product: item.product, quantity: item.quantity }))
+    );
+    const rewardPointsEarned = cartRewardCalc.totalEarnPoints;
+
+    // Handle Reward Points Redemption
+    let rewardPointsRedeemed = Number(data.rewardPointsRedeemed || data.pointsToRedeem || 0);
+    let rewardDiscount = 0;
+    if (rewardPointsRedeemed > 0) {
+      rewardPointsRedeemed = Math.min(rewardPointsRedeemed, cartRewardCalc.maxRedeemablePoints);
+      rewardDiscount = Math.round(rewardPointsRedeemed * cartRewardCalc.conversionRate * 100) / 100;
+    }
+
     const grossTotal = subtotal + taxAmount + shippingAmount + giftWrapCharge;
-    const calculatedTotal = Math.max(0, Math.round((grossTotal - discountAmount) * 100) / 100);
-    const totalAmount = (data.totalAmount != null && Number(data.totalAmount) > 0)
+    const netBeforeWallet = Math.max(0, Math.round((grossTotal - discountAmount - rewardDiscount) * 100) / 100);
+
+    // Handle Wallet Payment / Deductions
+    let walletAmountUsed = 0;
+    const useWallet = Boolean(data.useWallet || data.walletUsed || paymentMethod === 'WALLET');
+    if (useWallet) {
+      const wallet = await walletService.getOrCreateWallet(uId);
+      const availableWallet = Number(wallet.balance || 0);
+      const requestedWallet = data.walletAmountUsed ? Number(data.walletAmountUsed) : netBeforeWallet;
+      walletAmountUsed = Math.min(availableWallet, requestedWallet, netBeforeWallet);
+    }
+
+    const calculatedTotal = Math.max(0, Math.round((netBeforeWallet - walletAmountUsed) * 100) / 100);
+    const totalAmount = (data.totalAmount != null && Number(data.totalAmount) >= 0)
       ? Number(data.totalAmount)
       : calculatedTotal;
 
@@ -256,9 +292,17 @@ export class OrderService {
       ? (String(paymentMethod).toUpperCase() as any)
       : 'COD';
 
-    const isPaid = pMethod !== 'COD' || Boolean(razorpayPaymentId);
+    const isPaid = pMethod === 'WALLET' || pMethod !== 'COD' || Boolean(razorpayPaymentId);
     const initialStatus = isPaid ? 'CONFIRMED' : 'PENDING';
     const orderNumber = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // Process Point Redemption & Wallet Deduction
+    if (rewardPointsRedeemed > 0) {
+      await rewardService.redeemPoints(uId, rewardPointsRedeemed, orderNumber);
+    }
+    if (walletAmountUsed > 0) {
+      await walletService.debitWallet(uId, walletAmountUsed, 'PAYMENT', orderNumber, `Payment for Order #${orderNumber}`);
+    }
 
     // 5. Create Order + OrderItems + Payment + Timeline in Single Transaction
     const order = await prisma.$transaction(async (tx) => {
@@ -272,6 +316,10 @@ export class OrderService {
           taxAmount,
           shippingAmount,
           discountAmount,
+          rewardPointsEarned,
+          rewardPointsRedeemed,
+          rewardDiscount,
+          walletAmountUsed,
           giftWrapped: isGiftWrapped,
           giftWrapCharge,
           totalAmount,
@@ -484,8 +532,24 @@ export class OrderService {
       logger.warn(`Could not release reservation for order ${order.id}: ${err}`);
     }
 
+    // Reversals & Refunds for Loyalty Rewards and Wallet
+    try {
+      await rewardService.reversePointsForOrder(order.userId, order.orderNumber);
+      if (Number(order.walletAmountUsed || 0) > 0) {
+        await walletService.creditWallet(
+          order.userId,
+          Number(order.walletAmountUsed),
+          'REFUND',
+          order.orderNumber,
+          `Refund for Cancelled Order #${order.orderNumber}`
+        );
+      }
+    } catch (err) {
+      logger.error(`Error reversing loyalty/wallet for order ${order.orderNumber}: ${err}`);
+    }
+
     logger.info(`Order cancelled: ${orderId} by user: ${userId}. Reason: ${reason || 'N/A'}`);
-    return updatedOrder;
+    return formatOrderSummary(updatedOrder);
   }
 
   async calculateCheckout(userId: any, data: any) {
@@ -658,6 +722,19 @@ export class OrderService {
     const isGiftWrapped = Boolean(giftWrap) && giftWrapConfig.enabled;
     const giftWrapCharge = isGiftWrapped ? giftWrapConfig.charge : 0;
 
+    const cartRewardCalc = await loyaltyRuleEngine.calculateCartRewards(
+      rawItemsToCalculate.map((item) => ({ product: item.product, quantity: item.quantity }))
+    );
+
+    const user = await prisma.user.findUnique({
+      where: { id: uId },
+      select: { rewardPointsBalance: true },
+    });
+    const wallet = await walletService.getOrCreateWallet(uId);
+
+    const availableRewardPoints = user?.rewardPointsBalance || 0;
+    const availableWalletBalance = Number(wallet.balance || 0);
+
     const grossTotal = subtotal + taxAmount + shippingFee + giftWrapCharge;
     const totalAmount = Math.max(0, Math.round((grossTotal - couponDiscount) * 100) / 100);
 
@@ -669,6 +746,12 @@ export class OrderService {
       couponDiscount,
       giftWrapCharge,
       totalAmount,
+      rewardPointsEarned: cartRewardCalc.totalEarnPoints,
+      maxRedeemablePoints: cartRewardCalc.maxRedeemablePoints,
+      availableRewardPoints,
+      availableWalletBalance,
+      rewardConversionRate: cartRewardCalc.conversionRate,
+      maxRewardDiscountAmount: cartRewardCalc.maxDiscountAmount,
     };
   }
 }
