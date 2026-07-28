@@ -65,6 +65,17 @@ export class RewardService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
 
+    const VALID_ENUM_TYPES = [
+      'EARNED', 'REDEEMED', 'EXPIRED', 'ADJUSTED', 'REVERSED',
+      'PURCHASE', 'REFERRAL', 'REVIEW', 'CAMPAIGN', 'WELCOME',
+      'LOGIN', 'BIRTHDAY', 'FIRST_ORDER'
+    ];
+
+    let txType: any = String(type || 'ADJUSTED').toUpperCase();
+    if (!VALID_ENUM_TYPES.includes(txType)) {
+      txType = 'ADJUSTED';
+    }
+
     return await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id: userId },
@@ -76,9 +87,9 @@ export class RewardService {
       const txRecord = await tx.rewardPointsTransaction.create({
         data: {
           userId,
-          type,
+          type: txType,
           points,
-          reason: reason || `Reward Points Earned (${type})`,
+          reason: reason || `Reward Points Earned (${txType})`,
           orderId,
           expiresAt,
         },

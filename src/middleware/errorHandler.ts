@@ -43,6 +43,22 @@ export const errorHandler = (
     return;
   }
 
+  // Handle Prisma Validation & Invocation Errors
+  if (err.name === 'PrismaClientValidationError' || (err.message && err.message.includes('Invocation in'))) {
+    logger.error({
+      message: 'Database operation validation error',
+      details: err.message,
+      path: req.path,
+    });
+    ResponseFormatter.error(
+      res,
+      'Invalid parameter provided for database operation. Please verify input data.',
+      400,
+      'DATABASE_VALIDATION_ERROR'
+    );
+    return;
+  }
+
   // Handle Prisma errors
   if (err.name === 'PrismaClientKnownRequestError') {
     const prismaError = err as any;
