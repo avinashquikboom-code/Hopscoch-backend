@@ -321,56 +321,96 @@ export class ShipmentService {
     return updated;
   }
 
-  async trackShipment(orderId: number) {
-    const shipment = await prisma.shipment.findUnique({
-      where: { orderId },
-    });
-
-    if (!shipment || !shipment.awb) {
-      throw new AppError('Shipment AWB not assigned or found', 404);
-    }
-
-    logger.info(`Tracking shipment for AWB: ${shipment.awb}`);
-    const response = await shiprocketClient.request(`/courier/track/awb/${shipment.awb}`, {
-      method: 'GET',
-    });
-
-    if (response.tracking_data && response.tracking_data.shipment_track_activities) {
-      const activities = response.tracking_data.shipment_track_activities;
-      await prisma.shipment.update({
-        where: { orderId },
-        data: {
-          timeline: activities,
+  async trackShipment(orderIdInput: number | string) {
+    const numericId = typeof orderIdInput === 'number' ? orderIdInput : parseInt(String(orderIdInput).replace(/\D/g, ''));
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isNaN(numericId) || numericId <= 0 ? [] : [{ id: numericId }]),
+          { orderNumber: String(orderIdInput) },
+          { orderNumber: `#${orderIdInput}` },
+        ],
+      },
+      include: {
+        shipment: true,
+        timeline: {
+          orderBy: { createdAt: 'asc' },
         },
-      });
-      return activities;
+      },
+    });
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
     }
 
-    return shipment.timeline || [];
+    const courier = (order as any).courierName || order.shipment?.courier || 'Logistics Partner';
+    const awb = (order as any).awbNumber || order.shipment?.awb || null;
+
+    let trackingUrl: string | null = null;
+    if (courier && awb) {
+      const courierLower = courier.toLowerCase();
+      if (courierLower.includes('delhivery')) trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
+      else if (courierLower.includes('bluedart')) trackingUrl = `https://www.bluedart.com/tracking?trackNo=${awb}`;
+      else if (courierLower.includes('dtdc')) trackingUrl = `https://www.dtdc.in/tracking/shipment-tracking.asp?strAWB=${awb}`;
+      else if (courierLower.includes('india post') || courierLower.includes('speedpost')) trackingUrl = `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;
+      else if (courierLower.includes('ecom')) trackingUrl = `https://ecomexpress.in/tracking/?awb=${awb}`;
+    }
+
+    const activities = order.timeline.map((evt) => ({
+      activity: (evt.status || '').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
+      location: evt.note || 'Status Updated',
+      date: evt.createdAt ? new Date(evt.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
+      status: evt.status,
+    }));
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      courierName: courier,
+      awbNumber: awb,
+      shippedAt: (order as any).shippedAt || order.shipment?.createdAt || null,
+      trackingUrl,
+      activities: activities.length > 0 ? activities : [
+        { activity: 'Order Confirmed', location: 'Processing', date: new Date(order.createdAt).toLocaleString('en-IN'), status: order.status }
+      ],
+    };
   }
 
-  async createReturnRequest(orderId: number, reason: string, isReplacement = false) {
-    const shipment = await prisma.shipment.findUnique({
-      where: { orderId },
+  async createReturnRequest(orderIdInput: number | string, reason: string, isReplacement = false) {
+    const numericId = typeof orderIdInput === 'number' ? orderIdInput : parseInt(String(orderIdInput).replace(/\D/g, ''));
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isNaN(numericId) || numericId <= 0 ? [] : [{ id: numericId }]),
+          { orderNumber: String(orderIdInput) },
+        ],
+      },
+      include: {
+        shipment: true,
+      },
     });
 
-    if (!shipment || !shipment.awb) {
-      throw new AppError('Order must have a valid shipment to initiate return', 400);
+    if (!order) {
+      throw new AppError('Order not found', 404);
     }
 
-    // Call Shiprocket to create a return order
-    logger.info(`Initiating return request for Order ID: ${orderId}`);
-    
+    const awb = (order as any).awbNumber || order.shipment?.awb;
+    if (!awb && order.status !== 'DELIVERED' && order.status !== 'SHIPPED') {
+      throw new AppError('Order must be delivered or shipped to initiate return', 400);
+    }
+
     // Create DB return request record
+    logger.info(`Initiating return request for Order ID: ${order.id}`);
     const request = await prisma.returnRequest.upsert({
-      where: { orderId },
+      where: { orderId: order.id },
       update: {
         status: 'REQUESTED',
         reason,
         isReplacement,
       },
       create: {
-        orderId,
+        orderId: order.id,
         status: 'REQUESTED',
         reason,
         isReplacement,
@@ -378,7 +418,7 @@ export class ShipmentService {
     });
 
     await prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: {
         status: isReplacement ? 'REPLACED' : 'RETURNED',
         timeline: {

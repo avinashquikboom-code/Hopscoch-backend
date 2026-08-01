@@ -2024,7 +2024,7 @@ export class AdminService {
     return order;
   }
 
-  async updateOrderStatus(orderId: any, data: { status: OrderStatus }) {
+  async updateOrderStatus(orderId: any, data: { status: OrderStatus; courierName?: string; awbNumber?: string }) {
     const id = Number(orderId);
     const order = await prisma.order.findUnique({
       where: { id },
@@ -2034,36 +2034,75 @@ export class AdminService {
       throw new AppError('Order not found', 404);
     }
 
+    if (data.status === 'SHIPPED' && order.status === 'SHIPPED') {
+      throw new AppError('Order is already marked as SHIPPED', 400);
+    }
+
+    if (data.status === 'SHIPPED' && (order.status === 'DELIVERED' || order.status === 'CANCELLED' || order.status === 'RETURNED')) {
+      throw new AppError(`Cannot change status to SHIPPED for order in ${order.status} state`, 400);
+    }
+
+    const isShipped = data.status === 'SHIPPED';
+    const courierName = data.courierName || order.courierName || null;
+    const awbNumber = data.awbNumber || order.awbNumber || null;
+
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status: data.status,
+        ...(isShipped || courierName ? { courierName } : {}),
+        ...(isShipped || awbNumber ? { awbNumber } : {}),
+        ...(isShipped ? { shippedAt: new Date() } : {}),
       },
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        updatedAt: true,
+      include: {
+        shipment: true,
       },
     });
 
+    // Upsert Shipment record manually (No Shiprocket call)
+    if (isShipped && (courierName || awbNumber)) {
+      await prisma.shipment.upsert({
+        where: { orderId: id },
+        create: {
+          orderId: id,
+          courier: courierName,
+          awb: awbNumber,
+          status: 'SHIPPED',
+        },
+        update: {
+          courier: courierName,
+          awb: awbNumber,
+          status: 'SHIPPED',
+        },
+      });
+    }
+
     // Add timeline event
+    const noteText = isShipped && courierName && awbNumber
+      ? `Shipped via ${courierName} (AWB: ${awbNumber})`
+      : undefined;
+
     await prisma.orderTimelineEvent.create({
       data: {
         orderId: id,
         status: data.status,
+        note: noteText,
       },
     });
 
-    logger.info(`Order status updated: ${id} to ${data.status}`);
+    logger.info(`Order status updated manually: ${id} to ${data.status} (Courier: ${courierName}, AWB: ${awbNumber})`);
 
     // Trigger FCM & In-App Notification to Customer
     try {
+      const notifBody = isShipped && courierName && awbNumber
+        ? `Your order #${order.orderNumber} has been shipped via ${courierName}! Tracking AWB: ${awbNumber}`
+        : `Your order #${order.orderNumber} status is now ${data.status.replace(/_/g, ' ')}.`;
+
       UnifiedNotificationService.sendNotificationToUser(order.userId, {
-        title: 'Order Status Update 📦',
-        body: `Your order #${order.orderNumber} status is now ${data.status.replace(/_/g, ' ')}.`,
+        title: isShipped ? 'Order Shipped! 🚚' : 'Order Status Update 📦',
+        body: notifBody,
         type: 'ORDER',
-        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: String(data.status) },
+        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: String(data.status), courierName: courierName || '', awbNumber: awbNumber || '' },
       });
     } catch (notifErr: any) {
       logger.warn(`Order status update notification failed: ${notifErr.message}`);
