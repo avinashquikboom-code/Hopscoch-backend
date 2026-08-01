@@ -2289,7 +2289,7 @@ export class AdminService {
       throw new AppError('Missing required warehouse fields: name, address, city, state, pincode, phone, email', 400);
     }
 
-    const code = data.code ? data.code.trim().toUpperCase() : `AURA-WH-${Math.floor(100 + Math.random() * 900)}`;
+    const code = data.code ? data.code.trim().toUpperCase() : `WRH-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const existingCode = await prisma.warehouse.findUnique({ where: { code } });
     if (existingCode) {
