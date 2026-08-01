@@ -172,5 +172,8 @@ router.get('/orders', authenticate, reportController.getOrderReport.bind(reportC
  *         description: Authentication required
  */
 router.get('/dashboard', authenticate, reportController.getDashboardMetrics.bind(reportController));
+router.get('/payments', authenticate, reportController.getPaymentReport.bind(reportController));
+router.get('/payments/export', authenticate, reportController.exportPaymentReportCSV.bind(reportController));
+router.get('/payments/analytics', authenticate, reportController.getPaymentAnalytics.bind(reportController));
 
 export default router;

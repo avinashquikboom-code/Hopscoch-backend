@@ -96,6 +96,48 @@ export class ReportController {
       throw error;
     }
   }
+
+  async getPaymentReport(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const filters = {
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        status: req.query.status as string,
+        method: req.query.method as string,
+      };
+      const report = await ReportService.getPaymentReport(filters);
+      ResponseFormatter.success(res, 'Payment report retrieved successfully', report);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async exportPaymentReportCSV(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const filters = {
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        status: req.query.status as string,
+        method: req.query.method as string,
+      };
+      const csv = await ReportService.exportPaymentReportCSV(filters);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="payment_report.csv"');
+      res.status(200).send(csv);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getPaymentAnalytics(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const period = (req.query.period as any) || 'Monthly';
+      const analytics = await ReportService.getPaymentAnalytics(period);
+      ResponseFormatter.success(res, 'Payment analytics retrieved successfully', analytics);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new ReportController();

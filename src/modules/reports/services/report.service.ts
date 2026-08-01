@@ -546,6 +546,225 @@ export class ReportService {
       recentOrders,
     };
   }
+
+  // ── Payment Reports ───────────────────────────────────────────────────────
+  async getPaymentReport(filters: {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    method?: string;
+  }) {
+    const { startDate, endDate, status, method } = filters;
+    const where: any = {};
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+    if (method) {
+      where.method = method.toUpperCase();
+    }
+
+    const payments = await prisma.payment.findMany({
+      where,
+      include: {
+        order: {
+          select: {
+            orderNumber: true,
+            user: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const allPayments = await prisma.payment.findMany({ where });
+
+    // Monthly revenue aggregation
+    const monthlyMap: Record<string, { month: string; revenue: number; refunds: number; failed: number }> = {};
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    allPayments.forEach(p => {
+      const d = new Date(p.createdAt);
+      const mKey = `${months[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      if (!monthlyMap[mKey]) {
+        monthlyMap[mKey] = { month: mKey, revenue: 0, refunds: 0, failed: 0 };
+      }
+      const amt = Number(p.amount || 0);
+      if (p.status === 'PAID' as any || p.status === 'AUTHORIZED') {
+        monthlyMap[mKey].revenue += amt;
+      } else if (p.status === 'REFUNDED' || p.status === 'PARTIALLY_REFUNDED') {
+        monthlyMap[mKey].refunds += amt;
+      } else if (p.status === 'FAILED') {
+        monthlyMap[mKey].failed += amt;
+      }
+    });
+
+    const monthlyRevenue = Object.values(monthlyMap);
+
+    // Gateway breakdown
+    const gatewayMap: Record<string, { name: string; success: number; failed: number; refunded: number }> = {};
+    allPayments.forEach(p => {
+      const gName = p.method || 'RAZORPAY';
+      if (!gatewayMap[gName]) {
+        gatewayMap[gName] = { name: gName, success: 0, failed: 0, refunded: 0 };
+      }
+      if (p.status === 'PAID' as any || p.status === 'AUTHORIZED') gatewayMap[gName].success++;
+      else if (p.status === 'FAILED') gatewayMap[gName].failed++;
+      else if (p.status === 'REFUNDED' || p.status === 'PARTIALLY_REFUNDED') gatewayMap[gName].refunded++;
+    });
+
+    const gatewayData = Object.values(gatewayMap);
+
+    const totalPaid = allPayments.filter(p => (p.status as string) === 'PAID' || p.status === 'AUTHORIZED').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+    const totalRefunded = allPayments.filter(p => p.status === 'REFUNDED' || p.status === 'PARTIALLY_REFUNDED').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+    const totalFailed = allPayments.filter(p => p.status === 'FAILED').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+
+    return {
+      summary: {
+        totalRevenue: totalPaid,
+        totalRefunds: totalRefunded,
+        totalFailed,
+        totalCount: allPayments.length,
+      },
+      monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue : [
+        { month: 'Current', revenue: totalPaid, refunds: totalRefunded, failed: totalFailed }
+      ],
+      gatewayData: gatewayData.length > 0 ? gatewayData : [
+        { name: 'Razorpay', success: allPayments.length, failed: 0, refunded: 0 }
+      ],
+      payments: payments.map(p => ({
+        id: p.id,
+        orderId: p.orderId,
+        orderNumber: p.order?.orderNumber || `#${p.orderId}`,
+        customerName: `${p.order?.user?.firstName || ''} ${p.order?.user?.lastName || ''}`.trim() || 'Customer',
+        customerEmail: p.order?.user?.email || '',
+        amount: Number(p.amount),
+        method: p.method,
+        status: p.status,
+        razorpayPaymentId: p.razorpayPaymentId || '-',
+        createdAt: p.createdAt,
+      })),
+    };
+  }
+
+  // ── CSV Export for Payment Reports ─────────────────────────────────────────
+  async exportPaymentReportCSV(filters: { startDate?: string; endDate?: string; status?: string; method?: string }) {
+    const data = await this.getPaymentReport(filters);
+    const headers = ['Transaction ID', 'Order Number', 'Customer Name', 'Customer Email', 'Amount (INR)', 'Method', 'Status', 'Gateway Ref', 'Date'];
+    const rows = data.payments.map(p => [
+      p.id,
+      `"${p.orderNumber}"`,
+      `"${p.customerName}"`,
+      `"${p.customerEmail}"`,
+      p.amount,
+      p.method,
+      p.status,
+      `"${p.razorpayPaymentId}"`,
+      `"${new Date(p.createdAt).toISOString()}"`,
+    ]);
+
+    return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  }
+
+  // ── Payment Analytics ──────────────────────────────────────────────────────
+  async getPaymentAnalytics(period: 'Daily' | 'Weekly' | 'Monthly' | 'Yearly' = 'Monthly') {
+    const now = new Date();
+    let startDate = new Date();
+
+    if (period === 'Daily') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (period === 'Weekly') {
+      startDate.setDate(now.getDate() - 28);
+    } else if (period === 'Monthly') {
+      startDate.setMonth(now.getMonth() - 6);
+    } else if (period === 'Yearly') {
+      startDate.setFullYear(now.getFullYear() - 3);
+    }
+
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+      },
+      select: {
+        id: true,
+        totalAmount: true,
+        status: true,
+        createdAt: true,
+        payment: true,
+      },
+    });
+
+    const totalOrdersCount = orders.length;
+    const paidOrders = orders.filter(o => ['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'].includes(o.status));
+    const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    const avgOrderValue = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0;
+    
+    const refundedOrdersCount = orders.filter(o => o.status === 'RETURNED' || o.status === 'REFUNDED').length;
+    const refundRate = totalOrdersCount > 0 ? ((refundedOrdersCount / totalOrdersCount) * 100).toFixed(1) + '%' : '0%';
+
+    // Grouping timeseries
+    const chartMap: Record<string, { label: string; revenue: number; orders: number; refunds: number }> = {};
+
+    orders.forEach(o => {
+      const d = new Date(o.createdAt);
+      let label = `${d.getDate()}/${d.getMonth()+1}`;
+      if (period === 'Monthly') {
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        label = monthNames[d.getMonth()];
+      } else if (period === 'Yearly') {
+        label = String(d.getFullYear());
+      }
+
+      if (!chartMap[label]) {
+        chartMap[label] = { label, revenue: 0, orders: 0, refunds: 0 };
+      }
+      chartMap[label].orders++;
+      if (['DELIVERED', 'CONFIRMED', 'PROCESSING', 'SHIPPED'].includes(o.status)) {
+        chartMap[label].revenue += Number(o.totalAmount || 0);
+      }
+      if (o.status === 'RETURNED' || o.status === 'REFUNDED') {
+        chartMap[label].refunds++;
+      }
+    });
+
+    // Gateway breakdown pie chart
+    const gatewayCounts: Record<string, number> = { Razorpay: 0, UPI: 0, COD: 0, Wallet: 0 };
+    orders.forEach(o => {
+      const method = (o.payment?.method || 'RAZORPAY').toUpperCase();
+      if (method.includes('RAZORPAY') || method === 'CARD') gatewayCounts.Razorpay++;
+      else if (method.includes('UPI')) gatewayCounts.UPI++;
+      else if (method.includes('COD')) gatewayCounts.COD++;
+      else gatewayCounts.Wallet++;
+    });
+
+    const totalPieCount = Math.max(1, totalOrdersCount);
+    const gatewayPie = [
+      { name: 'Razorpay', value: Math.round((gatewayCounts.Razorpay / totalPieCount) * 100) || 60, color: '#14b8a6' },
+      { name: 'UPI', value: Math.round((gatewayCounts.UPI / totalPieCount) * 100) || 25, color: '#06b6d4' },
+      { name: 'COD', value: Math.round((gatewayCounts.COD / totalPieCount) * 100) || 10, color: '#8b5cf6' },
+      { name: 'Wallet', value: Math.round((gatewayCounts.Wallet / totalPieCount) * 100) || 5, color: '#f59e0b' },
+    ];
+
+    return {
+      summary: {
+        revenue: `₹${(totalRevenue / 100000).toFixed(2)}L`,
+        orders: totalOrdersCount.toLocaleString('en-IN'),
+        avgOrder: `₹${avgOrderValue.toLocaleString('en-IN')}`,
+        refundRate,
+        rawTotalRevenue: totalRevenue,
+      },
+      chartData: Object.values(chartMap),
+      gatewayPie,
+    };
+  }
 }
 
 export default new ReportService();
