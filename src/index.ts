@@ -268,17 +268,29 @@ app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+
 app.use('/api/shipments', shipmentRoutes);
+app.use('/api/v1/shipments', shipmentRoutes);
+
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
+
 app.use('/api/reports', reportRoutes);
+app.use('/api/v1/reports', reportRoutes);
+
 import loyaltyRoutes from './modules/loyalty/routes/loyalty.routes';
 
 app.use('/loyalty', loyaltyRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/v1/loyalty', loyaltyRoutes);
 app.use('/api/admin/loyalty', loyaltyRoutes);
+
 app.use('/api/admin', adminRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
 app.use('/api/settings', settingsRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1', v1Routes);
 app.use('/api/recently-viewed', recentlyViewedRoutes);
 app.use('/api/reviews', reviewRoutes);
