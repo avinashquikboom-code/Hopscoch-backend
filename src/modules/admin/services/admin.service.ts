@@ -2408,7 +2408,7 @@ export class AdminService {
       where: { id },
       include: {
         _count: {
-          select: { inventory: true },
+          select: { inventory: true, movements: true },
         },
       },
     });
@@ -2421,17 +2421,27 @@ export class AdminService {
       throw new AppError('Cannot delete the default warehouse. Mark another warehouse as default first.', 400);
     }
 
-    if (existing._count.inventory > 0) {
+    if ((existing._count?.inventory || 0) > 0 || (existing._count?.movements || 0) > 0) {
       await prisma.warehouse.update({
         where: { id },
         data: { status: 'INACTIVE' },
       });
-      return { message: 'Warehouse has associated inventory items. Status changed to INACTIVE.' };
+      logger.info(`Warehouse ${id} marked INACTIVE (has linked inventory/movements)`);
+      return { message: 'Warehouse marked INACTIVE as it has linked inventory records.' };
     }
 
-    await prisma.warehouse.delete({ where: { id } });
-    logger.info(`Warehouse deleted: ${id}`);
-    return { message: 'Warehouse deleted successfully' };
+    try {
+      await prisma.warehouse.delete({ where: { id } });
+      logger.info(`Warehouse deleted: ${id}`);
+      return { message: 'Warehouse deleted successfully' };
+    } catch (err) {
+      await prisma.warehouse.update({
+        where: { id },
+        data: { status: 'INACTIVE' },
+      });
+      logger.info(`Warehouse ${id} soft-deleted to INACTIVE due to FK constraints`);
+      return { message: 'Warehouse status set to INACTIVE due to linked dependencies.' };
+    }
   }
 
   async addInventory(data: {
