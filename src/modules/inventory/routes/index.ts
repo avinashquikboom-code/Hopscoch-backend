@@ -247,6 +247,7 @@ router.get('/warehouses/:id', authenticate, inventoryController.getWarehouseById
 router.post('/warehouses', authenticate, inventoryController.createWarehouse.bind(inventoryController));
 router.patch('/warehouses/:id', authenticate, inventoryController.updateWarehouse.bind(inventoryController));
 router.post('/warehouses/:id/set-default', authenticate, inventoryController.setDefaultWarehouse.bind(inventoryController));
+router.post('/warehouses/:id/default', authenticate, inventoryController.setDefaultWarehouse.bind(inventoryController));
 
 /**
  * @swagger
