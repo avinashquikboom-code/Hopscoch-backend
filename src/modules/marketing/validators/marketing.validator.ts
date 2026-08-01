@@ -3,23 +3,25 @@ import { z } from 'zod';
 export const createBannerSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  imageUrl: z.string().url('Invalid image URL'),
-  link: z.string().url().optional(),
-  position: z.enum(['HOME', 'CATEGORY', 'PRODUCT', 'ALL']).default('HOME'),
+  imageUrl: z.string().min(1, 'Image URL is required'),
+  link: z.string().optional(),
+  type: z.string().optional().default('home'),
+  position: z.string().default('HOME'),
   isActive: z.boolean().default(true),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
 });
 
 export const updateBannerSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  imageUrl: z.string().url().optional(),
-  link: z.string().url().optional(),
-  position: z.enum(['HOME', 'CATEGORY', 'PRODUCT', 'ALL']).optional(),
+  imageUrl: z.string().optional(),
+  link: z.string().optional(),
+  type: z.string().optional(),
+  position: z.string().optional(),
   isActive: z.boolean().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
 });
 
 export const createCampaignSchema = z.object({

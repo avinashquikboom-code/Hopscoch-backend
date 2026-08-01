@@ -227,8 +227,12 @@ import { ResponseFormatter } from './utils/responseFormatter';
 // API Routes
 app.get('/api/banners', async (req, res, next) => {
   try {
+    const { position, type } = req.query;
+    const where: any = { isActive: true };
+    if (position) where.position = String(position);
+    if (type) where.type = String(type);
     const banners = await prisma.banner.findMany({
-      where: { isActive: true },
+      where,
       orderBy: { sortOrder: 'asc' },
     });
     return ResponseFormatter.success(res, 'Banners retrieved successfully', banners);
