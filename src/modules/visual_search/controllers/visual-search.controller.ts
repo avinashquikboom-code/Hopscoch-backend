@@ -1,79 +1,89 @@
 import { Response } from 'express';
-import { ZodError } from 'zod';
 import { AuthRequest } from '../../../middleware/auth';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import VisualSearchService from '../services/visual-search.service';
-import { uploadImageSchema } from '../validators/visual-search.validator';
-import prisma from '../../../utils/prisma';
 import { logger } from '../../../utils/logger';
 
 export class VisualSearchController {
-  async search(req: AuthRequest, res: Response): Promise<void> {
+  /**
+   * Primary Visual Search Endpoint: POST /api/v1/mobile/search/visual
+   * Accepts multipart file upload (req.file) or base64 / imageUrl in body.
+   */
+  async searchVisual(req: AuthRequest, res: Response): Promise<void> {
     try {
-      if (!req.user) {
-        logger.info('[VISUAL_SEARCH] No authenticated user found. Checking for default seed user as fallback.');
-        const fallbackUser = await prisma.user.findFirst({
-          where: { email: 'user@example.com' },
-        });
+      let imageBuffer: Buffer | null = null;
+      let mimetype = 'image/jpeg';
+      let originalname = 'search_image.jpg';
 
-        if (fallbackUser) {
-          req.user = {
-            id: fallbackUser.id,
-            email: fallbackUser.email,
-            role: fallbackUser.role,
-          };
-          logger.info(`[VISUAL_SEARCH] Successfully set fallback user: ${fallbackUser.email}`);
-        } else {
-          ResponseFormatter.error(res, 'Authentication required', 401);
-          return;
+      if (req.file) {
+        imageBuffer = req.file.buffer;
+        mimetype = req.file.mimetype || 'image/jpeg';
+        originalname = req.file.originalname || 'search_image.jpg';
+      } else if (req.body?.imageUrl) {
+        const rawUrl = String(req.body.imageUrl);
+        if (rawUrl.startsWith('data:image')) {
+          const parts = rawUrl.split(';base64,');
+          const mimeMatch = rawUrl.match(/data:(image\/[a-zA-Z+]+);/);
+          if (mimeMatch) mimetype = mimeMatch[1];
+          imageBuffer = Buffer.from(parts[1], 'base64');
         }
       }
-      const validatedData = uploadImageSchema.parse(req.body);
-      const result = await VisualSearchService.search(req.user.id, validatedData);
-      ResponseFormatter.success(res, 'Visual search completed successfully', result);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
-      } else {
-        throw error;
-      }
-    }
-  }
 
-  async getQuery(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const { queryId } = req.params;
-      const result = await VisualSearchService.getQuery(queryId);
-      ResponseFormatter.success(res, 'Visual search query retrieved successfully', result);
-    } catch (error) {
-      throw error;
+      if (!imageBuffer || imageBuffer.length === 0) {
+        ResponseFormatter.error(res, 'No valid image file uploaded', 400);
+        return;
+      }
+
+      // Max size check: 5MB
+      if (imageBuffer.length > 5 * 1024 * 1024) {
+        ResponseFormatter.error(res, 'Image file exceeds maximum allowed size of 5MB', 400);
+        return;
+      }
+
+      const userId = req.user?.id || null;
+      const result = await VisualSearchService.processVisualSearch(
+        userId,
+        { buffer: imageBuffer, mimetype, originalname },
+        req.body?.imageUrl
+      );
+
+      ResponseFormatter.success(res, 'Visual search completed successfully', result);
+    } catch (error: any) {
+      logger.error('[VISUAL_SEARCH_CONTROLLER] Error during visual search:', error);
+      ResponseFormatter.error(res, error?.message || 'Visual search failed', 500);
     }
   }
 
   async getHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
-      if (!req.user) {
+      const userId = req.user?.id;
+      if (!userId) {
         ResponseFormatter.error(res, 'Authentication required', 401);
         return;
       }
-      const history = await VisualSearchService.getHistory(req.user.id);
+      const history = await VisualSearchService.getQueryHistory(userId);
       ResponseFormatter.success(res, 'Visual search history retrieved successfully', history);
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      ResponseFormatter.error(res, error?.message || 'Failed to fetch history', 500);
     }
   }
 
   async deleteQuery(req: AuthRequest, res: Response): Promise<void> {
     try {
-      if (!req.user) {
+      const userId = req.user?.id;
+      if (!userId) {
         ResponseFormatter.error(res, 'Authentication required', 401);
         return;
       }
-      const { queryId } = req.params;
-      await VisualSearchService.deleteQuery(req.user.id, queryId);
-      ResponseFormatter.success(res, 'Visual search query deleted successfully');
-    } catch (error) {
-      throw error;
+      const queryId = Number(req.params.queryId);
+      if (isNaN(queryId)) {
+        ResponseFormatter.error(res, 'Invalid query ID', 400);
+        return;
+      }
+      await VisualSearchService.deleteQuery(userId, queryId);
+      ResponseFormatter.success(res, 'Visual search log entry deleted successfully');
+    } catch (error: any) {
+      ResponseFormatter.error(res, error?.message || 'Failed to delete query log', 500);
     }
   }
 }

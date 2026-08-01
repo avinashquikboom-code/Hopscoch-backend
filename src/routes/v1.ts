@@ -5,6 +5,8 @@ import PaymentController from '../modules/payments/controllers/payment.controlle
 import ShipmentController from '../modules/shipments/controllers/shipment.controller';
 import OrderController from '../modules/order/controllers/order.controller';
 import addressRoutes from '../modules/address/routes';
+import VisualSearchController from '../modules/visual_search/controllers/visual-search.controller';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -204,6 +206,14 @@ router.post(
   '/mobile/payments/verify',
   authenticate,
   PaymentController.verifyRazorpayPayment.bind(PaymentController)
+);
+
+// Mobile Visual Search (AI Gemini Vision)
+router.post(
+  '/mobile/search/visual',
+  optionalAuth,
+  upload.single('image'),
+  VisualSearchController.searchVisual.bind(VisualSearchController)
 );
 
 // ==========================================
