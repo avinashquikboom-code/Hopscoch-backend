@@ -102,6 +102,7 @@ export const initializeNotificationWorker = () => {
 async function sendPushNotification(data: any) {
   try {
     const messaging = getFirebaseMessaging();
+    if (!messaging) throw new Error('Firebase Messaging unavailable');
 
     const message = {
       notification: {

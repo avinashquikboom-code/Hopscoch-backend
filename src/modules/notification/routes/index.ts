@@ -20,6 +20,47 @@ const writeNotifications = async (data: any[]): Promise<void> => {
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 };
 
+import { UnifiedNotificationService } from '../services/unified-notification.service';
+import prisma from '../../../utils/prisma';
+
+// POST register or update FCM device token
+router.post('/token', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as any).user.id;
+    const { fcmToken, deviceType, platform } = req.body;
+
+    if (!fcmToken) {
+      return res.status(400).json({ success: false, message: 'fcmToken is required' });
+    }
+
+    const session = await UnifiedNotificationService.registerToken(
+      userId,
+      fcmToken,
+      (deviceType?.toUpperCase() as any) || 'MOBILE',
+      platform || 'android'
+    );
+
+    return ResponseFormatter.success(res, 'FCM token registered successfully', session);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// GET persistent in-app notifications for authenticated user
+router.get('/my', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as any).user.id;
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return ResponseFormatter.success(res, 'User notifications retrieved successfully', notifications);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // GET all broadcast notifications
 router.get('/', async (req, res, next) => {
   try {

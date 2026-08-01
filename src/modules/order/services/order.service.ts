@@ -6,6 +6,7 @@ import { calculateCartTaxes } from '../../../utils/tax.utils';
 import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
 import rewardService from '../../loyalty/services/reward.service';
 import walletService from '../../loyalty/services/wallet.service';
+import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
 
 function formatOrderSummary(order: any) {
   if (!order) return order;
@@ -429,6 +430,26 @@ export class OrderService {
     }
 
     logger.info(`✅ Order created successfully: ID ${order.id}, Number ${order.orderNumber} for User ${uId}`);
+
+    // Trigger FCM Push & In-App Notifications (Customer + Admin)
+    try {
+      UnifiedNotificationService.sendNotificationToUser(uId, {
+        title: 'Order Confirmed! 🎉',
+        body: `Your order #${order.orderNumber} has been placed successfully for ₹${order.totalAmount}.`,
+        type: 'ORDER',
+        data: { orderId: String(order.id), orderNumber: order.orderNumber },
+      });
+
+      UnifiedNotificationService.notifyAdmins({
+        title: 'New Order Received! 🛍️',
+        body: `New order #${order.orderNumber} placed for ₹${order.totalAmount}`,
+        type: 'SYSTEM',
+        data: { orderId: String(order.id), orderNumber: order.orderNumber },
+      });
+    } catch (notifErr: any) {
+      logger.warn(`Order notification trigger failed: ${notifErr.message}`);
+    }
+
     return formatOrderSummary(order);
   }
 

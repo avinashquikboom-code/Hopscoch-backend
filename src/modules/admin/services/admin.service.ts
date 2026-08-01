@@ -4,6 +4,7 @@ import prisma from '../../../utils/prisma';
 import bcrypt from 'bcrypt';
 import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
 import { isS3Configured, uploadToS3 } from '../../../config/s3';
+import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
 
 export class AdminService {
   async createAdminUser(data: {
@@ -2055,6 +2056,19 @@ export class AdminService {
     });
 
     logger.info(`Order status updated: ${id} to ${data.status}`);
+
+    // Trigger FCM & In-App Notification to Customer
+    try {
+      UnifiedNotificationService.sendNotificationToUser(order.userId, {
+        title: 'Order Status Update 📦',
+        body: `Your order #${order.orderNumber} status is now ${data.status.replace(/_/g, ' ')}.`,
+        type: 'ORDER',
+        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: String(data.status) },
+      });
+    } catch (notifErr: any) {
+      logger.warn(`Order status update notification failed: ${notifErr.message}`);
+    }
+
     return updatedOrder;
   }
 
