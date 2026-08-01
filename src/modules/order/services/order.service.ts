@@ -63,6 +63,14 @@ export class OrderService {
       shipping: inputShipping
     } = data;
 
+    // Fetch user profile phone as potential fallback
+    const userRec = await prisma.user.findUnique({
+      where: { id: uId },
+      select: { phone: true, firstName: true, lastName: true },
+    });
+    const profilePhone = userRec?.phone || '';
+    const userName = `${userRec?.firstName || ''} ${userRec?.lastName || ''}`.trim() || 'Valued Customer';
+
     // 1. Resolve Address
     let targetAddressId: number | null = null;
 
@@ -72,16 +80,26 @@ export class OrderService {
       });
       if (existingAddr) {
         targetAddressId = existingAddr.id;
+        // Repair existing address if it was stored with placeholder phone
+        if ((!existingAddr.phone || existingAddr.phone === '0000000000' || existingAddr.phone === '00000') && profilePhone) {
+          await prisma.address.update({
+            where: { id: existingAddr.id },
+            data: { phone: profilePhone },
+          });
+        }
       }
     }
 
     if (!targetAddressId && rawAddress) {
       if (typeof rawAddress === 'object') {
+        const addressPhone = (rawAddress.phone || rawAddress.phoneNumber || rawAddress.mobile || '').trim();
+        const finalPhone = (addressPhone && addressPhone !== '0000000000' && addressPhone !== '00000') ? addressPhone : profilePhone;
+
         const newAddr = await prisma.address.create({
           data: {
             userId: uId,
-            fullName: rawAddress.fullName || `${rawAddress.firstName || ''} ${rawAddress.lastName || ''}`.trim() || 'Valued Customer',
-            phone: rawAddress.phone || '0000000000',
+            fullName: rawAddress.fullName || `${rawAddress.firstName || ''} ${rawAddress.lastName || ''}`.trim() || userName,
+            phone: finalPhone,
             line1: rawAddress.line1 || rawAddress.street || rawAddress.streetAddress || 'Address details',
             city: rawAddress.city || 'City',
             state: rawAddress.state || rawAddress.stateProvince || 'State',
@@ -94,8 +112,8 @@ export class OrderService {
         const newAddr = await prisma.address.create({
           data: {
             userId: uId,
-            fullName: 'Valued Customer',
-            phone: '0000000000',
+            fullName: userName,
+            phone: profilePhone,
             line1: rawAddress,
             city: 'City',
             state: 'State',
@@ -115,12 +133,18 @@ export class OrderService {
       });
       if (anyAddr) {
         targetAddressId = anyAddr.id;
+        if ((!anyAddr.phone || anyAddr.phone === '0000000000' || anyAddr.phone === '00000') && profilePhone) {
+          await prisma.address.update({
+            where: { id: anyAddr.id },
+            data: { phone: profilePhone },
+          });
+        }
       } else {
         const defaultAddr = await prisma.address.create({
           data: {
             userId: uId,
-            fullName: 'Valued Customer',
-            phone: '0000000000',
+            fullName: userName,
+            phone: profilePhone,
             line1: 'Default Checkout Address',
             city: 'City',
             state: 'State',
@@ -304,6 +328,11 @@ export class OrderService {
       await walletService.debitWallet(uId, walletAmountUsed, 'PAYMENT', orderNumber, `Payment for Order #${orderNumber}`);
     }
 
+    // Fetch Seller System Settings to snapshot on order creation
+    const systemSettings = await prisma.systemSettings.findFirst();
+    const sellerNameSnap = systemSettings?.sellerName || systemSettings?.siteName || 'FCI Seller Retail Pvt. Ltd.';
+    const sellerContactSnap = systemSettings?.sellerContactNumber || systemSettings?.contactPhone || '+91 9876543210';
+
     // 5. Create Order + OrderItems + Payment + Timeline in Single Transaction
     const order = await prisma.$transaction(async (tx) => {
       const createdOrder = await tx.order.create({
@@ -322,6 +351,8 @@ export class OrderService {
           walletAmountUsed,
           giftWrapped: isGiftWrapped,
           giftWrapCharge,
+          sellerNameSnapshot: sellerNameSnap,
+          sellerContactSnapshot: sellerContactSnap,
           totalAmount,
           items: {
             create: taxCalculation.itemsWithTax.map((item: any) => ({

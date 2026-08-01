@@ -2876,8 +2876,10 @@ export class AdminService {
         siteName: 'FCISeller',
         siteDescription: 'Luxury Fashion E-commerce',
         contactEmail: 'contact@fciseller.com',
-        contactPhone: '+1-800-123-4567',
-        currency: 'USD',
+        contactPhone: '+91 9876543210',
+        sellerName: 'FCI Seller Retail Pvt. Ltd.',
+        sellerContactNumber: '+91 9876543210',
+        currency: 'INR',
       };
     }
     return settings;

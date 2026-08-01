@@ -770,6 +770,9 @@ model Order {
 
   invoiceUrl String? @map("invoice_url")
 
+  sellerNameSnapshot    String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name_snapshot")
+  sellerContactSnapshot String? @default("+91 9876543210") @map("seller_contact_snapshot")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1176,6 +1179,9 @@ model SystemSettings {
   currency       String  @default("USD")
   logoUrl        String? @map("logo_url")
   faviconUrl     String? @map("favicon_url")
+
+  sellerName          String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name")
+  sellerContactNumber String? @default("+91 9876543210") @map("seller_contact_number")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
