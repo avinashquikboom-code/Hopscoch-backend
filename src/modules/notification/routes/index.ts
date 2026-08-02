@@ -61,11 +61,41 @@ router.get('/my', authenticate, async (req, res, next) => {
   }
 });
 
-// GET all broadcast notifications
+// GET all broadcast & user notifications
 router.get('/', async (req, res, next) => {
   try {
-    const notifications = await readNotifications();
-    return ResponseFormatter.success(res, 'Notifications retrieved successfully', notifications);
+    const broadcastNotifications = await readNotifications();
+    const sentBroadcasts = broadcastNotifications.filter((n: any) => n.isSent !== false);
+
+    let userNotifications: any[] = [];
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const jwt = await import('jsonwebtoken');
+        const decoded: any = jwt.default.verify(token, process.env.JWT_SECRET || 'secret');
+        if (decoded && decoded.id) {
+          userNotifications = await prisma.notification.findMany({
+            where: { userId: decoded.id },
+            orderBy: { createdAt: 'desc' },
+            take: 30,
+          });
+        }
+      } catch (_) {}
+    }
+
+    const formattedUserNotifs = userNotifications.map((n: any) => ({
+      id: n.id,
+      title: n.title,
+      message: n.body,
+      body: n.body,
+      type: n.type || 'SYSTEM',
+      isSent: true,
+      createdAt: n.createdAt,
+    }));
+
+    const combined = [...sentBroadcasts, ...formattedUserNotifs];
+    return ResponseFormatter.success(res, 'Notifications retrieved successfully', combined);
   } catch (error) {
     return next(error);
   }
@@ -119,7 +149,7 @@ router.post('/:id/send', authenticate, async (req, res, next) => {
 
     await writeNotifications(notifications);
 
-    // Dispatch in-app notifications
+    // Dispatch in-app notifications to active users
     try {
       const payload = {
         title: targetNotification.title || 'System Notification',
@@ -128,7 +158,21 @@ router.post('/:id/send', authenticate, async (req, res, next) => {
       };
 
       if (targetNotification.sendToAll) {
-        await UnifiedNotificationService.notifyAdmins(payload);
+        const activeUsers = await prisma.user.findMany({
+          where: { isActive: true, deletedAt: null },
+          select: { id: true },
+        });
+        if (activeUsers.length > 0) {
+          await prisma.notification.createMany({
+            data: activeUsers.map(u => ({
+              userId: u.id,
+              title: payload.title,
+              body: payload.body,
+              type: payload.type,
+              channel: 'PUSH',
+            })),
+          });
+        }
       } else if (Array.isArray(targetNotification.targetUsers) && targetNotification.targetUsers.length > 0) {
         const userIds = targetNotification.targetUsers.map((u: any) => Number(u)).filter((n: number) => !isNaN(n));
         if (userIds.length > 0) {

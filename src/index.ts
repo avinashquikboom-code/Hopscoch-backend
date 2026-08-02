@@ -299,6 +299,7 @@ app.use('/api/v1', v1Routes);
 app.use('/api/recently-viewed', recentlyViewedRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/colors', colorRoutes);
