@@ -4,6 +4,9 @@ import { AppError } from '../../../middleware/errorHandler';
 
 const prisma = new PrismaClient();
 
+/**
+ * Reseller Service handling share link creation, resolution, and margin tracking.
+ */
 export class ResellerService {
   /**
    * Generate a unique share link with added margin for a product
