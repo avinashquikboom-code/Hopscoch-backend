@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { authenticate } from '../../../middleware/auth';
+import { authenticate, optionalAuth } from '../../../middleware/auth';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import adminController from '../../admin/controllers/admin.controller';
 
 const router = Router();
 
-// GET all products (admin catalog ledger)
-router.get('/', authenticate, async (req, res, next) => {
+// GET all products (catalog ledger) - Public / Optional Auth
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const products = await prisma.product.findMany({
       where: { deletedAt: null },
