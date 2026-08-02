@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../utils/prisma';
 import crypto from 'crypto';
 import { AppError } from '../../../middleware/errorHandler';
-
-const prisma = new PrismaClient();
 
 /**
  * Reseller Service handling share link creation, resolution, and margin tracking.
