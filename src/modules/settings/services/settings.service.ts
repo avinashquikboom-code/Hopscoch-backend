@@ -193,6 +193,9 @@ export class SettingsService {
     faviconUrl?: string;
     contactEmail?: string;
     contactPhone?: string;
+    sellerName?: string;
+    sellerContactNumber?: string;
+    sellerAddress?: string;
     socialLinks?: Record<string, string>;
     seoTitle?: string;
     seoDescription?: string;
