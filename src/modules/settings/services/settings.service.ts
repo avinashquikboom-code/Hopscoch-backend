@@ -160,14 +160,17 @@ export class SettingsService {
 
   // ─── Existing settings functionality ───────────────────────────────────────
   async getAppSettings() {
+    const dbSettings = await prisma.systemSettings.findFirst();
     const settings = {
-      siteName: 'FCISeller',
-      siteDescription: 'Luxury Fashion E-commerce',
+      siteName: dbSettings?.siteName || 'FCISeller',
+      siteDescription: dbSettings?.siteDescription || 'Luxury Fashion E-commerce',
       siteUrl: process.env.CLIENT_URL || 'http://localhost:3000',
-      logoUrl: '',
-      faviconUrl: '',
-      contactEmail: 'support@fciseller.com',
-      contactPhone: '+91 9876543210',
+      logoUrl: dbSettings?.logoUrl || '',
+      faviconUrl: dbSettings?.faviconUrl || '',
+      contactEmail: dbSettings?.contactEmail || 'support@fciseller.com',
+      contactPhone: dbSettings?.contactPhone || '+91 9876543210',
+      sellerName: dbSettings?.sellerName || 'FCI Seller Retail Pvt. Ltd.',
+      sellerContactNumber: dbSettings?.sellerContactNumber || '+91 9876543210',
       socialLinks: {
         facebook: '',
         twitter: '',
