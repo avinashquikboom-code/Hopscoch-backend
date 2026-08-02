@@ -73,6 +73,18 @@ router.post(
   authorize('ADMIN'),
   ShipmentController.createShipment.bind(ShipmentController)
 );
+router.get(
+  '/admin/shipping/awb',
+  authenticate,
+  authorize('ADMIN'),
+  ShipmentController.getAWBDetails.bind(ShipmentController)
+);
+router.get(
+  '/admin/shipping/awb/:orderId',
+  authenticate,
+  authorize('ADMIN'),
+  ShipmentController.getAWBDetails.bind(ShipmentController)
+);
 router.post(
   '/admin/shipping/awb',
   authenticate,

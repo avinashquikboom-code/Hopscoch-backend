@@ -6,86 +6,26 @@ import { getShiprocketPickupLocation } from '../../inventory/services/warehouse.
 
 export class ShipmentService {
   async createShipment(orderId: number) {
-    // Check if shipment already exists
     const existing = await prisma.shipment.findUnique({
       where: { orderId },
     });
 
     if (existing) {
-      throw new AppError('Shipment already created for this order', 400);
+      return existing;
     }
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: {
-        user: true,
-        address: true,
-        items: true,
-        payment: true,
-      },
     });
 
     if (!order) {
       throw new AppError('Order not found', 404);
     }
 
-    if (!order.address) {
-      throw new AppError('Shipping address missing for this order', 400);
-    }
-
-    logger.info(`Creating Shiprocket order for FCISeller Order ID: ${orderId}`);
-    
-    // Format payload for Shiprocket API
-    const payload = {
-      order_id: String(order.id),
-      order_date: order.createdAt.toISOString().replace('T', ' ').substring(0, 19),
-      pickup_location: await getShiprocketPickupLocation(),
-      billing_customer_name: order.address.fullName || order.user.firstName || 'Customer',
-      billing_last_name: '',
-      billing_address: order.address.line1,
-      billing_address_2: order.address.line2 || '',
-      billing_city: order.address.city,
-      billing_pincode: order.address.pincode,
-      billing_state: order.address.state,
-      billing_country: order.address.country || 'India',
-      billing_email: order.user.email,
-      billing_phone: order.address.phone || '9876543210',
-      shipping_is_billing: true,
-      order_items: order.items.map(item => ({
-        name: item.productNameSnapshot,
-        sku: item.variantSnapshot && typeof item.variantSnapshot === 'object' && 'sku' in item.variantSnapshot ? (item.variantSnapshot as any).sku : `SKU-${item.variantId}`,
-        units: item.quantity,
-        selling_price: Number(item.priceSnapshot),
-      })),
-      payment_method: order.payment?.method === 'COD' ? 'COD' : 'Prepaid',
-      sub_total: Number(order.subtotal),
-      length: 10,
-      width: 10,
-      height: 10,
-      weight: 0.5,
-    };
-
-    let shiprocketOrderId = `sr_test_${Date.now()}`;
-    let shipmentId = `shp_test_${Date.now()}`;
-
-    try {
-      const response = await shiprocketClient.request('/orders/create/adhoc', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      if (response && response.order_id) {
-        shiprocketOrderId = String(response.order_id);
-        shipmentId = String(response.shipment_id || `shp_${response.order_id}`);
-      }
-    } catch (err: any) {
-      logger.warn(`Shiprocket API creation failed, generating local shipment record: ${err.message}`);
-    }
-
     const shipment = await prisma.shipment.create({
       data: {
         orderId: order.id,
-        shiprocketOrderId: shiprocketOrderId,
-        shipmentId: shipmentId,
+        shipmentId: `shp_manual_${Date.now()}`,
         status: 'CREATED',
       },
     });
@@ -97,7 +37,7 @@ export class ShipmentService {
         timeline: {
           create: {
             status: 'PROCESSING',
-            note: `Shipment initiated. Shipment ID: ${shipmentId}`,
+            note: `Shipment initiated. Shipment ID: ${shipment.shipmentId}`,
           },
         },
       },
@@ -160,61 +100,82 @@ export class ShipmentService {
     return updatedOrder;
   }
 
-  async generateAWB(orderId: number) {
-    const shipment = await prisma.shipment.findUnique({
-      where: { orderId },
+  async generateAWB(orderId: number, courierName?: string, awbNumber?: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { shipment: true },
     });
 
-    if (!shipment || !shipment.shipmentId) {
-      throw new AppError('Shipment record not found', 404);
+    if (!order) {
+      throw new AppError('Order not found', 404);
     }
 
-    logger.info(`Assigning AWB for shipment: ${shipment.shipmentId}`);
-    const response = await shiprocketClient.request('/courier/assign/awb', {
-      method: 'POST',
-      body: JSON.stringify({ shipment_id: shipment.shipmentId }),
-    });
+    const finalCourier = courierName || order.courierName || order.shipment?.courier || 'Standard Logistics';
+    const finalAwb = awbNumber || order.awbNumber || order.shipment?.awb || `AWB-${Date.now()}`;
 
-    if (!response.response || !response.response.data || !response.response.data.awb_code) {
-      throw new AppError('AWB generation failed', 400);
-    }
-
-    const awbData = response.response.data;
-    const updated = await prisma.shipment.update({
+    const shipment = await prisma.shipment.upsert({
       where: { orderId },
-      data: {
-        awb: awbData.awb_code,
-        courier: awbData.courier_name || 'Shiprocket Partner',
+      create: {
+        orderId,
+        shipmentId: `shp_${orderId}_${Date.now()}`,
+        courier: finalCourier,
+        awb: finalAwb,
+        status: 'AWB_ASSIGNED',
+      },
+      update: {
+        courier: finalCourier,
+        awb: finalAwb,
         status: 'AWB_ASSIGNED',
       },
     });
 
-    return updated;
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'SHIPPED',
+        courierName: finalCourier,
+        awbNumber: finalAwb,
+        shippedAt: new Date(),
+        timeline: {
+          create: {
+            status: 'SHIPPED',
+            note: `Shipped via ${finalCourier} (AWB: ${finalAwb})`,
+          },
+        },
+      },
+    });
+
+    logger.info(`AWB assigned manually for order ${orderId}: ${finalCourier} (AWB: ${finalAwb})`);
+
+    try {
+      const UnifiedNotificationService = (await import('../../notification/services/unified-notification.service')).UnifiedNotificationService;
+      await UnifiedNotificationService.sendNotificationToUser(order.userId, {
+        title: 'Order Shipped! 🚚',
+        body: `Your order #${order.orderNumber} has been shipped via ${finalCourier}! Tracking AWB: ${finalAwb}`,
+        type: 'ORDER',
+        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: 'SHIPPED', courierName: finalCourier, awbNumber: finalAwb },
+      });
+    } catch (notifErr: any) {
+      logger.warn(`Order shipped notification failed: ${notifErr.message}`);
+    }
+
+    return shipment;
   }
 
   async generateLabel(orderId: number) {
-    const shipment = await prisma.shipment.findUnique({
+    let shipment = await prisma.shipment.findUnique({
       where: { orderId },
     });
 
-    if (!shipment || !shipment.shipmentId) {
-      throw new AppError('Shipment record not found', 404);
+    if (!shipment) {
+      shipment = await this.createShipment(orderId);
     }
 
-    logger.info(`Generating label for shipment: ${shipment.shipmentId}`);
-    const response = await shiprocketClient.request('/courier/generate/label', {
-      method: 'POST',
-      body: JSON.stringify({ shipment_id: [shipment.shipmentId] }),
-    });
-
-    if (!response.label_url) {
-      throw new AppError('Label generation failed', 400);
-    }
-
+    const labelUrl = `/api/v1/admin/orders/${orderId}/invoice`;
     const updated = await prisma.shipment.update({
       where: { orderId },
       data: {
-        labelUrl: response.label_url,
+        labelUrl,
       },
     });
 
@@ -222,61 +183,57 @@ export class ShipmentService {
   }
 
   async generateInvoice(orderId: number) {
-    const shipment = await prisma.shipment.findUnique({
+    let shipment = await prisma.shipment.findUnique({
       where: { orderId },
     });
 
-    if (!shipment || !shipment.shiprocketOrderId) {
-      throw new AppError('Shipment record not found', 404);
+    const invoiceUrl = `/api/v1/admin/orders/${orderId}/invoice`;
+
+    if (shipment) {
+      shipment = await prisma.shipment.update({
+        where: { orderId },
+        data: {
+          invoiceUrl,
+        },
+      });
     }
 
-    logger.info(`Generating invoice for order ID: ${shipment.shiprocketOrderId}`);
-    const response = await shiprocketClient.request('/orders/print/invoice', {
-      method: 'POST',
-      body: JSON.stringify({ order_ids: [shipment.shiprocketOrderId] }),
-    });
-
-    if (!response.invoice_url) {
-      throw new AppError('Invoice generation failed', 400);
-    }
-
-    const updated = await prisma.shipment.update({
-      where: { orderId },
-      data: {
-        invoiceUrl: response.invoice_url,
-      },
-    });
-
-    // Also update order table
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        invoiceUrl: response.invoice_url,
+        invoiceUrl,
       },
     });
 
-    return updated;
+    return { is_invoice_created: true, invoice_url: invoiceUrl, shipment };
   }
 
   async schedulePickup(orderId: number) {
-    const shipment = await prisma.shipment.findUnique({
+    let shipment = await prisma.shipment.findUnique({
       where: { orderId },
     });
 
-    if (!shipment || !shipment.shipmentId) {
-      throw new AppError('Shipment record not found', 404);
+    if (!shipment) {
+      shipment = await this.createShipment(orderId);
     }
-
-    logger.info(`Scheduling pickup for shipment: ${shipment.shipmentId}`);
-    const response = await shiprocketClient.request('/pickup/trigger', {
-      method: 'POST',
-      body: JSON.stringify({ shipment_id: [shipment.shipmentId] }),
-    });
 
     const updated = await prisma.shipment.update({
       where: { orderId },
       data: {
         status: 'PICKUP_SCHEDULED',
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'OUT_FOR_DELIVERY',
+        timeline: {
+          create: {
+            status: 'OUT_FOR_DELIVERY',
+            note: 'Package picked up by courier service.',
+          },
+        },
       },
     });
 
@@ -288,22 +245,14 @@ export class ShipmentService {
       where: { orderId },
     });
 
-    if (!shipment || !shipment.awb) {
-      throw new AppError('Shipment AWB not assigned or found', 404);
+    if (shipment) {
+      await prisma.shipment.update({
+        where: { orderId },
+        data: {
+          status: 'CANCELLED',
+        },
+      });
     }
-
-    logger.info(`Cancelling shipment for AWB: ${shipment.awb}`);
-    await shiprocketClient.request('/orders/cancel/shipment/with-awb', {
-      method: 'POST',
-      body: JSON.stringify({ awbs: [shipment.awb] }),
-    });
-
-    const updated = await prisma.shipment.update({
-      where: { orderId },
-      data: {
-        status: 'CANCELLED',
-      },
-    });
 
     await prisma.order.update({
       where: { id: orderId },
@@ -312,13 +261,13 @@ export class ShipmentService {
         timeline: {
           create: {
             status: 'CANCELLED',
-            note: 'Shipment cancelled on Shiprocket',
+            note: 'Shipment cancelled by admin',
           },
         },
       },
     });
 
-    return updated;
+    return { success: true, message: 'Shipment cancelled' };
   }
 
   async trackShipment(orderIdInput: number | string) {

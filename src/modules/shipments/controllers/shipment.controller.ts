@@ -5,6 +5,7 @@ import { ResponseFormatter } from '../../../utils/responseFormatter';
 import ShipmentService from '../services/shipment.service';
 import { shipmentQuerySchema, updateTrackingSchema } from '../validators/shipment.validator';
 import { logger } from '../../../utils/logger';
+import prisma from '../../../utils/prisma';
 
 export class ShipmentController {
   async createShipment(req: AuthRequest, res: Response): Promise<void> {
@@ -40,14 +41,42 @@ export class ShipmentController {
     }
   }
 
+  async getAWBDetails(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        ResponseFormatter.error(res, 'Access denied', 403);
+        return;
+      }
+      const rawOrderId = req.params?.orderId || req.query?.orderId || req.body?.orderId;
+      if (!rawOrderId) {
+        const shipments = await prisma.shipment.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          include: { order: true },
+        });
+        ResponseFormatter.success(res, 'AWB list retrieved successfully', shipments);
+        return;
+      }
+      const tracking = await ShipmentService.trackShipment(Number(rawOrderId));
+      ResponseFormatter.success(res, 'AWB details retrieved successfully', tracking);
+    } catch (error: any) {
+      ResponseFormatter.error(res, error.message || 'Failed to retrieve AWB details', 500);
+    }
+  }
+
   async generateAWB(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.user || req.user.role !== 'ADMIN') {
         ResponseFormatter.error(res, 'Access denied', 403);
         return;
       }
-      const { orderId } = req.body;
-      const shipment = await ShipmentService.generateAWB(Number(orderId));
+      const rawOrderId = req.body?.orderId || req.query?.orderId || req.params?.orderId;
+      const { courierName, awbNumber } = req.body || {};
+      if (!rawOrderId) {
+        ResponseFormatter.error(res, 'Order ID is required', 400);
+        return;
+      }
+      const shipment = await ShipmentService.generateAWB(Number(rawOrderId), courierName, awbNumber);
       ResponseFormatter.success(res, 'AWB assigned successfully', shipment);
     } catch (error: any) {
       ResponseFormatter.error(res, error.message || 'Failed to assign AWB', 500);
