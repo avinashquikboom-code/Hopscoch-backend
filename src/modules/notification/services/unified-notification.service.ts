@@ -204,6 +204,26 @@ export class UnifiedNotificationService {
           body: payload.body,
         },
         data: payload.data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'high_importance_channel',
+            priority: 'high',
+            visibility: 'public',
+            defaultSound: true,
+            sound: 'default',
+            defaultVibrateTimings: true,
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              contentAvailable: true,
+            },
+          },
+        },
       });
 
       logger.info(`[FCM] Sent notification to ${tokens.length} tokens. Success: ${response.successCount}, Failures: ${response.failureCount}`);
