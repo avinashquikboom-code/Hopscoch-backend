@@ -780,7 +780,7 @@ export class AdminService {
           slug: true,
           status: true,
           basePrice: true,
-          margin: true, // margin percentage added to product
+          margin: true, // max margin ceiling (flat ₹ amount) allowed for reseller sharing
           shippingCharge: true,
           isGiftWrapAvailable: true,
           giftWrapCharge: true,

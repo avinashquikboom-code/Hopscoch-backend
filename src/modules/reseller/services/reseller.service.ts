@@ -24,11 +24,10 @@ export class ResellerService {
     }
 
     const basePrice = Number(product.basePrice);
-    const maxMarginPercent = Number(product.margin ?? 0);
-    const maxAllowedMargin = maxMarginPercent > 0 ? Math.round((basePrice * (maxMarginPercent / 100)) * 100) / 100 : 0;
+    const maxMarginRupees = Number(product.margin ?? 0);
 
-    if (maxAllowedMargin > 0 && addedMargin > maxAllowedMargin) {
-      throw new AppError(`Margin exceeds the maximum allowed limit of ₹${maxAllowedMargin.toFixed(2)} (${maxMarginPercent}%)`, 400);
+    if (addedMargin > maxMarginRupees) {
+      throw new AppError(`Margin cannot exceed ₹${maxMarginRupees}`, 400);
     }
 
     const shareCode = crypto.randomBytes(4).toString('hex');
