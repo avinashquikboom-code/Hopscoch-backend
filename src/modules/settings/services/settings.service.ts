@@ -171,6 +171,7 @@ export class SettingsService {
       contactPhone: dbSettings?.contactPhone || '+91 9876543210',
       sellerName: dbSettings?.sellerName || 'FCI Seller Retail Pvt. Ltd.',
       sellerContactNumber: dbSettings?.sellerContactNumber || '+91 9876543210',
+      sellerAddress: (dbSettings as any)?.sellerAddress || 'Building A, Industrial Focal Point, Phase 8B, Sector 74, Mohali, Punjab 160055',
       socialLinks: {
         facebook: '',
         twitter: '',
