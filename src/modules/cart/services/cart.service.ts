@@ -125,8 +125,9 @@ export class CartService {
     };
   }
 
-  async addToCart(userId: any, data: { productId: any; variantId: any; quantity: number }) {
-    const { productId, variantId, quantity } = data;
+  async addToCart(userId: any, data: { productId: any; variantId?: any; quantity: number }) {
+    const { productId, quantity } = data;
+    let variantId = data.variantId;
 
     // Check if product exists
     const product = await prisma.product.findUnique({
@@ -137,10 +138,20 @@ export class CartService {
       throw new AppError('Product not found', 404);
     }
 
-    // Check if variant exists
-    const variant = await prisma.productVariant.findUnique({
-      where: { id: Number(variantId), deletedAt: null },
-    });
+    // Check if variant exists or find first variant
+    let variant;
+    if (variantId) {
+      variant = await prisma.productVariant.findUnique({
+        where: { id: Number(variantId), deletedAt: null },
+      });
+    } else {
+      variant = await prisma.productVariant.findFirst({
+        where: { productId: Number(productId), deletedAt: null },
+      });
+      if (variant) {
+        variantId = variant.id;
+      }
+    }
 
     if (!variant) {
       throw new AppError('Product variant not found', 404);

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const addToCartSchema = z.object({
-  productId: z.string(),
-  variantId: z.string(),
+  productId: z.union([z.string(), z.number()]),
+  variantId: z.union([z.string(), z.number()]).optional(),
   quantity: z.number().int().positive().default(1),
 });
 
