@@ -286,7 +286,7 @@ export class ShipmentService {
     <div class="grid">
       <div>
         <div class="title">Shipped From</div>
-        <div class="val">FCI Seller Fulfillment Center<br/>India</div>
+        <div class="val">${order.sellerNameSnapshot || 'FCI Seller'} Fulfillment Center<br/>${order.sellerContactSnapshot ? `Contact: ${order.sellerContactSnapshot}` : 'India'}</div>
       </div>
       <div>
         <div class="title">Total Amount</div>

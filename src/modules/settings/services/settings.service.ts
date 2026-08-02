@@ -200,13 +200,34 @@ export class SettingsService {
     seoTitle?: string;
     seoDescription?: string;
   }) {
-    const updatedSettings = {
-      ...await this.getAppSettings(),
-      ...data,
-    };
+    const existing = await prisma.systemSettings.findFirst();
+    const id = existing?.id || 'default';
 
-    logger.info('App settings updated');
-    return updatedSettings;
+    await prisma.systemSettings.upsert({
+      where: { id },
+      update: {
+        ...(data.siteName !== undefined && { siteName: data.siteName }),
+        ...(data.siteDescription !== undefined && { siteDescription: data.siteDescription }),
+        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
+        ...(data.faviconUrl !== undefined && { faviconUrl: data.faviconUrl }),
+        ...(data.contactEmail !== undefined && { contactEmail: data.contactEmail }),
+        ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
+        ...(data.sellerName !== undefined && { sellerName: data.sellerName }),
+        ...(data.sellerContactNumber !== undefined && { sellerContactNumber: data.sellerContactNumber }),
+      },
+      create: {
+        id: 'default',
+        siteName: data.siteName || 'FCISeller',
+        siteDescription: data.siteDescription || 'Luxury Fashion E-commerce',
+        contactEmail: data.contactEmail || 'support@fciseller.com',
+        contactPhone: data.contactPhone || '+91 9876543210',
+        sellerName: data.sellerName || 'FCI Seller Retail Pvt. Ltd.',
+        sellerContactNumber: data.sellerContactNumber || '+91 9876543210',
+      },
+    });
+
+    logger.info('App settings updated in systemSettings DB');
+    return this.getAppSettings();
   }
 
   async getUserPreferences(userId: any) {

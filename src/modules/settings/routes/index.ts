@@ -291,7 +291,9 @@ const defaultStoreSettings = {
 // General store settings (admin panel Settings page + currency context)
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const settings = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
+    const dbSettings = await SettingsService.getAppSettings();
+    const jsonSettings = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
+    const settings = { ...jsonSettings, ...dbSettings };
     return ResponseFormatter.success(res, 'Settings retrieved successfully', settings);
   } catch (error) {
     return next(error);
@@ -303,6 +305,18 @@ router.put('/', authenticate, async (req, res, next) => {
     const current = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
     const updated = { ...current, ...req.body };
     await writeJsonFile(storeSettingsFilePath, updated);
+
+    // Sync seller & store details to systemSettings DB table
+    const dbData: any = {};
+    if (req.body.sellerName !== undefined) dbData.sellerName = req.body.sellerName;
+    if (req.body.sellerContactNumber !== undefined) dbData.sellerContactNumber = req.body.sellerContactNumber;
+    if (req.body.storeName !== undefined) dbData.siteName = req.body.storeName;
+    if (req.body.storePhone !== undefined) dbData.contactPhone = req.body.storePhone;
+    if (req.body.storeEmail !== undefined) dbData.contactEmail = req.body.storeEmail;
+
+    if (Object.keys(dbData).length > 0) {
+      await SettingsService.updateAppSettings(dbData);
+    }
 
     // Sync isDefault flags in app_settings.json
     await SettingsService.syncCountryDefaults(updated.country, updated.currency, updated.language);
