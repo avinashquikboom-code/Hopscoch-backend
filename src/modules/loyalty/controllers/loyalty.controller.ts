@@ -274,7 +274,43 @@ export class LoyaltyController {
     return ResponseFormatter.success(res, 'Gift card redeemed to wallet successfully', result);
   }
 
-  // 9. Master Transactions History
+  // 9. Additional Customer Loyalty Endpoints
+  async getRewardHistory(req: any, res: Response) {
+    const userId = req.user.id;
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 50);
+    const filter = String(req.query.filter || 'all').toLowerCase();
+    const result = await rewardService.getTransactionHistory(userId, page, limit);
+    let items = result.transactions || [];
+    if (filter !== 'all') {
+      items = items.filter((item: any) => String(item.type || '').toLowerCase() === filter);
+    }
+    return ResponseFormatter.success(res, 'Reward points history retrieved', items);
+  }
+
+  async getCashbackData(req: any, res: Response) {
+    const userId = req.user.id;
+    const summary = await rewardService.getUserRewardSummary(userId);
+    const walletHistory = await walletService.getTransactionHistory(userId, 1, 50);
+    const cashbackTxs = (walletHistory.transactions || []).filter((tx: any) => String(tx.category || '').toLowerCase() === 'cashback');
+    return ResponseFormatter.success(res, 'Cashback data retrieved', {
+      totalCashback: summary.lifetimeEarned || 0,
+      transactions: cashbackTxs,
+    });
+  }
+
+  async getUserGiftCards(req: any, res: Response) {
+    const cards = await campaignService.listGiftCards();
+    return ResponseFormatter.success(res, 'User gift cards retrieved', cards);
+  }
+
+  async claimDailyReward(req: any, res: Response) {
+    const userId = req.user.id;
+    const result = await rewardService.processDailyLoginReward(userId);
+    return ResponseFormatter.success(res, 'Daily reward processed', result);
+  }
+
+  // 10. Master Transactions History
   async getMasterTransactions(req: any, res: Response) {
     const userId = req.user.role === 'ADMIN' ? (req.query.userId ? Number(req.query.userId) : undefined) : req.user.id;
     const page = Number(req.query.page || 1);
@@ -291,7 +327,7 @@ export class LoyaltyController {
     });
   }
 
-  // 10. Admin Loyalty Analytics & Reports
+  // 11. Admin Loyalty Analytics & Reports
   async getAnalytics(req: Request, res: Response) {
     const data = await loyaltyAnalyticsService.getDashboardAnalytics();
     return ResponseFormatter.success(res, 'Loyalty analytics retrieved', data);

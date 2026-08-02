@@ -18,7 +18,11 @@ router.get('/wallet', authenticate, loyaltyController.getWallet.bind(loyaltyCont
 router.post('/wallet/topup', authenticate, loyaltyController.topupWallet.bind(loyaltyController));
 router.get('/summary', authenticate, loyaltyController.getRewardSummary.bind(loyaltyController));
 router.get('/referrals', authenticate, loyaltyController.getReferralStats.bind(loyaltyController));
+router.get('/rewards/history', authenticate, loyaltyController.getRewardHistory.bind(loyaltyController));
+router.get('/cashback', authenticate, loyaltyController.getCashbackData.bind(loyaltyController));
+router.get('/gift-cards', authenticate, loyaltyController.getUserGiftCards.bind(loyaltyController));
 router.post('/gift-cards/redeem', authenticate, loyaltyController.redeemGiftCard.bind(loyaltyController));
+router.post('/daily-reward/claim', authenticate, loyaltyController.claimDailyReward.bind(loyaltyController));
 router.get('/transactions', authenticate, loyaltyController.getMasterTransactions.bind(loyaltyController));
 
 // ==========================================
