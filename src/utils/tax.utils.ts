@@ -20,6 +20,8 @@ export interface ItemWithTaxCalculation {
   taxType: 'INCLUSIVE' | 'EXCLUSIVE';
   hsnCode: string | null;
   taxAmount: number;
+  resellerLinkId?: number | null;
+  resellerMarginEarned?: number;
 }
 
 export interface TaxCalculationResult {
@@ -41,7 +43,9 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
     const product = item.product || item;
     const variant = item.variant;
     const quantity = item.quantity || 1;
-    const unitPrice = variant && variant.price !== undefined ? Number(variant.price) : Number(product.basePrice || 0);
+    const addedMargin = Number(item.addedMargin || item.resellerAddedMargin || 0);
+    const baseUnitPrice = variant && variant.price !== undefined ? Number(variant.price) : Number(product.basePrice || 0);
+    const unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : (baseUnitPrice + addedMargin);
     const lineSubtotal = unitPrice * quantity;
     subtotal += lineSubtotal;
 
@@ -95,6 +99,8 @@ export function calculateCartTaxes(items: any[]): TaxCalculationResult {
       taxType,
       hsnCode,
       taxAmount: lineTaxAmount,
+      resellerLinkId: item.resellerLinkId || item.reseller_link_id || null,
+      resellerMarginEarned: addedMargin * quantity,
     };
   });
 

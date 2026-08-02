@@ -367,6 +367,8 @@ export class OrderService {
               taxRateSnapshot: item.rate,
               taxTypeSnapshot: item.taxType,
               hsnSnapshot: item.hsnCode,
+              resellerLinkId: item.resellerLinkId || undefined,
+              resellerMarginEarned: item.resellerMarginEarned || 0,
             }) as any),
           },
           timeline: {

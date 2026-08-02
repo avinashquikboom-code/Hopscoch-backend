@@ -231,6 +231,7 @@ model User {
   aiImageSearchLogs  AIImageSearchLog[]
   auditLogs          AuditLog[]
   activityLogs       ActivityLog[]
+  resellerLinks      ResellerLink[]
 
   @@index([email])
   @@index([referralCode])
@@ -495,6 +496,7 @@ model Product {
 
   productCollections ProductCollection[]
   productTaxes       ProductTax[]
+  resellerLinks      ResellerLink[]
 
   deletedAt DateTime? @map("deleted_at")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -806,6 +808,10 @@ model OrderItem {
   taxRateSnapshot  Decimal? @db.Decimal(5, 2) @map("tax_rate_snapshot")
   taxTypeSnapshot  String?  @map("tax_type_snapshot") // 'INCLUSIVE' | 'EXCLUSIVE'
   hsnSnapshot      String?  @map("hsn_snapshot")
+
+  resellerLinkId       Int?          @map("reseller_link_id")
+  resellerLink         ResellerLink? @relation(fields: [resellerLinkId], references: [id], onDelete: SetNull)
+  resellerMarginEarned Decimal       @default(0) @db.Decimal(10, 2) @map("reseller_margin_earned")
 
   @@index([orderId])
   @@map("order_items")
@@ -1563,5 +1569,24 @@ model GiftCard {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@map("gift_cards")
+}
+
+model ResellerLink {
+  id          Int      @id @default(autoincrement())
+  resellerId  Int      @map("user_id")
+  reseller    User     @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  productId   Int      @map("product_id")
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId   Int?     @map("variant_id")
+  addedMargin Decimal  @db.Decimal(10, 2) @map("added_margin")
+  shareCode   String   @unique @map("share_code")
+  clickCount  Int      @default(0) @map("click_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  orderItems  OrderItem[]
+
+  @@index([resellerId])
+  @@index([shareCode])
+  @@map("reseller_links")
 }
 

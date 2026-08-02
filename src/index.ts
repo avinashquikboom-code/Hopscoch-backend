@@ -48,6 +48,7 @@ import adminRoutes from './modules/admin/routes';
 import settingsRoutes from './modules/settings/routes';
 import colorRoutes from './modules/color/routes';
 import sizeRoutes from './modules/size/routes';
+import resellerRoutes from './modules/reseller/routes';
 import v1Routes from './routes/v1';
 import './workers';
 
@@ -286,6 +287,9 @@ app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/v1/loyalty', loyaltyRoutes);
 app.use('/api/admin/loyalty', loyaltyRoutes);
 
+app.use('/api/reseller', resellerRoutes);
+app.use('/api/mobile/reseller', resellerRoutes);
+app.use('/api/v1/reseller', resellerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
