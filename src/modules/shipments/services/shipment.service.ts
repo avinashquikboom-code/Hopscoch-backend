@@ -171,7 +171,7 @@ export class ShipmentService {
       shipment = await this.createShipment(orderId);
     }
 
-    const labelUrl = `/api/v1/admin/orders/${orderId}/invoice`;
+    const labelUrl = `/api/v1/admin/shipping/label/${orderId}/download`;
     const updated = await prisma.shipment.update({
       where: { orderId },
       data: {
@@ -187,7 +187,7 @@ export class ShipmentService {
       where: { orderId },
     });
 
-    const invoiceUrl = `/api/v1/admin/orders/${orderId}/invoice`;
+    const invoiceUrl = `/api/v1/admin/shipping/invoice/${orderId}/download`;
 
     if (shipment) {
       shipment = await prisma.shipment.update({
@@ -206,6 +206,198 @@ export class ShipmentService {
     });
 
     return { is_invoice_created: true, invoice_url: invoiceUrl, shipment };
+  }
+
+  async renderLabelHtml(orderId: number): Promise<string> {
+    const order: any = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: true } },
+        user: true,
+        shipment: true,
+        address: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error(`Order #${orderId} not found`);
+    }
+
+    const addr = (order.address as any) || {};
+    const recipientName = addr.recipientName || addr.fullName || addr.name || order.user?.firstName || 'Customer';
+    const street = addr.addressLine1 || addr.line1 || addr.street || '';
+    const city = addr.city || '';
+    const state = addr.state || '';
+    const pincode = addr.pincode || addr.postalCode || '';
+    const phone = addr.phone || addr.phoneNumber || order.user?.phone || '';
+    const fullAddress = [street, city, state, pincode].filter(Boolean).join(', ');
+
+    const courier = order.shipment?.courier || 'FCI Seller Express';
+    const awb = order.shipment?.awb || `AWB-FCIS-${orderId}`;
+    const paymentMode = order.paymentStatus === 'PAID' ? 'PREPAID' : 'COD';
+    const itemsList = (order.items || []).map((i: any) => `${i.product?.name || i.name || 'Product'} (x${i.quantity || 1})`).join(', ');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Shipping Label - Order #${order.id}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 20px; }
+    .label-box { max-width: 480px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #14b8a6; padding-bottom: 12px; margin-bottom: 14px; }
+    .brand { font-size: 22px; font-weight: 900; color: #14b8a6; text-transform: uppercase; letter-spacing: -0.5px; }
+    .badge { background: #0f172a; color: #fff; padding: 4px 10px; font-size: 11px; font-weight: 800; border-radius: 4px; text-transform: uppercase; }
+    .section { border-bottom: 1px dashed #cbd5e1; padding-bottom: 12px; margin-bottom: 12px; }
+    .title { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .val { font-size: 13px; font-weight: 600; color: #0f172a; line-height: 1.4; }
+    .barcode { font-family: monospace; font-size: 18px; font-weight: 900; letter-spacing: 3px; background: #f1f5f9; padding: 8px; text-align: center; border-radius: 4px; border: 1px solid #cbd5e1; margin: 10px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media print { body { background: #fff; padding: 0; } .label-box { border: 2px solid #000; box-shadow: none; } }
+  </style>
+</head>
+<body onload="window.print()">
+  <div class="label-box">
+    <div class="header">
+      <div class="brand">FCI Seller</div>
+      <div class="badge">${paymentMode}</div>
+    </div>
+    <div class="barcode">||| |||| || ||||| |||| ${awb}</div>
+    <div class="grid section">
+      <div>
+        <div class="title">Courier / Carrier</div>
+        <div class="val">${courier}</div>
+      </div>
+      <div>
+        <div class="title">Order Number</div>
+        <div class="val">#${order.orderNumber || order.id}</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="title">Deliver To (Consignee)</div>
+      <div class="val"><strong>${recipientName}</strong></div>
+      <div class="val">${fullAddress}</div>
+      <div class="val">Phone: ${phone}</div>
+    </div>
+    <div class="section">
+      <div class="title">Package Contents</div>
+      <div class="val">${itemsList || 'Standard Package'}</div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="title">Shipped From</div>
+        <div class="val">FCI Seller Fulfillment Center<br/>India</div>
+      </div>
+      <div>
+        <div class="title">Total Amount</div>
+        <div class="val" style="font-size: 16px; font-weight: 800; color: #14b8a6;">₹${Number(order.totalAmount || order.total || 0).toFixed(2)}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  async renderInvoiceHtml(orderId: number): Promise<string> {
+    const order: any = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: true } },
+        user: true,
+        address: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error(`Order #${orderId} not found`);
+    }
+
+    const addr = (order.address as any) || {};
+    const recipientName = addr.recipientName || addr.fullName || addr.name || order.user?.firstName || 'Customer';
+    const street = addr.addressLine1 || addr.line1 || addr.street || '';
+    const city = addr.city || '';
+    const state = addr.state || '';
+    const pincode = addr.pincode || addr.postalCode || '';
+    const phone = addr.phone || addr.phoneNumber || order.user?.phone || '';
+    const fullAddress = [street, city, state, pincode].filter(Boolean).join(', ');
+
+    const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+    const totalAmt = Number(order.totalAmount || order.total || 0);
+
+    const itemsRows = (order.items || []).map((item: any, idx: number) => {
+      const title = item.product?.name || item.name || 'Product Item';
+      const qty = item.quantity || 1;
+      const price = Number(item.price || item.unitPrice || 0);
+      const total = price * qty;
+      return `<tr>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${idx + 1}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; font-weight:600;">${title}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${qty}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">₹${price.toFixed(2)}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:700;">₹${total.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Tax Invoice - FCI Seller #${order.id}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; }
+    .card { max-width: 800px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 30px; border-radius: 8px; }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #14b8a6; padding-bottom: 16px; margin-bottom: 20px; }
+    .logo { font-size: 24px; font-weight: 900; color: #14b8a6; text-transform: uppercase; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f8fafc; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f172a; color: #fff; padding: 10px; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
+    .total { text-align: right; font-size: 18px; font-weight: 900; color: #14b8a6; padding: 12px; background: #f0fdf4; border-radius: 6px; }
+    @media print { body { padding: 0; } .card { border: none; } }
+  </style>
+</head>
+<body onload="window.print()">
+  <div class="card">
+    <div class="header">
+      <div class="logo">FCI SELLER</div>
+      <div style="text-align:right;">
+        <h2 style="margin:0; font-size:18px; color:#0f172a;">TAX INVOICE</h2>
+        <div style="font-size:12px; color:#64748b;">Invoice #: INV-FCI-${order.id}</div>
+        <div style="font-size:12px; color:#64748b;">Date: ${dateStr}</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="box">
+        <strong style="color:#14b8a6; font-size:11px; text-transform:uppercase;">Billed To / Shipped To:</strong>
+        <p style="margin:6px 0 0; font-size:13px;"><strong>${recipientName}</strong></p>
+        <p style="margin:4px 0; font-size:12px; color:#475569;">${fullAddress}</p>
+        <p style="margin:4px 0; font-size:12px; color:#475569;">Phone: ${phone}</p>
+      </div>
+      <div class="box">
+        <strong style="color:#14b8a6; font-size:11px; text-transform:uppercase;">Order Summary:</strong>
+        <p style="margin:6px 0 0; font-size:12px;">Order ID: <strong>#${order.orderNumber || order.id}</strong></p>
+        <p style="margin:4px 0; font-size:12px;">Payment Status: <strong>${order.paymentStatus || 'COMPLETED'}</strong></p>
+        <p style="margin:4px 0; font-size:12px;">Payment Method: <strong>Online</strong></p>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product Item</th>
+          <th>Qty</th>
+          <th style="text-align:right;">Price</th>
+          <th style="text-align:right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsRows}
+      </tbody>
+    </table>
+    <div class="total">Grand Total: ₹${totalAmt.toFixed(2)}</div>
+  </div>
+</body>
+</html>`;
   }
 
   async schedulePickup(orderId: number) {

@@ -97,11 +97,23 @@ router.post(
   authorize('ADMIN'),
   ShipmentController.generateLabel.bind(ShipmentController)
 );
+router.get(
+  '/admin/shipping/label/:orderId/download',
+  (req: any, res: any) => ShipmentController.downloadLabel(req, res)
+);
 router.post(
   '/admin/shipping/invoice',
   authenticate,
   authorize('ADMIN'),
   ShipmentController.generateInvoice.bind(ShipmentController)
+);
+router.get(
+  '/admin/shipping/invoice/:orderId/download',
+  (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
+);
+router.get(
+  '/admin/orders/:orderId/invoice',
+  (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
 );
 router.post(
   '/admin/shipping/pickup',

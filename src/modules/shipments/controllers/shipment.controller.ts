@@ -111,6 +111,28 @@ export class ShipmentController {
     }
   }
 
+  async downloadLabel(req: any, res: Response): Promise<void> {
+    try {
+      const orderId = Number(req.params.orderId);
+      const html = await ShipmentService.renderLabelHtml(orderId);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error: any) {
+      ResponseFormatter.error(res, error.message || 'Failed to render shipping label', 404);
+    }
+  }
+
+  async downloadInvoice(req: any, res: Response): Promise<void> {
+    try {
+      const orderId = Number(req.params.orderId);
+      const html = await ShipmentService.renderInvoiceHtml(orderId);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error: any) {
+      ResponseFormatter.error(res, error.message || 'Failed to render invoice', 404);
+    }
+  }
+
   async schedulePickup(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.user || req.user.role !== 'ADMIN') {
