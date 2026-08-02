@@ -25,7 +25,7 @@ export async function getS3Config() {
   const accessKeyId = (envAccessKeyId && envAccessKeyId !== 'your_access_key') ? envAccessKeyId : (dbAccessKey || envAccessKeyId);
   const secretAccessKey = (envSecretAccessKey && envSecretAccessKey !== 'your_secret_key') ? envSecretAccessKey : (dbSecretKey || envSecretAccessKey);
   const region = envRegion || dbRegion || 'ap-south-1';
-  const bucketName = (envBucketName && envBucketName !== 'your_s3_bucket_name') ? envBucketName : (dbBucket || envBucketName || 'hopscotch-bt');
+  const bucketName = (envBucketName && envBucketName !== 'your_s3_bucket_name') ? envBucketName : (dbBucket || envBucketName || 'fciseller-bt');
 
   return { accessKeyId, secretAccessKey, region, bucketName };
 }

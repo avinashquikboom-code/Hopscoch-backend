@@ -43,7 +43,7 @@ export class Msg91Client {
       const defaultSenderId = await settingsService.getIntegrationKey('msg91', 'sender_id');
 
       const flowId = options.flowId || defaultFlowId;
-      const senderId = options.senderId || defaultSenderId || 'HOPSCH';
+      const senderId = options.senderId || defaultSenderId || 'FCISEL';
 
       if (!authKey) {
         throw new Error('MSG91 Auth Key is missing or not configured.');

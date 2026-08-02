@@ -22,7 +22,7 @@ const consoleFormat = winston.format.combine(
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: logFormat,
-  defaultMeta: { service: 'hopscotch-backend' },
+  defaultMeta: { service: 'fciseller-backend' },
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
