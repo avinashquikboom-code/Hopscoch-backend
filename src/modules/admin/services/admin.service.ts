@@ -780,6 +780,7 @@ export class AdminService {
           slug: true,
           status: true,
           basePrice: true,
+          margin: true, // margin percentage added to product
           shippingCharge: true,
           isGiftWrapAvailable: true,
           giftWrapCharge: true,
@@ -1010,6 +1011,7 @@ export class AdminService {
         taxRuleId: taxRuleId,
         hsnCode: data.hsnCode || null,
         basePrice: basePrice,
+        margin: data.margin !== undefined ? Number(data.margin) : 0,
         shippingCharge: data.shippingCharge !== undefined ? Number(data.shippingCharge) : (data.shipping_charge !== undefined ? Number(data.shipping_charge) : 0),
         isGiftWrapAvailable: data.isGiftWrapAvailable !== undefined ? Boolean(data.isGiftWrapAvailable) : (data.is_gift_wrap_available !== undefined ? Boolean(data.is_gift_wrap_available) : true),
         giftWrapCharge: data.giftWrapCharge !== undefined ? Number(data.giftWrapCharge) : (data.gift_wrap_charge !== undefined ? Number(data.gift_wrap_charge) : 0),
@@ -1316,6 +1318,9 @@ export class AdminService {
     } else if (updateData.price !== undefined) {
       updateData.basePrice = Number(updateData.price);
     }
+    if (updateData.margin !== undefined) {
+      updateData.margin = Number(updateData.margin);
+    }
 
     // Resolve taxRuleId from taxType + taxPercent if provided
     let resolvedTaxRuleId: number | null | undefined = undefined;
@@ -1347,7 +1352,7 @@ export class AdminService {
 
     const allowedFields = [
       'name', 'slug', 'description', 'status', 'categoryId', 'brandId',
-      'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice', 'shippingCharge',
+      'taxRuleId', 'hsnCode', 'thumbnailUrl', 'gender', 'ageGroup', 'basePrice', 'margin', 'shippingCharge',
       'isGiftWrapAvailable', 'giftWrapCharge',
       'discountType', 'discountValue', 'discountStartsAt', 'discountEndsAt',
       'isFeatured', 'isTrending', 'isNewArrival', 'isBestSeller', 'avgRating',
