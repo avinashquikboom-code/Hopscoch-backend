@@ -118,6 +118,27 @@ router.post('/:id/send', authenticate, async (req, res, next) => {
     }
 
     await writeNotifications(notifications);
+
+    // Dispatch in-app notifications
+    try {
+      const payload = {
+        title: targetNotification.title || 'System Notification',
+        body: targetNotification.message || targetNotification.body || '',
+        type: targetNotification.type || 'SYSTEM',
+      };
+
+      if (targetNotification.sendToAll) {
+        await UnifiedNotificationService.notifyAdmins(payload);
+      } else if (Array.isArray(targetNotification.targetUsers) && targetNotification.targetUsers.length > 0) {
+        const userIds = targetNotification.targetUsers.map((u: any) => Number(u)).filter((n: number) => !isNaN(n));
+        if (userIds.length > 0) {
+          await UnifiedNotificationService.sendNotificationToUser(userIds, payload);
+        }
+      }
+    } catch (dispatchErr) {
+      console.error('[Notification Route] Error dispatching notification:', dispatchErr);
+    }
+
     return ResponseFormatter.success(res, 'Notification sent successfully', targetNotification);
   } catch (error) {
     return next(error);
