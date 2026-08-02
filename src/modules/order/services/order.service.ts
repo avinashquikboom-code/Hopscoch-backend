@@ -408,6 +408,17 @@ export class OrderService {
         },
       });
 
+      if (razorpayOrderId) {
+        await tx.payment.updateMany({
+          where: { razorpayOrderId },
+          data: {
+            status: isPaid ? 'PAID' : 'PENDING',
+            ...(razorpayPaymentId ? { razorpayPaymentId } : {}),
+            ...(razorpaySignature ? { razorpaySignature } : {}),
+          },
+        });
+      }
+
       // Clear DB Cart if used
       if (cart && cart.items && cart.items.length > 0) {
         await tx.cartItem.deleteMany({
