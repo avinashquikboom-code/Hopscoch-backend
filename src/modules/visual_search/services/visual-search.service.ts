@@ -62,8 +62,8 @@ export class VisualSearchService {
 
       return {
         extractedAttributes,
-        exactMatches,
-        similarMatches,
+        exactMatches: (exactMatches || []).map(p => this.formatProduct(p)),
+        similarMatches: (similarMatches || []).map(p => this.formatProduct(p)),
         confidence: extractedAttributes.confidence,
         wasFallback,
         latencyMs,
@@ -221,6 +221,32 @@ export class VisualSearchService {
     await prisma.aIImageSearchLog.delete({
       where: { id: queryId },
     });
+  }
+
+  private formatProduct(p: any) {
+    const rawImages = p.images || [];
+    const imageUrls = rawImages.map((img: any) => typeof img === 'string' ? img : (img.url || img.imageUrl)).filter(Boolean);
+    if (imageUrls.length === 0 && p.imageUrl) {
+      imageUrls.push(p.imageUrl);
+    }
+    return {
+      id: String(p.id),
+      name: p.name || 'Product',
+      title: p.name || 'Product',
+      description: p.description || '',
+      price: Number(p.basePrice || p.price || 0),
+      originalPrice: p.compareAtPrice ? Number(p.compareAtPrice) : (p.originalPrice ? Number(p.originalPrice) : undefined),
+      category: typeof p.category === 'string' ? p.category : (p.category?.name || p.category?.slug || 'clothing'),
+      brand: typeof p.brand === 'string' ? p.brand : (p.brand?.name || 'Hopscotch'),
+      images: imageUrls.length > 0 ? imageUrls : ['https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600'],
+      imageUrl: imageUrls[0] || 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600',
+      rating: p.rating || 4.5,
+      reviewCount: p.reviewCount || 12,
+      isNew: p.isNew || false,
+      isTrending: p.isTrending || false,
+      isFeatured: p.isFeatured || false,
+      stock: p.stock ?? 10,
+    };
   }
 }
 

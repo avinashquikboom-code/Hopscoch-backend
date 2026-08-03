@@ -240,9 +240,21 @@ router.post(
   PaymentController.verifyRazorpayPayment.bind(PaymentController)
 );
 
-// Mobile Visual Search (AI Gemini Vision)
+// Visual Search (AI Gemini Vision)
 router.post(
   '/mobile/search/visual',
+  optionalAuth,
+  upload.single('image'),
+  VisualSearchController.searchVisual.bind(VisualSearchController)
+);
+router.post(
+  '/web/search/visual',
+  optionalAuth,
+  upload.single('image'),
+  VisualSearchController.searchVisual.bind(VisualSearchController)
+);
+router.post(
+  '/search/visual',
   optionalAuth,
   upload.single('image'),
   VisualSearchController.searchVisual.bind(VisualSearchController)
