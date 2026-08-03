@@ -115,6 +115,14 @@ router.get(
   '/admin/orders/:orderId/invoice',
   (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
 );
+router.get(
+  '/web/orders/:orderId/invoice',
+  (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
+);
+router.get(
+  '/orders/:orderId/invoice',
+  (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
+);
 router.post(
   '/admin/shipping/pickup',
   authenticate,
