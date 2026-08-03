@@ -512,8 +512,18 @@ export class OrderService {
   }
 
   async getOrderById(userId: any, orderId: any) {
+    const strId = String(orderId).trim();
+    const numId = Number(strId);
+    const isNum = !isNaN(numId) && numId > 0;
+
     const order = await prisma.order.findFirst({
-      where: { id: Number(orderId), userId },
+      where: {
+        userId,
+        OR: [
+          ...(isNum ? [{ id: numId }] : []),
+          { orderNumber: strId },
+        ],
+      },
       include: {
         items: {
           include: {
