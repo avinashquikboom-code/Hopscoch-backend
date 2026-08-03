@@ -138,6 +138,9 @@ router.get('/:orderId', authenticate, orderController.getOrderById.bind(orderCon
  *       400:
  *         description: Order cannot be cancelled at this stage
  */
+import ShipmentController from '../../shipments/controllers/shipment.controller';
+
 router.patch('/:orderId/cancel', authenticate, orderController.cancelOrder.bind(orderController));
+router.get('/:orderId/invoice', (req: any, res: any) => ShipmentController.downloadInvoice(req, res));
 
 export default router;

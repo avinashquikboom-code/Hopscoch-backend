@@ -226,7 +226,7 @@ import prisma from './utils/prisma';
 import { ResponseFormatter } from './utils/responseFormatter';
 
 // API Routes
-app.get('/api/banners', async (req, res, next) => {
+app.get(['/api/banners', '/api/v1/banners', '/api/v1/web/banners'], async (req, res, next) => {
   try {
     const { position, type } = req.query;
     const where: any = { isActive: true };
@@ -242,7 +242,7 @@ app.get('/api/banners', async (req, res, next) => {
   }
 });
 
-app.get('/api/config/gift-wrap', async (req, res) => {
+app.get(['/api/config/gift-wrap', '/api/v1/config/gift-wrap', '/api/v1/web/config/gift-wrap'], async (req, res) => {
   try {
     const { default: settingsService } = await import('./modules/settings/services/settings.service');
     const config = await settingsService.getGiftWrapConfig();
@@ -267,6 +267,9 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1/web/orders', orderRoutes);
+app.use('/api/web/orders', orderRoutes);
 app.use('/api/returns', returnRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/v1/payments', paymentRoutes);
