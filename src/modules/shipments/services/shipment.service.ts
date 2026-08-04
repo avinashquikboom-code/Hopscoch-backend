@@ -299,14 +299,18 @@ export class ShipmentService {
   }
 
   async renderInvoiceHtml(orderId: number): Promise<string> {
-    const order: any = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        items: { include: { product: true } },
-        user: true,
-        address: true,
-      },
-    });
+    const [order, settings, defaultWarehouse] = await Promise.all([
+      prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { include: { product: true } },
+          user: true,
+          address: true,
+        },
+      }),
+      prisma.systemSettings.findFirst(),
+      prisma.warehouse.findFirst({ where: { isDefault: true } }),
+    ]);
 
     if (!order) {
       throw new Error(`Order #${orderId} not found`);
@@ -318,25 +322,49 @@ export class ShipmentService {
     const city = addr.city || '';
     const state = addr.state || '';
     const pincode = addr.pincode || addr.postalCode || '';
-    const phone = addr.phone || addr.phoneNumber || order.user?.phone || '';
+    const phone = addr.phone || addr.phoneNumber || (order.user as any)?.phone || '';
     const fullAddress = [street, city, state, pincode].filter(Boolean).join(', ');
 
     const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
-    const totalAmt = Number(order.totalAmount || order.total || 0);
+    const totalAmt = Number((order as any).totalAmount || (order as any).total || 0);
+
+    // Seller details from settings (live)
+    // NOTE: cast to any until 'npx prisma migrate dev' runs to regenerate Prisma client types
+    const s = settings as any;
+    const sellerLegalName = s?.sellerLegalName || s?.sellerName || 'FCI Seller Retail Pvt. Ltd.';
+    const sellerGst = s?.sellerGstNumber || '';
+    const sellerAddr = [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ');
+    const sellerPhone = s?.sellerContactNumber || '';
+    const sellerEmail = s?.sellerEmail || '';
+
+    // Fulfilled By — default warehouse (fallback; per-order tracking is a future enhancement)
+    const warehouseName = defaultWarehouse?.name || 'FCI Seller Fulfillment Center';
+    const warehouseAddr = defaultWarehouse
+      ? [defaultWarehouse.address, defaultWarehouse.city, defaultWarehouse.state, defaultWarehouse.pincode].filter(Boolean).join(', ')
+      : 'India';
 
     const itemsRows = (order.items || []).map((item: any, idx: number) => {
       const title = item.product?.name || item.name || 'Product Item';
       const qty = item.quantity || 1;
-      const price = Number(item.price || item.unitPrice || 0);
+      const price = Number(item.price || item.priceSnapshot || item.unitPrice || 0);
       const total = price * qty;
+      const taxable = total / 1.18;
+      const cgst = (total - taxable) / 2;
+      const sgst = cgst;
       return `<tr>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${idx + 1}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; font-weight:600;">${title}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${qty}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">₹${price.toFixed(2)}</td>
-        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:700;">₹${total.toFixed(2)}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-size:12px;">${idx + 1}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; font-weight:600; font-size:12px;">${title}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-size:12px;">${qty}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px;">₹${taxable.toFixed(2)}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px;">9% (₹${cgst.toFixed(2)})</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px;">9% (₹${sgst.toFixed(2)})</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px; font-weight:700;">₹${total.toFixed(2)}</td>
       </tr>`;
     }).join('');
+
+    const taxableTotal = totalAmt / 1.18;
+    const cgst = (totalAmt - taxableTotal) / 2;
+    const sgst = cgst;
 
     return `<!DOCTYPE html>
 <html>
@@ -344,57 +372,102 @@ export class ShipmentService {
   <meta charset="utf-8"/>
   <title>Tax Invoice - FCI Seller #${order.id}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; }
-    .card { max-width: 800px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 30px; border-radius: 8px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; margin:0; }
+    .card { max-width: 850px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 30px; border-radius: 8px; }
     .header { display: flex; justify-content: space-between; border-bottom: 2px solid #14b8a6; padding-bottom: 16px; margin-bottom: 20px; }
-    .logo { font-size: 24px; font-weight: 900; color: #14b8a6; text-transform: uppercase; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f8fafc; }
+    .logo { font-size: 26px; font-weight: 900; color: #14b8a6; text-transform: uppercase; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+    .box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; background: #f8fafc; }
+    .box-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #14b8a6; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; letter-spacing: 0.5px; }
+    .box p { font-size: 12px; margin: 3px 0; color: #334155; line-height: 1.4; }
+    .box p strong { color: #0f172a; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     th { background: #0f172a; color: #fff; padding: 10px; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
-    .total { text-align: right; font-size: 18px; font-weight: 900; color: #14b8a6; padding: 12px; background: #f0fdf4; border-radius: 6px; }
+    .totals-table { width: 340px; margin-left: auto; }
+    .totals-table td { padding: 6px 12px; font-size: 12px; border: none; }
+    .totals-table tr.grand-total td { font-size: 15px; font-weight: 900; color: #0f172a; border-top: 2px solid #14b8a6; border-bottom: 2px solid #14b8a6; background: #f0fdf4; }
+    .footer { margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 16px; display: flex; justify-content: space-between; }
+    .signatory { text-align: right; font-size: 12px; font-weight: 700; color: #0f172a; }
+    .signatory-space { height: 40px; margin: 8px 0; border-bottom: 1px dashed #cbd5e1; width: 160px; margin-left: auto; }
     @media print { body { padding: 0; } .card { border: none; } }
   </style>
 </head>
 <body onload="window.print()">
   <div class="card">
     <div class="header">
-      <div class="logo">FCI SELLER</div>
+      <div>
+        <div class="logo">FCI SELLER</div>
+        <p style="font-size:12px; color:#64748b; margin:4px 0 0 0;">Tax Invoice</p>
+      </div>
       <div style="text-align:right;">
-        <h2 style="margin:0; font-size:18px; color:#0f172a;">TAX INVOICE</h2>
+        <div style="font-size:18px; font-weight:900; color:#0f172a;">TAX INVOICE</div>
         <div style="font-size:12px; color:#64748b;">Invoice #: INV-FCI-${order.id}</div>
         <div style="font-size:12px; color:#64748b;">Date: ${dateStr}</div>
+        <div style="font-size:12px; color:#64748b;">Order: #${(order as any).orderNumber || order.id}</div>
       </div>
     </div>
-    <div class="grid">
+
+    <div class="info-grid">
       <div class="box">
-        <strong style="color:#14b8a6; font-size:11px; text-transform:uppercase;">Billed To / Shipped To:</strong>
-        <p style="margin:6px 0 0; font-size:13px;"><strong>${recipientName}</strong></p>
-        <p style="margin:4px 0; font-size:12px; color:#475569;">${fullAddress}</p>
-        <p style="margin:4px 0; font-size:12px; color:#475569;">Phone: ${phone}</p>
+        <div class="box-title">Sold By</div>
+        <p><strong>${sellerLegalName}</strong></p>
+        ${sellerAddr ? `<p>${sellerAddr}</p>` : ''}
+        ${sellerGst ? `<p><strong>GSTIN:</strong> ${sellerGst}</p>` : ''}
+        ${sellerPhone ? `<p><strong>Contact:</strong> ${sellerPhone}</p>` : ''}
+        ${sellerEmail ? `<p>${sellerEmail}</p>` : ''}
       </div>
       <div class="box">
-        <strong style="color:#14b8a6; font-size:11px; text-transform:uppercase;">Order Summary:</strong>
-        <p style="margin:6px 0 0; font-size:12px;">Order ID: <strong>#${order.orderNumber || order.id}</strong></p>
-        <p style="margin:4px 0; font-size:12px;">Payment Status: <strong>${order.paymentStatus || 'COMPLETED'}</strong></p>
-        <p style="margin:4px 0; font-size:12px;">Payment Method: <strong>Online</strong></p>
+        <div class="box-title">Fulfilled By</div>
+        <p><strong>${warehouseName}</strong></p>
+        <p>${warehouseAddr}</p>
+        ${defaultWarehouse?.phone ? `<p>Ph: ${defaultWarehouse.phone}</p>` : ''}
+      </div>
+      <div class="box">
+        <div class="box-title">Shipped To</div>
+        <p><strong>${recipientName}</strong></p>
+        <p>${fullAddress}</p>
+        ${phone ? `<p>Ph: ${phone}</p>` : ''}
+        <p style="margin-top:8px;"><strong>Payment:</strong> ${(order as any).paymentStatus || 'COMPLETED'}</p>
       </div>
     </div>
+
     <table>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Product Item</th>
-          <th>Qty</th>
-          <th style="text-align:right;">Price</th>
-          <th style="text-align:right;">Total</th>
+          <th style="width:40px; text-align:center;">#</th>
+          <th>Item Description</th>
+          <th style="width:50px; text-align:center;">Qty</th>
+          <th style="width:100px; text-align:right;">Taxable (₹)</th>
+          <th style="width:90px; text-align:right;">CGST 9%</th>
+          <th style="width:90px; text-align:right;">SGST 9%</th>
+          <th style="width:100px; text-align:right;">Total (₹)</th>
         </tr>
       </thead>
       <tbody>
-        ${itemsRows}
+        ${itemsRows || `<tr><td colspan="7" style="padding:12px; text-align:center; border:1px solid #cbd5e1;">Standard Order Purchase</td></tr>`}
       </tbody>
     </table>
-    <div class="total">Grand Total: ₹${totalAmt.toFixed(2)}</div>
+
+    <table class="totals-table">
+      <tr><td style="color:#64748b;">Subtotal (Taxable):</td><td style="text-align:right; font-weight:600;">₹${taxableTotal.toFixed(2)}</td></tr>
+      <tr><td style="color:#64748b;">CGST (9%):</td><td style="text-align:right; font-weight:600;">₹${cgst.toFixed(2)}</td></tr>
+      <tr><td style="color:#64748b;">SGST (9%):</td><td style="text-align:right; font-weight:600;">₹${sgst.toFixed(2)}</td></tr>
+      <tr class="grand-total"><td>Grand Total (Incl. GST):</td><td style="text-align:right;">₹${totalAmt.toFixed(2)}</td></tr>
+    </table>
+
+    <div class="footer">
+      <div style="font-size:10px; color:#64748b; max-width:420px; line-height:1.5;">
+        <p style="font-weight:700; color:#0f172a; margin:0 0 4px;">Terms &amp; Conditions:</p>
+        <p style="margin:2px 0;">1. Goods once sold can be returned per official return policy guidelines.</p>
+        <p style="margin:2px 0;">2. All disputes are subject to local judicial jurisdiction.</p>
+        <p style="margin:2px 0;">3. Computer-generated tax invoice. No physical signature required.</p>
+      </div>
+      <div class="signatory">
+        <p>For ${sellerLegalName}</p>
+        <div class="signatory-space"></div>
+        <p style="font-size:11px; color:#64748b;">Authorized Signatory</p>
+      </div>
+    </div>
   </div>
 </body>
 </html>`;

@@ -169,9 +169,17 @@ export class SettingsService {
       faviconUrl: dbSettings?.faviconUrl || '',
       contactEmail: dbSettings?.contactEmail || 'support@fciseller.com',
       contactPhone: dbSettings?.contactPhone || '+91 9876543210',
+      // Seller display info (existing)
       sellerName: dbSettings?.sellerName || 'FCI Seller Retail Pvt. Ltd.',
       sellerContactNumber: dbSettings?.sellerContactNumber || '+91 9876543210',
-      sellerAddress: (dbSettings as any)?.sellerAddress || 'Building A, Industrial Focal Point, Phase 8B, Sector 74, Mohali, Punjab 160055',
+      // Seller legal details (new)
+      sellerLegalName: dbSettings?.sellerLegalName || '',
+      sellerGstNumber: dbSettings?.sellerGstNumber || '',
+      sellerAddress: dbSettings?.sellerAddress || '',
+      sellerCity: dbSettings?.sellerCity || '',
+      sellerState: dbSettings?.sellerState || '',
+      sellerPincode: dbSettings?.sellerPincode || '',
+      sellerEmail: dbSettings?.sellerEmail || '',
       socialLinks: {
         facebook: '',
         twitter: '',
@@ -195,7 +203,14 @@ export class SettingsService {
     contactPhone?: string;
     sellerName?: string;
     sellerContactNumber?: string;
+    // New seller legal fields
+    sellerLegalName?: string;
+    sellerGstNumber?: string;
     sellerAddress?: string;
+    sellerCity?: string;
+    sellerState?: string;
+    sellerPincode?: string;
+    sellerEmail?: string;
     socialLinks?: Record<string, string>;
     seoTitle?: string;
     seoDescription?: string;
@@ -214,6 +229,14 @@ export class SettingsService {
         ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
         ...(data.sellerName !== undefined && { sellerName: data.sellerName }),
         ...(data.sellerContactNumber !== undefined && { sellerContactNumber: data.sellerContactNumber }),
+        // New seller legal fields
+        ...(data.sellerLegalName !== undefined && { sellerLegalName: data.sellerLegalName }),
+        ...(data.sellerGstNumber !== undefined && { sellerGstNumber: data.sellerGstNumber }),
+        ...(data.sellerAddress !== undefined && { sellerAddress: data.sellerAddress }),
+        ...(data.sellerCity !== undefined && { sellerCity: data.sellerCity }),
+        ...(data.sellerState !== undefined && { sellerState: data.sellerState }),
+        ...(data.sellerPincode !== undefined && { sellerPincode: data.sellerPincode }),
+        ...(data.sellerEmail !== undefined && { sellerEmail: data.sellerEmail }),
       },
       create: {
         id: 'default',
@@ -223,6 +246,13 @@ export class SettingsService {
         contactPhone: data.contactPhone || '+91 9876543210',
         sellerName: data.sellerName || 'FCI Seller Retail Pvt. Ltd.',
         sellerContactNumber: data.sellerContactNumber || '+91 9876543210',
+        sellerLegalName: data.sellerLegalName || null,
+        sellerGstNumber: data.sellerGstNumber || null,
+        sellerAddress: data.sellerAddress || null,
+        sellerCity: data.sellerCity || null,
+        sellerState: data.sellerState || null,
+        sellerPincode: data.sellerPincode || null,
+        sellerEmail: data.sellerEmail || null,
       },
     });
 

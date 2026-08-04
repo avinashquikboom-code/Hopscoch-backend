@@ -1204,8 +1204,18 @@ model SystemSettings {
   logoUrl        String? @map("logo_url")
   faviconUrl     String? @map("favicon_url")
 
+  // Basic seller display info (existing)
   sellerName          String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name")
   sellerContactNumber String? @default("+91 9876543210") @map("seller_contact_number")
+
+  // Full seller legal details (new — for invoice "Sold By" section)
+  sellerLegalName String? @map("seller_legal_name")
+  sellerGstNumber String? @map("seller_gst_number")
+  sellerAddress   String? @map("seller_address")
+  sellerCity      String? @map("seller_city")
+  sellerState     String? @map("seller_state")
+  sellerPincode   String? @map("seller_pincode")
+  sellerEmail     String? @map("seller_email")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
