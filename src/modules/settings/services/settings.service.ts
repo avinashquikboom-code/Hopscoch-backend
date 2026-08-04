@@ -161,6 +161,8 @@ export class SettingsService {
   // ─── Existing settings functionality ───────────────────────────────────────
   async getAppSettings() {
     const dbSettings = await prisma.systemSettings.findFirst();
+    // NOTE: cast to any for new fields until 'npx prisma migrate dev' regenerates Prisma client types
+    const db = dbSettings as any;
     const settings = {
       siteName: dbSettings?.siteName || 'FCISeller',
       siteDescription: dbSettings?.siteDescription || 'Luxury Fashion E-commerce',
@@ -172,14 +174,14 @@ export class SettingsService {
       // Seller display info (existing)
       sellerName: dbSettings?.sellerName || 'FCI Seller Retail Pvt. Ltd.',
       sellerContactNumber: dbSettings?.sellerContactNumber || '+91 9876543210',
-      // Seller legal details (new)
-      sellerLegalName: dbSettings?.sellerLegalName || '',
-      sellerGstNumber: dbSettings?.sellerGstNumber || '',
-      sellerAddress: dbSettings?.sellerAddress || '',
-      sellerCity: dbSettings?.sellerCity || '',
-      sellerState: dbSettings?.sellerState || '',
-      sellerPincode: dbSettings?.sellerPincode || '',
-      sellerEmail: dbSettings?.sellerEmail || '',
+      // Seller legal details (new — requires migration to persist)
+      sellerLegalName: db?.sellerLegalName || '',
+      sellerGstNumber: db?.sellerGstNumber || '',
+      sellerAddress: db?.sellerAddress || '',
+      sellerCity: db?.sellerCity || '',
+      sellerState: db?.sellerState || '',
+      sellerPincode: db?.sellerPincode || '',
+      sellerEmail: db?.sellerEmail || '',
       socialLinks: {
         facebook: '',
         twitter: '',
@@ -218,7 +220,8 @@ export class SettingsService {
     const existing = await prisma.systemSettings.findFirst();
     const id = existing?.id || 'default';
 
-    await prisma.systemSettings.upsert({
+    // NOTE: cast to any for new fields until 'npx prisma migrate dev' regenerates Prisma client types
+    await (prisma.systemSettings.upsert as any)({
       where: { id },
       update: {
         ...(data.siteName !== undefined && { siteName: data.siteName }),
