@@ -272,4 +272,46 @@ router.post('/mobile/orders', authenticate, OrderController.createOrder.bind(Ord
 
 router.use('/addresses', addressRoutes);
 
+// ==========================================
+// REVIEW ENDPOINTS (Mobile + Web — same handler)
+// ==========================================
+// POST   /api/mobile/products/:id/reviews
+// GET    /api/mobile/products/:id/reviews
+// GET    /api/mobile/products/:id/reviews/my-review
+// (same paths for /web/)
+import reviewRoutes from '../modules/review/routes';
+
+router.post('/mobile/products/:productId/reviews', (req, res, next) => {
+  req.params.productId = req.params.productId;
+  // Forward to the mounted review router's POST /product/:productId
+  req.url = `/product/${req.params.productId}`;
+  reviewRoutes(req, res, next);
+});
+
+router.get('/mobile/products/:productId/reviews', (req, res, next) => {
+  req.url = `/product/${req.params.productId}`;
+  reviewRoutes(req, res, next);
+});
+
+router.get('/mobile/products/:productId/reviews/my-review', (req, res, next) => {
+  req.url = `/product/${req.params.productId}/my-review`;
+  reviewRoutes(req, res, next);
+});
+
+router.post('/web/products/:productId/reviews', (req, res, next) => {
+  req.url = `/product/${req.params.productId}`;
+  reviewRoutes(req, res, next);
+});
+
+router.get('/web/products/:productId/reviews', (req, res, next) => {
+  req.url = `/product/${req.params.productId}`;
+  reviewRoutes(req, res, next);
+});
+
+router.get('/web/products/:productId/reviews/my-review', (req, res, next) => {
+  req.url = `/product/${req.params.productId}/my-review`;
+  reviewRoutes(req, res, next);
+});
+
 export default router;
+

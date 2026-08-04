@@ -129,6 +129,9 @@ export class CatalogService {
 
       return {
         ...p,
+        // Mobile reads json['rating'], website reads avgRating — expose both
+        rating: Number(p.avgRating || 0),
+        review_count: p.reviewCount || 0,
         categoryName: mainCategoryName,
         parentCategoryId: mainCategoryId,
         subCategoryName: subCategoryName,
@@ -231,6 +234,9 @@ export class CatalogService {
 
     return {
       ...product,
+      // Mobile reads json['rating'], website reads avgRating — expose both
+      rating: Number(product.avgRating || 0),
+      review_count: product.reviewCount || 0,
       taxRule: effectiveTaxRule,
       effectiveTaxRule,
       taxPercent,

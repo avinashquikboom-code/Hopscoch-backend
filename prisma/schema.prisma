@@ -783,6 +783,7 @@ model Order {
   shipment Shipment?
   timeline OrderTimelineEvent[]
   returnRequest ReturnRequest?
+  reviews  Review[]
 
   invoiceUrl String? @map("invoice_url")
 
@@ -889,6 +890,8 @@ model Review {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId    Int @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   Int? @map("order_id") // links to verified-purchase order; null = unverified
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   rating    Int      // 1-5, validated in Zod layer
   title     String?
@@ -896,7 +899,8 @@ model Review {
   isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
   helpfulCount Int   @default(0) @map("helpful_count")
   isReported   Boolean @default(false) @map("is_reported")
-  status    ReviewStatus @default(PENDING)
+  // APPROVED = visible to public, REJECTED = hidden by admin, PENDING = awaiting moderation
+  status    ReviewStatus @default(APPROVED)
 
   images ReviewMedia[]
 
@@ -904,8 +908,10 @@ model Review {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  @@unique([productId, userId])
+  // One review per order-product pair (null orderId = one review per product, unverified)
+  @@unique([userId, productId, orderId])
   @@index([productId])
+  @@index([orderId])
   @@map("reviews")
 }
 
