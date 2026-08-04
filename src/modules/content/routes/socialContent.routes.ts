@@ -39,51 +39,51 @@ router.delete(
 );
 
 // =====================================================================
-// MOBILE USER CONTENT ROUTES
+// MOBILE USER CONTENT ROUTES (SUPPORTING ALL API PREFIX VARIATIONS)
 // =====================================================================
 
 router.get(
-  '/v1/mobile/content/play',
+  ['/v1/mobile/content/play', '/mobile/content/play', '/content/play'],
   optionalAuth,
   SocialContentController.getPlayFeed
 );
 
 router.get(
-  '/v1/mobile/content/posts',
+  ['/v1/mobile/content/posts', '/mobile/content/posts', '/content/posts'],
   optionalAuth,
   SocialContentController.getPostsFeed
 );
 
 router.get(
-  '/v1/mobile/content/stories',
+  ['/v1/mobile/content/stories', '/mobile/content/stories', '/content/stories'],
   optionalAuth,
   SocialContentController.getStories
 );
 
 router.post(
-  '/v1/mobile/content/:id/like',
+  ['/v1/mobile/content/:id/like', '/mobile/content/:id/like', '/content/:id/like'],
   authenticate,
   SocialContentController.toggleLike
 );
 
 router.post(
-  '/v1/mobile/content/:id/view',
+  ['/v1/mobile/content/:id/view', '/mobile/content/:id/view', '/content/:id/view'],
   SocialContentController.incrementView
 );
 
 router.post(
-  '/v1/mobile/content/:id/comment',
+  ['/v1/mobile/content/:id/comment', '/mobile/content/:id/comment', '/content/:id/comment'],
   authenticate,
   SocialContentController.addComment
 );
 
 router.get(
-  '/v1/mobile/content/:id/comments',
+  ['/v1/mobile/content/:id/comments', '/mobile/content/:id/comments', '/content/:id/comments'],
   SocialContentController.getComments
 );
 
 router.delete(
-  '/v1/mobile/content/comments/:commentId',
+  ['/v1/mobile/content/comments/:commentId', '/mobile/content/comments/:commentId', '/content/comments/:commentId'],
   authenticate,
   SocialContentController.deleteComment
 );

@@ -319,6 +319,8 @@ app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api', socialContentRoutes);
+app.use('/api/v1', socialContentRoutes);
+app.use('/api/mobile', socialContentRoutes);
 
 
 // Error handling
