@@ -313,10 +313,13 @@ app.use('/api/admin/colors', colorRoutes);
 app.use('/api/sizes', sizeRoutes);
 app.use('/api/admin/sizes', sizeRoutes);
 import taxRoutes from './modules/tax/routes/tax.routes';
+import socialContentRoutes from './modules/content/routes/socialContent.routes';
 
 app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api', socialContentRoutes);
+
 
 // Error handling
 app.use(notFoundHandler);
