@@ -224,4 +224,77 @@ export class SocialContentController {
       next(error);
     }
   }
+
+  /**
+   * Mobile: POST /api/v1/mobile/content/:id/comment
+   */
+  static async addComment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Authentication required' });
+        return;
+      }
+      const { id } = req.params;
+      const { comment } = req.body;
+
+      const result = await SocialContentService.addComment(Number(id), userId, comment);
+
+      res.status(201).json({
+        success: true,
+        message: 'Comment added successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Mobile: GET /api/v1/mobile/content/:id/comments
+   */
+  static async getComments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { page, limit } = req.query;
+
+      const result = await SocialContentService.getComments(
+        Number(id),
+        page ? Number(page) : 1,
+        limit ? Number(limit) : 20
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Mobile: DELETE /api/v1/mobile/content/comments/:commentId
+   */
+  static async deleteComment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Authentication required' });
+        return;
+      }
+      const { commentId } = req.params;
+      const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+
+      const result = await SocialContentService.deleteComment(Number(commentId), userId, isAdmin);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

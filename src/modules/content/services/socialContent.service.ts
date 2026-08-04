@@ -291,6 +291,8 @@ export class SocialContentService {
           },
         },
         likes: userId ? { where: { userId } } : false,
+        _count: { select: { comments: true } },
+
       },
     });
 
@@ -305,9 +307,10 @@ export class SocialContentService {
 
     const items = await prisma.contentPost.findMany({
       where: {
-        type: 'POST',
+        type: { in: ['POST', 'PLAY'] },
         isActive: true,
       },
+
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       skip,
       take: limit,
@@ -327,6 +330,8 @@ export class SocialContentService {
           },
         },
         likes: userId ? { where: { userId } } : false,
+        _count: { select: { comments: true } },
+
       },
     });
 
@@ -362,6 +367,8 @@ export class SocialContentService {
           },
         },
         likes: userId ? { where: { userId } } : false,
+        _count: { select: { comments: true } },
+
       },
     });
 
@@ -433,11 +440,11 @@ export class SocialContentService {
   }
 
   /**
-   * Helper method to format post response consistently with tagged products & like status
+   * Helper method to format post response consistently with tagged products, like status, and comment count
    */
   private static formatPostResponse(item: any, userId?: number | null) {
-
     const isLiked = Array.isArray(item.likes) ? item.likes.length > 0 : false;
+    const commentCount = item._count?.comments ?? (Array.isArray(item.comments) ? item.comments.length : 0);
     const taggedProducts = (item.products || []).map((cpProduct: any) => {
       const p = cpProduct.product;
       let finalPrice = Number(p.basePrice || 0);
@@ -468,6 +475,7 @@ export class SocialContentService {
       isActive: item.isActive,
       viewCount: item.viewCount,
       likeCount: item.likeCount,
+      commentCount,
       sortOrder: item.sortOrder,
       expiresAt: item.expiresAt,
       createdAt: item.createdAt,
@@ -475,4 +483,110 @@ export class SocialContentService {
       taggedProducts,
     };
   }
+
+  /**
+   * Mobile: Add a comment to a content post
+   */
+  static async addComment(contentPostId: number, userId: number, commentText: string) {
+    if (!commentText || !commentText.trim()) {
+      throw new AppError('Comment text cannot be empty', 400);
+    }
+
+    const post = await prisma.contentPost.findUnique({ where: { id: contentPostId } });
+    if (!post) {
+      throw new AppError('Content post not found', 404);
+    }
+
+    const comment = await prisma.contentPostComment.create({
+      data: {
+        contentPostId,
+        userId,
+        comment: commentText.trim(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    const commentCount = await prisma.contentPostComment.count({ where: { contentPostId } });
+
+    return {
+      id: comment.id,
+      contentPostId: comment.contentPostId,
+      userId: comment.userId,
+      userName: `${comment.user.firstName || 'User'} ${comment.user.lastName || ''}`.trim(),
+      userAvatar: comment.user.avatarUrl || null,
+      comment: comment.comment,
+      createdAt: comment.createdAt,
+      commentCount,
+    };
+  }
+
+  /**
+   * Mobile: Get paginated comments for a content post
+   */
+  static async getComments(contentPostId: number, page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+
+    const comments = await prisma.contentPostComment.findMany({
+      where: { contentPostId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    const totalCount = await prisma.contentPostComment.count({ where: { contentPostId } });
+
+    return {
+      totalCount,
+      page,
+      limit,
+      comments: comments.map((c) => ({
+        id: c.id,
+        contentPostId: c.contentPostId,
+        userId: c.userId,
+        userName: `${c.user.firstName || 'User'} ${c.user.lastName || ''}`.trim(),
+        userAvatar: c.user.avatarUrl || null,
+        comment: c.comment,
+        createdAt: c.createdAt,
+      })),
+    };
+  }
+
+  /**
+   * Mobile/Admin: Delete a comment
+   */
+  static async deleteComment(commentId: number, userId: number, isAdmin: boolean = false) {
+    const comment = await prisma.contentPostComment.findUnique({ where: { id: commentId } });
+    if (!comment) {
+      throw new AppError('Comment not found', 404);
+    }
+
+    if (!isAdmin && comment.userId !== userId) {
+      throw new AppError('Not authorized to delete this comment', 403);
+    }
+
+    await prisma.contentPostComment.delete({ where: { id: commentId } });
+    const commentCount = await prisma.contentPostComment.count({ where: { contentPostId: comment.contentPostId } });
+
+    return { success: true, message: 'Comment deleted successfully', commentCount };
+  }
 }
+

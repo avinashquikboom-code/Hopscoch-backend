@@ -71,4 +71,22 @@ router.post(
   SocialContentController.incrementView
 );
 
+router.post(
+  '/v1/mobile/content/:id/comment',
+  authenticate,
+  SocialContentController.addComment
+);
+
+router.get(
+  '/v1/mobile/content/:id/comments',
+  SocialContentController.getComments
+);
+
+router.delete(
+  '/v1/mobile/content/comments/:commentId',
+  authenticate,
+  SocialContentController.deleteComment
+);
+
 export default router;
+

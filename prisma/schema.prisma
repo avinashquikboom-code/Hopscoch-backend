@@ -240,6 +240,8 @@ model User {
   activityLogs       ActivityLog[]
   resellerLinks      ResellerLink[]
   contentPostLikes   ContentPostLike[]
+  contentPostComments ContentPostComment[]
+
 
 
   @@index([email])
@@ -1623,6 +1625,7 @@ model ContentPost {
 
   products      ContentPostProduct[]
   likes         ContentPostLike[]
+  comments      ContentPostComment[]
 
   @@index([type, isActive])
   @@index([expiresAt])
@@ -1650,5 +1653,22 @@ model ContentPostLike {
   @@unique([contentPostId, userId])
   @@map("content_post_likes")
 }
+
+model ContentPostComment {
+  id            Int         @id @default(autoincrement())
+  contentPostId Int         @map("content_post_id")
+  userId        Int         @map("user_id")
+  comment       String
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  contentPost   ContentPost @relation(fields: [contentPostId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contentPostId])
+  @@index([userId])
+  @@map("content_post_comments")
+}
+
 
 
