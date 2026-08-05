@@ -252,16 +252,16 @@ app.get(['/api/config/gift-wrap', '/api/v1/config/gift-wrap', '/api/v1/web/confi
   }
 });
 
-app.use('/api/auth', authRoutes);
+app.use(['/api/auth', '/api/v1/auth', '/api/v1/web/auth'], authRoutes);
 app.use('/api', catalogRoutes);
 app.use('/api', visualSearchRoutes);
 app.use(['/api/users', '/api/v1/users', '/api/v1/web/users', '/api/v1/mobile/users', '/api/web/users', '/api/mobile/users'], userRoutes);
-app.use('/api/categories', categoryRoutes);
+app.use(['/api/categories', '/api/v1/categories', '/api/v1/web/categories'], categoryRoutes);
 
 app.use(['/api/coupons', '/api/v1/coupons', '/api/v1/web/coupons', '/api/v1/mobile/coupons', '/api/web/coupons', '/api/mobile/coupons'], couponRoutes);
-app.use('/api/brands', brandRoutes);
-app.use('/api/collections', collectionRoutes);
-app.use('/api/products', productRoutes);
+app.use(['/api/brands', '/api/v1/brands', '/api/v1/web/brands'], brandRoutes);
+app.use(['/api/collections', '/api/v1/collections', '/api/v1/web/collections'], collectionRoutes);
+app.use(['/api/products', '/api/v1/products', '/api/v1/web/products'], productRoutes);
 app.use('/api/catalog/products', productRoutes);
 app.use(['/api/cart', '/api/v1/cart', '/api/v1/web/cart', '/api/v1/mobile/cart', '/api/web/cart', '/api/mobile/cart'], cartRoutes);
 app.use(['/api/wishlist', '/api/v1/wishlist', '/api/v1/web/wishlist', '/api/v1/mobile/wishlist', '/api/web/wishlist', '/api/mobile/wishlist'], wishlistRoutes);
