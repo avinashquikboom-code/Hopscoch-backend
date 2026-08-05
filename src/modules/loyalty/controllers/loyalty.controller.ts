@@ -78,8 +78,8 @@ export class LoyaltyController {
     const { amount } = req.body;
     const numericAmount = Number(amount);
 
-    if (![100, 500, 1000].includes(numericAmount)) {
-      throw new AppError('Invalid top-up amount. Allowed amounts: ₹100, ₹500, ₹1000', 400);
+    if (isNaN(numericAmount) || numericAmount < 10) {
+      throw new AppError('Invalid top-up amount. Minimum amount is ₹10.', 400);
     }
 
     const rzpOrder = await razorpayClient.createOrder(
