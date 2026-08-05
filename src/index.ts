@@ -253,7 +253,7 @@ app.get(['/api/config/gift-wrap', '/api/v1/config/gift-wrap', '/api/v1/web/confi
 });
 
 app.use(['/api/auth', '/api/v1/auth', '/api/v1/web/auth'], authRoutes);
-app.use('/api', catalogRoutes);
+app.use(['/api', '/api/v1', '/api/v1/web', '/api/v1/mobile', '/api/web', '/api/mobile'], catalogRoutes);
 app.use('/api', visualSearchRoutes);
 app.use(['/api/users', '/api/v1/users', '/api/v1/web/users', '/api/v1/mobile/users', '/api/web/users', '/api/mobile/users'], userRoutes);
 app.use(['/api/categories', '/api/v1/categories', '/api/v1/web/categories'], categoryRoutes);

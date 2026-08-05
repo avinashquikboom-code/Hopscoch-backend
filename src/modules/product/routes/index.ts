@@ -3,8 +3,12 @@ import { authenticate, optionalAuth } from '../../../middleware/auth';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import adminController from '../../admin/controllers/admin.controller';
+import catalogController from '../../catalog/controllers/catalog.controller';
 
 const router = Router();
+
+// GET single product by ID
+router.get('/:productId', catalogController.getProductById.bind(catalogController));
 
 // GET all products (catalog ledger) - Public / Optional Auth
 router.get('/', optionalAuth, async (req, res, next) => {
