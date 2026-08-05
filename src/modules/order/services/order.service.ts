@@ -329,10 +329,33 @@ export class OrderService {
       await walletService.debitWallet(uId, walletAmountUsed, 'PAYMENT', orderNumber, `Payment for Order #${orderNumber}`);
     }
 
-    // Fetch Seller System Settings to snapshot on order creation
+    // Fetch Seller System Settings to snapshot on order creation.
+    // Prefer manual seller details sent from checkout when provided.
     const systemSettings = await prisma.systemSettings.findFirst();
-    const sellerNameSnap = systemSettings?.sellerName || systemSettings?.siteName || 'FCI Seller Retail Pvt. Ltd.';
-    const sellerContactSnap = systemSettings?.sellerContactNumber || systemSettings?.contactPhone || '+91 9876543210';
+    const settingsAny = systemSettings as any;
+    const manualSellerName = typeof data.sellerName === 'string' ? data.sellerName.trim() : '';
+    const manualSellerContact = typeof data.sellerContact === 'string' ? data.sellerContact.trim() : '';
+    const manualSellerAddress = typeof data.sellerAddress === 'string' ? data.sellerAddress.trim() : '';
+    const settingsAddress = [
+      settingsAny?.sellerAddress,
+      settingsAny?.sellerCity,
+      settingsAny?.sellerState,
+      settingsAny?.sellerPincode,
+    ].filter(Boolean).join(', ');
+    const sellerNameSnap =
+      manualSellerName ||
+      systemSettings?.sellerName ||
+      systemSettings?.siteName ||
+      'FCI Seller Retail Pvt. Ltd.';
+    const sellerContactSnap =
+      manualSellerContact ||
+      systemSettings?.sellerContactNumber ||
+      systemSettings?.contactPhone ||
+      '+91 9876543210';
+    const sellerAddressSnap =
+      manualSellerAddress ||
+      settingsAddress ||
+      null;
 
     // 5. Create Order + OrderItems + Payment + Timeline in Single Transaction
     const order = await prisma.$transaction(async (tx) => {
@@ -354,6 +377,7 @@ export class OrderService {
           giftWrapCharge,
           sellerNameSnapshot: sellerNameSnap,
           sellerContactSnapshot: sellerContactSnap,
+          sellerAddressSnapshot: sellerAddressSnap,
           totalAmount,
           items: {
             create: taxCalculation.itemsWithTax.map((item: any) => ({

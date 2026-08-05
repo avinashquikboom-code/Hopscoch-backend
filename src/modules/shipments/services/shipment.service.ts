@@ -286,7 +286,7 @@ export class ShipmentService {
     <div class="grid">
       <div>
         <div class="title">Shipped From</div>
-        <div class="val">${order.sellerNameSnapshot || 'FCI Seller'} Fulfillment Center<br/>${order.sellerContactSnapshot ? `Contact: ${order.sellerContactSnapshot}` : 'India'}</div>
+        <div class="val">${order.sellerNameSnapshot || 'FCI Seller'} Fulfillment Center<br/>${(order as any).sellerAddressSnapshot ? `${(order as any).sellerAddressSnapshot}<br/>` : ''}${order.sellerContactSnapshot ? `Contact: ${order.sellerContactSnapshot}` : 'India'}</div>
       </div>
       <div>
         <div class="title">Total Amount</div>
@@ -328,13 +328,21 @@ export class ShipmentService {
     const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
     const totalAmt = Number((order as any).totalAmount || (order as any).total || 0);
 
-    // Seller details from settings (live)
-    // NOTE: cast to any until 'npx prisma migrate dev' runs to regenerate Prisma client types
+    // Prefer order-time seller snapshots (manual checkout entry), fall back to live settings
     const s = settings as any;
-    const sellerLegalName = s?.sellerLegalName || s?.sellerName || 'FCI Seller Retail Pvt. Ltd.';
+    const sellerLegalName =
+      (order as any).sellerNameSnapshot ||
+      s?.sellerLegalName ||
+      s?.sellerName ||
+      'FCI Seller Retail Pvt. Ltd.';
     const sellerGst = s?.sellerGstNumber || '';
-    const sellerAddr = [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ');
-    const sellerPhone = s?.sellerContactNumber || '';
+    const sellerAddr =
+      (order as any).sellerAddressSnapshot ||
+      [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ');
+    const sellerPhone =
+      (order as any).sellerContactSnapshot ||
+      s?.sellerContactNumber ||
+      '';
     const sellerEmail = s?.sellerEmail || '';
 
     // Fulfilled By — default warehouse (fallback; per-order tracking is a future enhancement)

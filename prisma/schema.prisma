@@ -789,6 +789,7 @@ model Order {
 
   sellerNameSnapshot    String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name_snapshot")
   sellerContactSnapshot String? @default("+91 9876543210") @map("seller_contact_snapshot")
+  sellerAddressSnapshot String? @map("seller_address_snapshot")
 
   courierName String?   @map("courier_name")
   awbNumber   String?   @map("awb_number")

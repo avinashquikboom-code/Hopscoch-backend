@@ -37,5 +37,8 @@ export const createOrderSchema = z.object({
   coupon: z.string().optional(),
   shippingAmount: z.union([z.string(), z.number()]).optional(),
   shipping: z.union([z.string(), z.number()]).optional(),
+  sellerName: z.string().optional(),
+  sellerContact: z.string().optional(),
+  sellerAddress: z.string().optional(),
 }).passthrough();
 
