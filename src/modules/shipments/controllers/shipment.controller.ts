@@ -124,8 +124,8 @@ export class ShipmentController {
 
   async downloadInvoice(req: any, res: Response): Promise<void> {
     try {
-      const orderId = Number(req.params.orderId);
-      const html = await ShipmentService.renderInvoiceHtml(orderId);
+      const orderParam = req.params.orderId;
+      const html = await ShipmentService.renderInvoiceHtml(orderParam);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (error: any) {

@@ -298,10 +298,19 @@ export class ShipmentService {
 </html>`;
   }
 
-  async renderInvoiceHtml(orderId: number): Promise<string> {
+  async renderInvoiceHtml(orderParam: string | number): Promise<string> {
+    const isNum = !isNaN(Number(orderParam));
+    const numId = isNum ? Number(orderParam) : -1;
+    const strParam = String(orderParam);
+
     const [order, settings, defaultWarehouse] = await Promise.all([
-      prisma.order.findUnique({
-        where: { id: orderId },
+      prisma.order.findFirst({
+        where: {
+          OR: [
+            { id: numId },
+            { orderNumber: strParam },
+          ],
+        },
         include: {
           items: { include: { product: true } },
           user: true,
@@ -313,7 +322,7 @@ export class ShipmentService {
     ]);
 
     if (!order) {
-      throw new Error(`Order #${orderId} not found`);
+      throw new Error(`Order #${orderParam} not found`);
     }
 
     const addr = (order.address as any) || {};
