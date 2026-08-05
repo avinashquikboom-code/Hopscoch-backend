@@ -16,6 +16,8 @@ router.get('/campaigns', loyaltyController.getCampaigns.bind(loyaltyController))
 // ==========================================
 router.get('/wallet', authenticate, loyaltyController.getWallet.bind(loyaltyController));
 router.post('/wallet/topup', authenticate, loyaltyController.topupWallet.bind(loyaltyController));
+router.post('/wallet/load-order', authenticate, loyaltyController.createWalletLoadOrder.bind(loyaltyController));
+router.post('/wallet/verify', authenticate, loyaltyController.verifyWalletLoad.bind(loyaltyController));
 router.get('/summary', authenticate, loyaltyController.getRewardSummary.bind(loyaltyController));
 router.get('/referrals', authenticate, loyaltyController.getReferralStats.bind(loyaltyController));
 router.get('/rewards/history', authenticate, loyaltyController.getRewardHistory.bind(loyaltyController));

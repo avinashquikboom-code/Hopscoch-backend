@@ -8,6 +8,10 @@ import campaignService from '../services/campaign.service';
 import loyaltyAnalyticsService from '../services/loyalty_analytics.service';
 import prisma from '../../../utils/prisma';
 
+import razorpayClient from '../../payments/services/razorpay.client';
+import { AppError } from '../../../middleware/errorHandler';
+import { PaymentStatus } from '@prisma/client';
+
 export class LoyaltyController {
   // 1. Global Settings & Rules
   async getGlobalRules(req: Request, res: Response) {
@@ -67,6 +71,93 @@ export class LoyaltyController {
     const userId = req.user.id;
     const wallet = await walletService.getOrCreateWallet(userId);
     return ResponseFormatter.success(res, 'Wallet details retrieved', wallet);
+  }
+
+  async createWalletLoadOrder(req: any, res: Response) {
+    const userId = req.user.id;
+    const { amount } = req.body;
+    const numericAmount = Number(amount);
+
+    if (![100, 500, 1000].includes(numericAmount)) {
+      throw new AppError('Invalid top-up amount. Allowed amounts: ₹100, ₹500, ₹1000', 400);
+    }
+
+    const rzpOrder = await razorpayClient.createOrder(
+      numericAmount,
+      'INR',
+      `wallet_load_${userId}_${Date.now()}`
+    );
+
+    const payment = await prisma.payment.create({
+      data: {
+        method: 'RAZORPAY',
+        status: 'PENDING',
+        amount: numericAmount,
+        razorpayOrderId: rzpOrder.id,
+      },
+    });
+
+    let keyId = process.env.RAZORPAY_KEY_ID || '';
+    try {
+      const settingsService = (await import('../../settings/services/settings.service')).default;
+      const fetchedKey = await settingsService.getIntegrationKey('razorpay', 'key_id');
+      if (fetchedKey && !fetchedKey.startsWith('YOUR_') && fetchedKey !== 'your-razorpay-key-id') {
+        keyId = fetchedKey;
+      }
+    } catch (_) {}
+
+    return ResponseFormatter.success(res, 'Wallet load order created', {
+      orderId: rzpOrder.id,
+      amount: numericAmount,
+      currency: 'INR',
+      keyId,
+      paymentId: payment.id,
+    });
+  }
+
+  async verifyWalletLoad(req: any, res: Response) {
+    const userId = req.user.id;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      throw new AppError('Missing required payment verification parameters', 400);
+    }
+
+    const isValid = await razorpayClient.verifyPaymentSignature(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
+
+    if (!isValid) {
+      throw new AppError('Razorpay payment signature verification failed', 400);
+    }
+
+    const payment = await prisma.payment.findFirst({
+      where: { razorpayOrderId, method: 'RAZORPAY' },
+    });
+
+    const amount = payment ? Number(payment.amount) : 0;
+
+    const updatedWallet = await walletService.creditWalletRazorpay(
+      userId,
+      amount,
+      razorpayOrderId,
+      razorpayPaymentId
+    );
+
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.PAID,
+          razorpayPaymentId,
+          razorpaySignature,
+        },
+      });
+    }
+
+    return ResponseFormatter.success(res, 'Wallet loaded successfully', updatedWallet);
   }
 
   async topupWallet(req: any, res: Response) {

@@ -6,6 +6,7 @@ import ShipmentController from '../modules/shipments/controllers/shipment.contro
 import OrderController from '../modules/order/controllers/order.controller';
 import addressRoutes from '../modules/address/routes';
 import VisualSearchController from '../modules/visual_search/controllers/visual-search.controller';
+import loyaltyController from '../modules/loyalty/controllers/loyalty.controller';
 import { upload } from '../middleware/upload';
 
 const router = Router();
@@ -238,6 +239,23 @@ router.post(
   '/mobile/payments/verify',
   authenticate,
   PaymentController.verifyRazorpayPayment.bind(PaymentController)
+);
+
+// Mobile Wallet (Digital Wallet Top-up & Balance)
+router.get(
+  '/mobile/wallet',
+  authenticate,
+  loyaltyController.getWallet.bind(loyaltyController)
+);
+router.post(
+  '/mobile/wallet/load-order',
+  authenticate,
+  loyaltyController.createWalletLoadOrder.bind(loyaltyController)
+);
+router.post(
+  '/mobile/wallet/verify',
+  authenticate,
+  loyaltyController.verifyWalletLoad.bind(loyaltyController)
 );
 
 // Visual Search (AI Gemini Vision)

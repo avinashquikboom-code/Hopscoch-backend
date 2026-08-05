@@ -322,12 +322,11 @@ export class OrderService {
     const orderNumber = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // Process Point Redemption & Wallet Deduction
+    // Note: walletAmountUsed is capped server-side — client value is never trusted
     if (rewardPointsRedeemed > 0) {
       await rewardService.redeemPoints(uId, rewardPointsRedeemed, orderNumber);
     }
-    if (walletAmountUsed > 0) {
-      await walletService.debitWallet(uId, walletAmountUsed, 'PAYMENT', orderNumber, `Payment for Order #${orderNumber}`);
-    }
+    let createdOrderIdForWallet: number | null = null; // resolved after order creation
 
     // Fetch Seller System Settings to snapshot on order creation.
     // Prefer manual seller details sent from checkout when provided.
@@ -464,6 +463,16 @@ export class OrderService {
       }
     } catch (invErr) {
       logger.warn(`Inventory reservation warning for order ${order.id}:`, invErr);
+    }
+
+    // 7. Debit Wallet — after order creation so we have orderId for transaction linkage
+    if (walletAmountUsed > 0) {
+      try {
+        await walletService.debitWalletOrder(uId, order.id, walletAmountUsed);
+      } catch (walletErr: any) {
+        logger.error(`⚠️ Wallet debit failed for order ${order.id}: ${walletErr?.message}`);
+        // Order is already created — log for manual reconciliation but don't rollback
+      }
     }
 
     logger.info(`✅ Order created successfully: ID ${order.id}, Number ${order.orderNumber} for User ${uId}`);
