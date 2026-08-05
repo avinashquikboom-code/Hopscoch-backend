@@ -257,6 +257,16 @@ router.post(
   authenticate,
   loyaltyController.verifyWalletLoad.bind(loyaltyController)
 );
+router.post(
+  '/mobile/wallet/withdraw',
+  authenticate,
+  loyaltyController.requestWithdrawal.bind(loyaltyController)
+);
+router.get(
+  '/mobile/wallet/withdrawals',
+  authenticate,
+  loyaltyController.getWithdrawals.bind(loyaltyController)
+);
 
 // Visual Search (AI Gemini Vision)
 router.post(

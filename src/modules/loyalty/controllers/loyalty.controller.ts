@@ -423,6 +423,101 @@ export class LoyaltyController {
     const data = await loyaltyAnalyticsService.getDashboardAnalytics();
     return ResponseFormatter.success(res, 'Loyalty analytics retrieved', data);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WITHDRAWAL ENDPOINTS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * POST /mobile/wallet/withdraw
+   * Body: { amount, bankAccountName, bankAccountNumber, bankIFSC }
+   * Immediately deducts balance (reserves it) + creates PENDING withdrawal record.
+   */
+  async requestWithdrawal(req: any, res: Response) {
+    const userId = req.user.id;
+    const { amount, bankAccountName, bankAccountNumber, bankIFSC } = req.body;
+
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      throw new AppError('A valid positive withdrawal amount is required', 400);
+    }
+
+    const result = await walletService.requestWithdrawal(
+      userId,
+      Number(amount),
+      bankAccountName,
+      bankAccountNumber,
+      bankIFSC,
+    );
+
+    return ResponseFormatter.success(res, 'Withdrawal request submitted. Balance reserved. Processing: 3-5 business days.', {
+      withdrawal: result.withdrawal,
+      newBalance: result.newBalance,
+      processingTime: '3-5 business days',
+    });
+  }
+
+  /**
+   * GET /mobile/wallet/withdrawals
+   * Customer's own withdrawal history.
+   */
+  async getWithdrawals(req: any, res: Response) {
+    const userId = req.user.id;
+    const withdrawals = await walletService.getWithdrawals(userId);
+    return ResponseFormatter.success(res, 'Withdrawal history retrieved', withdrawals);
+  }
+
+  /**
+   * GET /admin/wallet-withdrawals?status=PENDING&page=1&limit=20
+   */
+  async adminListWithdrawals(req: any, res: Response) {
+    const { status, page, limit } = req.query;
+    const result = await walletService.adminListWithdrawals(
+      status as string | undefined,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
+    return ResponseFormatter.success(res, 'Withdrawal requests retrieved', result);
+  }
+
+  /**
+   * PATCH /admin/wallet-withdrawals/:id/approve
+   */
+  async adminApproveWithdrawal(req: any, res: Response) {
+    const withdrawalId = Number(req.params.id);
+    const adminUserId = req.user.id;
+    const withdrawal = await walletService.adminApproveWithdrawal(withdrawalId, adminUserId);
+    return ResponseFormatter.success(res, 'Withdrawal approved. Process the bank transfer and mark complete.', withdrawal);
+  }
+
+  /**
+   * PATCH /admin/wallet-withdrawals/:id/complete
+   * Body: { adminNote? }
+   */
+  async adminCompleteWithdrawal(req: any, res: Response) {
+    const withdrawalId = Number(req.params.id);
+    const adminUserId = req.user.id;
+    const { adminNote } = req.body;
+    const withdrawal = await walletService.adminCompleteWithdrawal(withdrawalId, adminUserId, adminNote);
+    return ResponseFormatter.success(res, 'Withdrawal marked as completed.', withdrawal);
+  }
+
+  /**
+   * PATCH /admin/wallet-withdrawals/:id/reject
+   * Body: { adminNote } — required rejection reason
+   * Atomically refunds the reserved balance back to the customer wallet.
+   */
+  async adminRejectWithdrawal(req: any, res: Response) {
+    const withdrawalId = Number(req.params.id);
+    const adminUserId = req.user.id;
+    const { adminNote } = req.body;
+
+    if (!adminNote?.trim()) {
+      throw new AppError('Rejection reason (adminNote) is required', 400);
+    }
+
+    const withdrawal = await walletService.adminRejectWithdrawal(withdrawalId, adminUserId, adminNote);
+    return ResponseFormatter.success(res, 'Withdrawal rejected. Balance refunded to customer wallet.', withdrawal);
+  }
 }
 
 export default new LoyaltyController();

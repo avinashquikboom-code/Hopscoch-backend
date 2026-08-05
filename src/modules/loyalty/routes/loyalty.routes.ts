@@ -18,6 +18,8 @@ router.get('/wallet', authenticate, loyaltyController.getWallet.bind(loyaltyCont
 router.post('/wallet/topup', authenticate, loyaltyController.topupWallet.bind(loyaltyController));
 router.post('/wallet/load-order', authenticate, loyaltyController.createWalletLoadOrder.bind(loyaltyController));
 router.post('/wallet/verify', authenticate, loyaltyController.verifyWalletLoad.bind(loyaltyController));
+router.post('/wallet/withdraw', authenticate, loyaltyController.requestWithdrawal.bind(loyaltyController));
+router.get('/wallet/withdrawals', authenticate, loyaltyController.getWithdrawals.bind(loyaltyController));
 router.get('/summary', authenticate, loyaltyController.getRewardSummary.bind(loyaltyController));
 router.get('/referrals', authenticate, loyaltyController.getReferralStats.bind(loyaltyController));
 router.get('/rewards/history', authenticate, loyaltyController.getRewardHistory.bind(loyaltyController));
@@ -33,6 +35,12 @@ router.get('/transactions', authenticate, loyaltyController.getMasterTransaction
 router.put('/admin/rules', authenticate, authorize('ADMIN'), loyaltyController.updateGlobalRules.bind(loyaltyController));
 router.post('/admin/wallet/adjust', authenticate, authorize('ADMIN'), loyaltyController.adminAdjustWallet.bind(loyaltyController));
 router.post('/admin/points/adjust', authenticate, authorize('ADMIN'), loyaltyController.adminAdjustPoints.bind(loyaltyController));
+
+// Admin withdrawal management
+router.get('/admin/wallet-withdrawals', authenticate, authorize('ADMIN'), loyaltyController.adminListWithdrawals.bind(loyaltyController));
+router.patch('/admin/wallet-withdrawals/:id/approve', authenticate, authorize('ADMIN'), loyaltyController.adminApproveWithdrawal.bind(loyaltyController));
+router.patch('/admin/wallet-withdrawals/:id/complete', authenticate, authorize('ADMIN'), loyaltyController.adminCompleteWithdrawal.bind(loyaltyController));
+router.patch('/admin/wallet-withdrawals/:id/reject', authenticate, authorize('ADMIN'), loyaltyController.adminRejectWithdrawal.bind(loyaltyController));
 
 router.get('/admin/category-rewards', authenticate, authorize('ADMIN'), loyaltyController.getCategoryRewards.bind(loyaltyController));
 router.put('/admin/category-rewards/:id', authenticate, authorize('ADMIN'), loyaltyController.updateCategoryReward.bind(loyaltyController));

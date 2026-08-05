@@ -154,6 +154,8 @@ enum WalletTransactionType {
   CREDIT_RAZORPAY
   DEBIT_ORDER
   REFUND_CREDIT
+  WITHDRAWAL_REQUEST
+  WITHDRAWAL_REJECTED
 }
 
 enum CashbackType {
@@ -232,6 +234,7 @@ model User {
   rewardTransactions RewardPointsTransaction[]
   wallet             Wallet?
   walletTransactions WalletTransaction[]
+  walletWithdrawals  WalletWithdrawal[]
   cashbackTransactions CashbackTransaction[]
   referralsMade      Referral[] @relation("Referrer")
   referralsReceived  Referral[] @relation("Referee")
@@ -1495,6 +1498,7 @@ model Wallet {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   transactions WalletTransaction[]
+  withdrawals  WalletWithdrawal[]
 
   @@map("wallets")
 }
@@ -1517,6 +1521,39 @@ model WalletTransaction {
   @@index([userId])
   @@index([walletId])
   @@map("wallet_transactions")
+}
+
+// =====================================================================
+// WALLET WITHDRAWALS
+// =====================================================================
+
+enum WalletWithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model WalletWithdrawal {
+  id                Int                    @id @default(autoincrement())
+  walletId          Int                    @map("wallet_id")
+  wallet            Wallet                 @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId            Int                    @map("user_id")
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Decimal                @db.Decimal(10, 2)
+  status            WalletWithdrawalStatus @default(PENDING)
+  bankAccountName   String                 @map("bank_account_name")
+  bankAccountNumber String                 @map("bank_account_number")
+  bankIFSC          String                 @map("bank_ifsc")
+  adminNote         String?                @map("admin_note")
+  requestedAt       DateTime               @default(now()) @map("requested_at")
+  processedAt       DateTime?              @map("processed_at")
+  processedBy       Int?                   @map("processed_by")
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@map("wallet_withdrawals")
 }
 
 model RewardRule {
