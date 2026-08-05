@@ -173,18 +173,30 @@ export class RazorpayClient {
   }
 
   // Signature verification utility for Webhooks
-  public async verifyWebhookSignature(rawBody: string, signature: string): Promise<boolean> {
+  public async verifyWebhookSignature(rawBody: string | Buffer, signature: string): Promise<boolean> {
     try {
-      const webhookSecret = await settingsService.getIntegrationKey('razorpay', 'webhook_secret');
+      if (!signature) return false;
+      let webhookSecret = await settingsService.getIntegrationKey('razorpay', 'webhook_secret');
+      if (!webhookSecret || webhookSecret.startsWith('YOUR_') || webhookSecret === 'your-razorpay-webhook-secret') {
+        webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+      }
       if (!webhookSecret) {
-        logger.warn('Razorpay webhook secret missing in settings.');
+        logger.warn('Razorpay webhook secret missing in settings or environment.');
         return false;
       }
-      const generatedSignature = crypto
+      const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
         .update(rawBody)
         .digest('hex');
-      return generatedSignature === signature;
+
+      const sigBuffer = Buffer.from(signature, 'utf8');
+      const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+
+      if (sigBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
     } catch (err) {
       logger.error(`Razorpay webhook signature verification error: ${err}`);
       return false;

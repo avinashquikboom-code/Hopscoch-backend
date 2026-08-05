@@ -255,27 +255,20 @@ app.get(['/api/config/gift-wrap', '/api/v1/config/gift-wrap', '/api/v1/web/confi
 app.use('/api/auth', authRoutes);
 app.use('/api', catalogRoutes);
 app.use('/api', visualSearchRoutes);
-app.use('/api/users', userRoutes);
+app.use(['/api/users', '/api/v1/users', '/api/v1/web/users', '/api/v1/mobile/users', '/api/web/users', '/api/mobile/users'], userRoutes);
 app.use('/api/categories', categoryRoutes);
 
-app.use('/api/coupons', couponRoutes);
+app.use(['/api/coupons', '/api/v1/coupons', '/api/v1/web/coupons', '/api/v1/mobile/coupons', '/api/web/coupons', '/api/mobile/coupons'], couponRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/catalog/products', productRoutes);
-app.use('/api/cart', cartRoutes);
-app.use('/api/wishlist', wishlistRoutes);
-app.use('/api/v1/wishlist', wishlistRoutes);
-app.use('/api/v1/web/wishlist', wishlistRoutes);
-app.use('/api/web/wishlist', wishlistRoutes);
-app.use('/api/addresses', addressRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/v1/orders', orderRoutes);
-app.use('/api/v1/web/orders', orderRoutes);
-app.use('/api/web/orders', orderRoutes);
-app.use('/api/returns', returnRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/v1/payments', paymentRoutes);
+app.use(['/api/cart', '/api/v1/cart', '/api/v1/web/cart', '/api/v1/mobile/cart', '/api/web/cart', '/api/mobile/cart'], cartRoutes);
+app.use(['/api/wishlist', '/api/v1/wishlist', '/api/v1/web/wishlist', '/api/v1/mobile/wishlist', '/api/web/wishlist', '/api/mobile/wishlist'], wishlistRoutes);
+app.use(['/api/addresses', '/api/v1/addresses', '/api/v1/web/addresses', '/api/v1/mobile/addresses', '/api/web/addresses', '/api/mobile/addresses'], addressRoutes);
+app.use(['/api/orders', '/api/v1/orders', '/api/v1/web/orders', '/api/v1/mobile/orders', '/api/web/orders', '/api/mobile/orders'], orderRoutes);
+app.use(['/api/returns', '/api/v1/returns', '/api/v1/web/returns', '/api/v1/mobile/returns', '/api/web/returns', '/api/mobile/returns'], returnRoutes);
+app.use(['/api/payments', '/api/v1/payments', '/api/v1/web/payments', '/api/v1/mobile/payments', '/api/web/payments', '/api/mobile/payments'], paymentRoutes);
 
 app.use('/api/shipments', shipmentRoutes);
 app.use('/api/v1/shipments', shipmentRoutes);
@@ -302,11 +295,10 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1', v1Routes);
-app.use('/api/recently-viewed', recentlyViewedRoutes);
-app.use('/api/reviews', reviewRoutes);
+app.use(['/api/recently-viewed', '/api/v1/recently-viewed', '/api/v1/web/recently-viewed', '/api/v1/mobile/recently-viewed'], recentlyViewedRoutes);
+app.use(['/api/reviews', '/api/v1/reviews', '/api/v1/web/reviews', '/api/v1/mobile/reviews'], reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
-app.use('/api/coupons', couponRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/colors', colorRoutes);
 app.use('/api/admin/colors', colorRoutes);
@@ -319,8 +311,10 @@ app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api', socialContentRoutes);
-app.use('/api/v1', socialContentRoutes);
-app.use('/api/mobile', socialContentRoutes);
+import webhookRoutes from './modules/webhooks/routes/webhook.routes';
+
+app.use('/api', webhookRoutes);
+app.use('/api/v1', webhookRoutes);
 
 
 // Error handling

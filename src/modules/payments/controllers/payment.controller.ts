@@ -113,24 +113,10 @@ export class PaymentController {
   }
 
   async handleWebhook(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const signature = req.headers['x-razorpay-signature'] as string;
-      const rawBody = JSON.stringify(req.body);
-      
-      const isValid = await razorpayClient.verifyWebhookSignature(rawBody, signature);
-      if (!isValid) {
-        logger.warn('Invalid Razorpay webhook signature');
-        res.status(400).json({ success: false, message: 'Invalid signature' });
-        return;
-      }
-
-      const { event, payload } = req.body;
-      await PaymentService.handleRazorpayWebhook(event, payload);
-      res.status(200).json({ success: true });
-    } catch (error) {
-      logger.error(`Razorpay webhook error: ${error}`);
-      res.status(500).json({ success: false });
-    }
+    const { WebhookController } = await import('../../webhooks/controllers/webhook.controller');
+    return await WebhookController.handleRazorpayWebhook(req, res, (err) => {
+      res.status(500).json({ success: false, message: (err as Error)?.message || 'Webhook error' });
+    });
   }
 
   async getPaymentByOrderId(req: AuthRequest, res: Response): Promise<void> {

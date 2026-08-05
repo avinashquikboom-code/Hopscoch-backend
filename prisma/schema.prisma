@@ -1687,5 +1687,28 @@ model ContentPostComment {
   @@map("content_post_comments")
 }
 
+// =====================================================================
+// WEBHOOK LOGS & IDEMPOTENCY
+// =====================================================================
+
+model WebhookLog {
+  id           Int      @id @default(autoincrement())
+  eventId      String   @unique @map("event_id")
+  eventType    String   @map("event_type")
+  paymentId    String?  @map("payment_id")
+  orderId      String?  @map("order_id")
+  refundId     String?  @map("refund_id")
+  status       String   @default("SUCCESS") // SUCCESS | FAILED | SKIPPED_DUPLICATE | IGNORED
+  payload      Json?
+  errorMessage String?  @map("error_message")
+  durationMs   Int      @default(0) @map("duration_ms")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([eventType])
+  @@index([paymentId])
+  @@index([orderId])
+  @@map("webhook_logs")
+}
+
 
 
