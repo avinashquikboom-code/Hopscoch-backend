@@ -9,7 +9,19 @@ export class SocialContentController {
    */
   static async createContentPost(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const files = req.files as Express.Multer.File[] | undefined;
+      let mediaFiles: Express.Multer.File[] = [];
+      let thumbnailFile: Express.Multer.File | undefined = undefined;
+
+      if (Array.isArray(req.files)) {
+        mediaFiles = req.files;
+      } else if (req.files && typeof req.files === 'object') {
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] };
+        mediaFiles = filesMap['media'] || [];
+        if (filesMap['thumbnail'] && filesMap['thumbnail'].length > 0) {
+          thumbnailFile = filesMap['thumbnail'][0];
+        }
+      }
+
       const { type, title, caption, productIds, sortOrder } = req.body;
 
       let parsedProductIds: number[] = [];
@@ -31,7 +43,8 @@ export class SocialContentController {
           productIds: parsedProductIds,
           sortOrder: sortOrder ? Number(sortOrder) : 0,
         },
-        files || []
+        mediaFiles,
+        thumbnailFile
       );
 
       res.status(201).json({

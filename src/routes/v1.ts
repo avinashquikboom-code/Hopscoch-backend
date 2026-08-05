@@ -271,6 +271,8 @@ router.post('/web/orders', authenticate, OrderController.createOrder.bind(OrderC
 router.post('/mobile/orders', authenticate, OrderController.createOrder.bind(OrderController));
 
 router.use('/addresses', addressRoutes);
+router.use('/web/addresses', addressRoutes);
+router.use('/mobile/addresses', addressRoutes);
 
 // ==========================================
 // REVIEW ENDPOINTS (Mobile + Web — same handler)

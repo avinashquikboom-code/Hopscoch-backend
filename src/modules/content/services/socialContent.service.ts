@@ -23,7 +23,13 @@ export class SocialContentService {
       originalname?: string;
       mimetype?: string;
       size?: number;
-    }>
+    }>,
+    thumbnailFile?: {
+      buffer?: Buffer;
+      originalname?: string;
+      mimetype?: string;
+      size?: number;
+    }
   ) {
     const { type, title, caption, productIds = [], sortOrder = 0 } = input;
 
@@ -46,6 +52,13 @@ export class SocialContentService {
       }
       if (file.size && file.size > 50 * 1024 * 1024) {
         throw new AppError('PLAY video size must not exceed 50MB', 400);
+      }
+      if (thumbnailFile) {
+        if (!thumbnailFile.mimetype?.startsWith('image/')) {
+          throw new AppError('Thumbnail must be an image file', 400);
+        }
+      } else if (!input.thumbnailUrl) {
+        throw new AppError('A thumbnail image file is required for PLAY video posts', 400);
       }
     } else if (type === 'STORY') {
       if (files.length > 1) {
@@ -77,7 +90,7 @@ export class SocialContentService {
       }
     }
 
-    // Upload files to S3
+    // Upload media files to S3
     const mediaUrls: string[] = [];
     for (const file of files) {
       const url = await uploadToS3(file, `content/${type.toLowerCase()}`);
@@ -86,6 +99,12 @@ export class SocialContentService {
 
     const firstFile = files[0];
     const mediaType = firstFile.mimetype?.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+
+    // Upload thumbnail file to S3 if provided
+    let computedThumbnailUrl = input.thumbnailUrl || (mediaType === 'IMAGE' ? mediaUrls[0] : null);
+    if (thumbnailFile) {
+      computedThumbnailUrl = await uploadToS3(thumbnailFile, 'content/thumbnails');
+    }
 
     // STORY expires after 24 hours
     let expiresAt: Date | null = null;
@@ -101,7 +120,7 @@ export class SocialContentService {
         caption: caption || null,
         mediaUrls,
         mediaType,
-        thumbnailUrl: input.thumbnailUrl || (mediaType === 'IMAGE' ? mediaUrls[0] : null),
+        thumbnailUrl: computedThumbnailUrl,
         sortOrder: Number(sortOrder) || 0,
         expiresAt,
         products: {

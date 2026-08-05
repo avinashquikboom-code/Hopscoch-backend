@@ -13,7 +13,10 @@ router.post(
   '/admin/content',
   authenticate,
   authorize('ADMIN'),
-  upload.array('media', 10),
+  upload.fields([
+    { name: 'media', maxCount: 10 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
   SocialContentController.createContentPost
 );
 
