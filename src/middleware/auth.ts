@@ -163,8 +163,13 @@ export const authenticate = async (
     }
 
     // Verify user exists
+    const uid = Number(decoded.userId || decoded.id || decoded.sub);
+    if (isNaN(uid) || uid <= 0) {
+      throw new AppError('Authentication failed: Invalid user ID in token', 401);
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: Number(decoded.userId) },
+      where: { id: uid },
       select: {
         id: true,
         email: true,
