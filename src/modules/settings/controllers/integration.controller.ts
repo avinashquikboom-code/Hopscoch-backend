@@ -29,6 +29,7 @@ export class IntegrationController {
       const razorpayKeyId = await settingsService.getIntegrationKey('razorpay', 'key_id');
       const razorpayKeySecret = await settingsService.getIntegrationKey('razorpay', 'key_secret');
       const razorpayWebhookSecret = await settingsService.getIntegrationKey('razorpay', 'webhook_secret');
+      const razorpayWebhookUrl = await settingsService.getIntegrationKey('razorpay', 'webhook_url');
 
       const googleGeminiApiKey = await settingsService.getIntegrationKey('google', 'gemini_api_key');
       const googleMapsApiKey = await settingsService.getIntegrationKey('google', 'maps_api_key');
@@ -53,6 +54,7 @@ export class IntegrationController {
           key_id: razorpayKeyId,
           key_secret: razorpayKeySecret,
           webhook_secret: razorpayWebhookSecret,
+          webhook_url: razorpayWebhookUrl,
         },
         google: {
           gemini_api_key: googleGeminiApiKey,
@@ -102,13 +104,16 @@ export class IntegrationController {
         
         await settingsService.logAudit('shiprocket', 'update', String(req.user.id));
       } else if (provider === 'razorpay') {
-        const { key_id, key_secret, webhook_secret } = settings;
+        const { key_id, key_secret, webhook_secret, webhook_url } = settings;
         if (key_id) await settingsService.updateIntegrationKey('razorpay', 'key_id', key_id, String(req.user.id));
         if (key_secret) {
           await settingsService.updateIntegrationKey('razorpay', 'key_secret', key_secret, String(req.user.id));
         }
         if (webhook_secret) {
           await settingsService.updateIntegrationKey('razorpay', 'webhook_secret', webhook_secret, String(req.user.id));
+        }
+        if (webhook_url !== undefined) {
+          await settingsService.updateIntegrationKey('razorpay', 'webhook_url', webhook_url, String(req.user.id));
         }
         
         await settingsService.logAudit('razorpay', 'update', String(req.user.id));
