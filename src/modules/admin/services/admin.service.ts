@@ -3868,7 +3868,7 @@ export class AdminService {
     const { page, limit, status, productId } = filters;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { deletedAt: null };
     if (status) {
       where.status = status;
     }
@@ -3960,6 +3960,9 @@ export class AdminService {
       data: { status },
     });
 
+    // Keep denormalized product rating in sync when hiding/approving
+    await this.recalculateProductReviewStats(review.productId);
+
     logger.info(`Review status updated: ${reviewId}, new status: ${status}`);
     return updatedReview;
   }
@@ -3975,12 +3978,37 @@ export class AdminService {
       throw new AppError('Review not found', 404);
     }
 
-    await prisma.review.delete({
+    // Soft-delete so moderation is recoverable and public lists stay consistent
+    await prisma.review.update({
       where: { id },
+      data: { deletedAt: new Date(), status: 'REJECTED' },
     });
+
+    await this.recalculateProductReviewStats(review.productId);
 
     logger.info(`Review deleted: ${reviewId}`);
     return { message: 'Review deleted successfully' };
+  }
+
+  /** Recalculate Product.avgRating + reviewCount from live APPROVED reviews. */
+  private async recalculateProductReviewStats(productId: number): Promise<void> {
+    const agg = await prisma.review.aggregate({
+      where: {
+        productId,
+        deletedAt: null,
+        status: 'APPROVED',
+      },
+      _avg: { rating: true },
+      _count: { id: true },
+    });
+
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        avgRating: agg._avg.rating ? Math.round(Number(agg._avg.rating) * 10) / 10 : 0,
+        reviewCount: agg._count.id,
+      },
+    });
   }
 
   async getWishlist(filters: {
