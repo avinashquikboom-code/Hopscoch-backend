@@ -256,6 +256,7 @@ router.post(
   '/mobile/wallet/verify',
   authenticate,
   loyaltyController.verifyWalletLoad.bind(loyaltyController)
+  
 );
 router.post(
   '/mobile/wallet/withdraw',
