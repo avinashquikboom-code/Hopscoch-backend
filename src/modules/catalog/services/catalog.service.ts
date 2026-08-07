@@ -5,21 +5,43 @@ import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
 export class CatalogService {
   async listProducts(filters: {
     categoryId?: string;
+    category?: string;
     brandId?: string;
     minPrice?: number;
     maxPrice?: number;
     page?: number;
     limit?: number;
     sort?: string;
+    search?: string;
+    q?: string;
+    query?: string;
+    isFeatured?: boolean;
+    isTrending?: boolean;
+    isNewArrival?: boolean;
+    isBestSeller?: boolean;
+    gender?: string;
+    ageGroup?: string;
+    baseUrl?: string;
   }) {
     const {
       categoryId,
+      category,
       brandId,
       minPrice,
       maxPrice,
       page = 1,
       limit = 100,
-      sort = 'createdAt',
+      sort = 'newest',
+      search,
+      q,
+      query,
+      isFeatured,
+      isTrending,
+      isNewArrival,
+      isBestSeller,
+      gender,
+      ageGroup,
+      baseUrl: customBaseUrl,
     } = filters;
 
     const skip = (page - 1) * limit;
@@ -29,8 +51,10 @@ export class CatalogService {
       deletedAt: null,
     };
 
-    if (categoryId) {
-      const numCatId = Number(categoryId);
+    // Category resolution by ID, slug, or name
+    const catInput = categoryId || category;
+    if (catInput) {
+      const numCatId = Number(catInput);
       if (!isNaN(numCatId)) {
         const childCategories = await prisma.category.findMany({
           where: { parentId: numCatId, deletedAt: null },
@@ -39,23 +63,64 @@ export class CatalogService {
         const allCategoryIds = [numCatId, ...childCategories.map((c) => c.id)];
         where.categoryId = { in: allCategoryIds };
       } else {
-        where.categoryId = categoryId;
+        const catRecord = await prisma.category.findFirst({
+          where: {
+            OR: [
+              { slug: { equals: String(catInput), mode: 'insensitive' } },
+              { name: { equals: String(catInput), mode: 'insensitive' } },
+            ],
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (catRecord) {
+          const childCategories = await prisma.category.findMany({
+            where: { parentId: catRecord.id, deletedAt: null },
+            select: { id: true },
+          });
+          const allCategoryIds = [catRecord.id, ...childCategories.map((c) => c.id)];
+          where.categoryId = { in: allCategoryIds };
+        }
       }
     }
+
     if (brandId) {
       const numBrandId = Number(brandId);
       where.brandId = !isNaN(numBrandId) ? numBrandId : brandId;
     }
+
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.basePrice = {};
       if (minPrice !== undefined) where.basePrice.gte = minPrice;
       if (maxPrice !== undefined) where.basePrice.lte = maxPrice;
     }
 
+    if (isFeatured !== undefined) where.isFeatured = isFeatured;
+    if (isTrending !== undefined) where.isTrending = isTrending;
+    if (isNewArrival !== undefined) where.isNewArrival = isNewArrival;
+    if (isBestSeller !== undefined) where.isBestSeller = isBestSeller;
+    if (gender) where.gender = gender as any;
+    if (ageGroup) where.ageGroup = ageGroup as any;
+
+    const searchKeyword = (search || q || query || '').trim();
+    if (searchKeyword) {
+      const numSearch = Number(searchKeyword);
+      where.OR = [
+        ...(isNaN(numSearch) ? [] : [{ id: numSearch }]),
+        { name: { contains: searchKeyword, mode: 'insensitive' } },
+        { description: { contains: searchKeyword, mode: 'insensitive' } },
+        { hsnCode: { contains: searchKeyword, mode: 'insensitive' } },
+        { category: { name: { contains: searchKeyword, mode: 'insensitive' } } },
+        { brand: { name: { contains: searchKeyword, mode: 'insensitive' } } },
+        { variants: { some: { sku: { contains: searchKeyword, mode: 'insensitive' } } } },
+      ];
+    }
+
     const orderBy: any = {};
     if (sort === 'price_asc') orderBy.basePrice = 'asc';
     else if (sort === 'price_desc') orderBy.basePrice = 'desc';
     else if (sort === 'rating') orderBy.avgRating = 'desc';
+    else if (sort === 'popular') orderBy.reviewCount = 'desc';
     else if (sort === 'newest') orderBy.createdAt = 'desc';
     else orderBy.createdAt = 'desc';
 
@@ -69,8 +134,7 @@ export class CatalogService {
           taxRule: true,
           brand: true,
           images: {
-            where: { sortOrder: 0 },
-            take: 1,
+            orderBy: { sortOrder: 'asc' },
           },
           variants: {
             where: { deletedAt: null },
@@ -83,83 +147,9 @@ export class CatalogService {
       prisma.product.count({ where }),
     ]);
 
-    const products = await Promise.all(rawProducts.map(async (p) => {
-      const vars = p.variants || [];
-      const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
-      const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
-      let effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
-      if (!effectiveTaxRule && p.taxRuleId) {
-        effectiveTaxRule = await prisma.tax.findUnique({
-          where: { id: Number(p.taxRuleId) },
-        });
-      }
-      if (!effectiveTaxRule && (p.category as any)?.taxRuleId) {
-        effectiveTaxRule = await prisma.tax.findUnique({
-          where: { id: Number((p.category as any).taxRuleId) },
-        });
-      }
-      if (!effectiveTaxRule) {
-        effectiveTaxRule = await prisma.tax.findFirst({
-          where: { isActive: true },
-          orderBy: { id: 'asc' },
-        });
-      }
-      const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
-      const taxPercent = effectiveTaxRule
-          ? Number(effectiveTaxRule.rate || 0)
-          : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
-      const rawType = (p as any).taxType ?? (p as any).tax_type ?? (p as any).type;
-      const taxType = effectiveTaxRule
-          ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
-          : (rawType ? String(rawType) : 'NONE');
-      const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
-      const baseP = Number(p.basePrice || 0);
-      const rawTaxVal = (taxPercent <= 0 || baseP <= 0)
-          ? 0
-          : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
-      const taxAmount = Math.round(rawTaxVal * 100) / 100;
-
-      const catObj = p.category as any;
-      const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || null;
-      const mainCategoryId = catObj?.parent ? String(catObj.parent.id) : String(catObj?.id || p.categoryId);
-      const subCategoryName = catObj?.parent ? catObj.name : null;
-      const subCategoryId = catObj?.parent ? String(catObj.id) : null;
-
-      const rewardCalc = await loyaltyRuleEngine.calculateProductReward(p);
-
-      return {
-        ...p,
-        // Mobile reads json['rating'], website reads avgRating — expose both
-        rating: Number(p.avgRating || 0),
-        review_count: p.reviewCount || 0,
-        categoryName: mainCategoryName,
-        parentCategoryId: mainCategoryId,
-        subCategoryName: subCategoryName,
-        subCategory: subCategoryName,
-        subCategoryId: subCategoryId,
-        taxRule: effectiveTaxRule,
-        effectiveTaxRule,
-        taxPercent,
-        tax_percent: taxPercent,
-        taxRate: taxPercent,
-        tax_rate: taxPercent,
-        taxType,
-        tax_type: taxType,
-        taxAmount,
-        tax_amount: taxAmount,
-        taxValue: taxAmount,
-        margin: Number(p.margin || 0),
-        maxMargin: Number(p.margin || 0),
-        margin_ceiling: Number(p.margin || 0),
-        colors,
-        sizes,
-        rewardEarned: rewardCalc.earnPoints,
-        maxRedeemable: rewardCalc.maxRedeemablePoints,
-        allowRedemption: rewardCalc.allowRedemption,
-        allowEarning: rewardCalc.allowEarning,
-        appliedRuleType: rewardCalc.appliedRuleType,
-      };
-    }));
+    const products = await Promise.all(
+      rawProducts.map((p) => this.formatProductResponse(p, customBaseUrl))
+    );
 
     return {
       products,
@@ -172,12 +162,146 @@ export class CatalogService {
     };
   }
 
+  async formatProductResponse(p: any, customBaseUrl?: string) {
+    const baseUrl = customBaseUrl || process.env.API_URL || 'https://api.fciseller.com';
+    const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600&auto=format&fit=crop&q=80';
+
+    const toFullUrl = (url: string | null | undefined): string | null => {
+      if (!url || typeof url !== 'string') return null;
+      const trimmed = url.trim();
+      if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      return `${baseUrl}${cleanPath}`;
+    };
+
+    const vars = p.variants || [];
+    const colors = Array.from(new Set(vars.map((v: any) => v.color).filter((c: any) => c && c !== 'Default')));
+    const sizes = Array.from(new Set(vars.map((v: any) => v.size).filter((s: any) => s && s !== 'One Size')));
+
+    let effectiveTaxRule = p.taxRule || (p.category as any)?.taxRule || null;
+    if (!effectiveTaxRule && p.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number(p.taxRuleId) },
+      });
+    }
+    if (!effectiveTaxRule && (p.category as any)?.taxRuleId) {
+      effectiveTaxRule = await prisma.tax.findUnique({
+        where: { id: Number((p.category as any).taxRuleId) },
+      });
+    }
+    if (!effectiveTaxRule) {
+      effectiveTaxRule = await prisma.tax.findFirst({
+        where: { isActive: true },
+        orderBy: { id: 'asc' },
+      });
+    }
+
+    const rawRate = (p as any).taxPercent ?? (p as any).tax_percent ?? (p as any).taxRate ?? (p as any).tax_rate;
+    const taxPercent = effectiveTaxRule
+        ? Number(effectiveTaxRule.rate || 0)
+        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
+    const rawType = (p as any).taxType ?? (p as any).tax_type ?? (p as any).type;
+    const taxType = effectiveTaxRule
+        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
+        : (rawType ? String(rawType) : 'NONE');
+    const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
+    const baseP = Number(p.basePrice || 0);
+    const rawTaxVal = (taxPercent <= 0 || baseP <= 0)
+        ? 0
+        : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
+    const taxAmount = Math.round(rawTaxVal * 100) / 100;
+
+    const catObj = p.category as any;
+    const mainCategoryName = catObj?.parent ? catObj.parent.name : catObj?.name || 'Collections';
+    const mainCategoryId = catObj?.parent ? String(catObj.parent.id) : String(catObj?.id || p.categoryId || '1');
+    const subCategoryName = catObj?.parent ? catObj.name : null;
+    const subCategoryId = catObj?.parent ? String(catObj.id) : null;
+
+    const rewardCalc = await loyaltyRuleEngine.calculateProductReward(p);
+
+    let resolvedImages = (p.images || []).map((img: any) => ({
+      ...img,
+      url: toFullUrl(img.url) || DEFAULT_PLACEHOLDER,
+    }));
+
+    if (resolvedImages.length === 0) {
+      resolvedImages = [{
+        id: 0,
+        productId: p.id,
+        url: toFullUrl(p.thumbnailUrl) || DEFAULT_PLACEHOLDER,
+        altText: p.name || 'Product Image',
+        sortOrder: 0,
+      }];
+    }
+
+    const resolvedThumbnailUrl = toFullUrl(p.thumbnailUrl) || (resolvedImages.length > 0 ? resolvedImages[0].url : DEFAULT_PLACEHOLDER);
+    const totalStock = vars.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+
+    return {
+      ...p,
+      price: baseP,
+      stock: totalStock,
+      thumbnailUrl: resolvedThumbnailUrl,
+      images: resolvedImages,
+      colors,
+      sizes,
+      category: catObj ? {
+        ...catObj,
+        iconUrl: toFullUrl(catObj.iconUrl),
+        bannerUrl: toFullUrl(catObj.bannerUrl),
+        parent: catObj.parent ? {
+          ...catObj.parent,
+          iconUrl: toFullUrl(catObj.parent.iconUrl),
+          bannerUrl: toFullUrl(catObj.parent.bannerUrl),
+        } : null,
+      } : null,
+      brand: p.brand ? {
+        ...p.brand,
+        logoUrl: toFullUrl(p.brand.logoUrl),
+        bannerUrl: toFullUrl(p.brand.bannerUrl),
+      } : null,
+      rating: Number(p.avgRating || 4.5),
+      reviewCount: p.reviewCount || 0,
+      review_count: p.reviewCount || 0,
+      categoryName: mainCategoryName,
+      parentCategoryId: mainCategoryId,
+      subCategoryName: subCategoryName,
+      subCategory: subCategoryName,
+      subCategoryId: subCategoryId,
+      taxRule: effectiveTaxRule,
+      effectiveTaxRule,
+      taxPercent,
+      tax_percent: taxPercent,
+      taxRate: taxPercent,
+      tax_rate: taxPercent,
+      taxType,
+      tax_type: taxType,
+      taxAmount,
+      tax_amount: taxAmount,
+      taxValue: taxAmount,
+      margin: Number(p.margin || 0),
+      maxMargin: Number(p.margin || 0),
+      margin_ceiling: Number(p.margin || 0),
+      hsnCode: p.hsnCode || effectiveTaxRule?.hsnCode || null,
+      rewardEarned: rewardCalc.earnPoints,
+      maxRedeemable: rewardCalc.maxRedeemablePoints,
+      allowRedemption: rewardCalc.allowRedemption,
+      allowEarning: rewardCalc.allowEarning,
+      appliedRuleType: rewardCalc.appliedRuleType,
+      isFeatured: Boolean(p.isFeatured),
+      isTrending: Boolean(p.isTrending),
+      isNewArrival: Boolean(p.isNewArrival),
+      isBestSeller: Boolean(p.isBestSeller),
+    };
+  }
+
   async getProductById(productId: any) {
     const product = await prisma.product.findUnique({
       where: { id: Number(productId), deletedAt: null },
       include: {
         category: {
-          include: { taxRule: true },
+          include: { parent: true, taxRule: true },
         },
         taxRule: true,
         brand: true,
@@ -194,73 +318,7 @@ export class CatalogService {
       throw new AppError('Product not found', 404);
     }
 
-    const vars = product.variants || [];
-    const colors = Array.from(new Set(vars.map((v) => v.color).filter((c) => c && c !== 'Default')));
-    const sizes = Array.from(new Set(vars.map((v) => v.size).filter((s) => s && s !== 'One Size')));
-    let effectiveTaxRule = product.taxRule || (product.category as any)?.taxRule || null;
-    if (!effectiveTaxRule && product.taxRuleId) {
-      effectiveTaxRule = await prisma.tax.findUnique({
-        where: { id: Number(product.taxRuleId) },
-      });
-    }
-    if (!effectiveTaxRule && (product.category as any)?.taxRuleId) {
-      effectiveTaxRule = await prisma.tax.findUnique({
-        where: { id: Number((product.category as any).taxRuleId) },
-      });
-    }
-    if (!effectiveTaxRule) {
-      effectiveTaxRule = await prisma.tax.findFirst({
-        where: { isActive: true },
-        orderBy: { id: 'asc' },
-      });
-    }
-    const rawRate = (product as any).taxPercent ?? (product as any).tax_percent ?? (product as any).taxRate ?? (product as any).tax_rate;
-    const taxPercent = effectiveTaxRule
-        ? Number(effectiveTaxRule.rate || 0)
-        : (rawRate != null && !isNaN(Number(rawRate)) ? Number(rawRate) : 0);
-    const rawType = (product as any).taxType ?? (product as any).tax_type ?? (product as any).type;
-    const taxType = effectiveTaxRule
-        ? (effectiveTaxRule.taxType || effectiveTaxRule.type || 'EXCLUSIVE')
-        : (rawType ? String(rawType) : 'NONE');
-
-    const isInclusive = String(taxType).trim().toUpperCase() === 'INCLUSIVE';
-    const baseP = Number(product.basePrice || 0);
-    const rawTaxVal = (taxPercent <= 0 || baseP <= 0)
-        ? 0
-        : (isInclusive ? baseP - (baseP / (1 + taxPercent / 100)) : (baseP * taxPercent) / 100);
-    const taxAmount = Math.round(rawTaxVal * 100) / 100;
-
-    const rewardCalc = await loyaltyRuleEngine.calculateProductReward(product);
-
-    return {
-      ...product,
-      // Mobile reads json['rating'], website reads avgRating — expose both
-      rating: Number(product.avgRating || 0),
-      review_count: product.reviewCount || 0,
-      taxRule: effectiveTaxRule,
-      effectiveTaxRule,
-      taxPercent,
-      tax_percent: taxPercent,
-      taxRate: taxPercent,
-      tax_rate: taxPercent,
-      taxType,
-      tax_type: taxType,
-      taxAmount,
-      tax_amount: taxAmount,
-      taxValue: taxAmount,
-      tax_value: taxAmount,
-      margin: Number(product.margin || 0),
-      maxMargin: Number(product.margin || 0),
-      margin_ceiling: Number(product.margin || 0),
-      hsnCode: product.hsnCode || effectiveTaxRule?.hsnCode || null,
-      colors,
-      sizes,
-      rewardEarned: rewardCalc.earnPoints,
-      maxRedeemable: rewardCalc.maxRedeemablePoints,
-      allowRedemption: rewardCalc.allowRedemption,
-      allowEarning: rewardCalc.allowEarning,
-      appliedRuleType: rewardCalc.appliedRuleType,
-    };
+    return await this.formatProductResponse(product);
   }
 
   async getProductImages(productId: any) {
@@ -274,7 +332,7 @@ export class CatalogService {
     }
 
     const images = await prisma.productImage.findMany({
-      where: { productId },
+      where: { productId: Number(productId) },
       orderBy: { sortOrder: 'asc' },
     });
 
@@ -292,7 +350,7 @@ export class CatalogService {
     }
 
     const variants = await prisma.productVariant.findMany({
-      where: { productId, deletedAt: null },
+      where: { productId: Number(productId), deletedAt: null },
       orderBy: { price: 'asc' },
     });
 
@@ -300,8 +358,9 @@ export class CatalogService {
   }
 
   async getRelatedProducts(productId: any) {
+    const numProductId = Number(productId);
     const product = await prisma.product.findUnique({
-      where: { id: Number(productId), deletedAt: null },
+      where: { id: numProductId, deletedAt: null },
       select: { categoryId: true, brandId: true },
     });
 
@@ -311,7 +370,7 @@ export class CatalogService {
 
     const relatedProducts = await prisma.product.findMany({
       where: {
-        id: { not: productId },
+        id: { not: numProductId },
         status: 'PUBLISHED',
         deletedAt: null,
         OR: [
@@ -320,7 +379,7 @@ export class CatalogService {
         ],
       },
       include: {
-        category: true,
+        category: { include: { parent: true, taxRule: true } },
         brand: true,
         images: {
           where: { sortOrder: 0 },
@@ -333,7 +392,9 @@ export class CatalogService {
       take: 8,
     });
 
-    return relatedProducts;
+    return await Promise.all(
+      relatedProducts.map((p) => this.formatProductResponse(p))
+    );
   }
 }
 

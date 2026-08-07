@@ -55,6 +55,12 @@ const categoryController = CategoryController;
  *         description: Products retrieved successfully
  */
 router.get('/products', catalogController.listProducts.bind(catalogController));
+router.get('/products/featured', catalogController.getFeaturedProducts.bind(catalogController));
+router.get('/products/trending', catalogController.getTrendingProducts.bind(catalogController));
+router.get('/products/new', catalogController.getNewArrivals.bind(catalogController));
+router.get('/products/search', catalogController.searchProducts.bind(catalogController));
+router.get('/products/category/:categoryId', catalogController.getProductsByCategory.bind(catalogController));
+router.get('/categories/:categoryId/products', catalogController.getProductsByCategory.bind(catalogController));
 
 /**
  * @swagger

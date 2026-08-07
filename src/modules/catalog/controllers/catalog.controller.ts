@@ -53,8 +53,67 @@ export class CatalogController {
   async getRelatedProducts(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { productId } = req.params;
-      const products = await CatalogService.getRelatedProducts(productId);
-      ResponseFormatter.success(res, 'Related products retrieved successfully', products);
+      const related = await CatalogService.getRelatedProducts(productId);
+      ResponseFormatter.success(res, 'Related products retrieved successfully', related);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getFeaturedProducts(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : 20;
+      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+      const result = await CatalogService.listProducts({ isFeatured: true, limit, baseUrl });
+      ResponseFormatter.success(res, 'Featured products retrieved successfully', result.products);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getTrendingProducts(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : 20;
+      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+      const result = await CatalogService.listProducts({ isTrending: true, limit, baseUrl });
+      ResponseFormatter.success(res, 'Trending products retrieved successfully', result.products);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getNewArrivals(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : 20;
+      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+      const result = await CatalogService.listProducts({ isNewArrival: true, sort: 'newest', limit, baseUrl });
+      ResponseFormatter.success(res, 'New arrivals retrieved successfully', result.products);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async searchProducts(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const q = (req.query.q || req.query.query || req.query.search || '').toString();
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+      const page = req.query.page ? Number(req.query.page) : 1;
+      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+      const result = await CatalogService.listProducts({ search: q, limit, page, baseUrl });
+      ResponseFormatter.success(res, 'Search results retrieved successfully', result);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getProductsByCategory(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const categoryId = req.params.categoryId || req.params.id;
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
+      const page = req.query.page ? Number(req.query.page) : 1;
+      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
+      const result = await CatalogService.listProducts({ categoryId, limit, page, baseUrl });
+      ResponseFormatter.success(res, 'Category products retrieved successfully', result);
     } catch (error) {
       throw error;
     }
