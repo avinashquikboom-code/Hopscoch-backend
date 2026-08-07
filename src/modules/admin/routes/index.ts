@@ -2988,4 +2988,12 @@ router.get('/wishlist', authenticate, adminController.getWishlist.bind(adminCont
 router.get('/cart', authenticate, adminController.getCart.bind(adminController));
 router.post('/reset-data', authenticate, adminController.resetData.bind(adminController));
 
+// Search Keyword Content Management routes
+const searchKeywordController = require('../../search/controllers/search.controller').default;
+router.get('/search-keywords', authenticate, searchKeywordController.getAdminKeywords.bind(searchKeywordController));
+router.post('/search-keywords', authenticate, searchKeywordController.createKeyword.bind(searchKeywordController));
+router.put('/search-keywords/:id', authenticate, searchKeywordController.updateKeyword.bind(searchKeywordController));
+router.delete('/search-keywords/:id', authenticate, searchKeywordController.deleteKeyword.bind(searchKeywordController));
+router.patch('/search-keywords/status', authenticate, searchKeywordController.updateStatus.bind(searchKeywordController));
+
 export default router;

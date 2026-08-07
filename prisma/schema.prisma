@@ -21,6 +21,11 @@ enum Role {
   ADMIN
 }
 
+enum SearchKeywordType {
+  POPULAR
+  TRENDING
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -600,6 +605,21 @@ model ProductVariant {
 // =====================================================================
 // SEARCH
 // =====================================================================
+
+model SearchKeyword {
+  id          Int               @id @default(autoincrement())
+  keyword     String            @unique
+  type        SearchKeywordType
+  priority    Int               @default(0)
+  isActive    Boolean           @default(true) @map("is_active")
+  searchCount Int               @default(0) @map("search_count")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@index([type, isActive])
+  @@index([priority, searchCount])
+  @@map("search_keywords")
+}
 
 model RecentSearch {
   id        Int   @id @default(autoincrement())

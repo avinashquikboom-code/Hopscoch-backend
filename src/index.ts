@@ -311,7 +311,7 @@ import socialContentRoutes from './modules/content/routes/socialContent.routes';
 
 app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
-app.use('/api/search', searchRoutes);
+app.use(['/api/search', '/api/v1/search', '/api/v1/web/search', '/api/v1/mobile/search'], searchRoutes);
 app.use('/api', socialContentRoutes);
 import webhookRoutes from './modules/webhooks/routes/webhook.routes';
 
