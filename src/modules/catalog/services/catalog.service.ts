@@ -323,8 +323,12 @@ export class CatalogService {
   }
 
   async getProductById(productId: any) {
+    const numId = Number(productId);
+    if (isNaN(numId) || numId <= 0) {
+      throw new AppError('Product not found', 404, true, 'NOT_FOUND');
+    }
     const product = await prisma.product.findUnique({
-      where: { id: Number(productId), deletedAt: null },
+      where: { id: numId, deletedAt: null },
       include: {
         category: {
           include: { parent: true, taxRule: true },
