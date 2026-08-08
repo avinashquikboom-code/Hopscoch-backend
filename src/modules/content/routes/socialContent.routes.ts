@@ -31,6 +31,10 @@ router.patch(
   '/admin/content/:id',
   authenticate,
   authorize('ADMIN'),
+  upload.fields([
+    { name: 'media', maxCount: 10 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
   SocialContentController.updateContentPost
 );
 

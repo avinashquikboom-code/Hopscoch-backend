@@ -89,7 +89,20 @@ export class SocialContentController {
   static async updateContentPost(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const { title, caption, isActive, sortOrder, productIds } = req.body;
+      const { title, caption, isActive, sortOrder, productIds, type } = req.body;
+
+      let mediaFiles: Express.Multer.File[] = [];
+      let thumbnailFile: Express.Multer.File | undefined = undefined;
+
+      if (Array.isArray(req.files)) {
+        mediaFiles = req.files;
+      } else if (req.files && typeof req.files === 'object') {
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] };
+        mediaFiles = filesMap['media'] || [];
+        if (filesMap['thumbnail'] && filesMap['thumbnail'].length > 0) {
+          thumbnailFile = filesMap['thumbnail'][0];
+        }
+      }
 
       let parsedProductIds: number[] | undefined = undefined;
       if (productIds !== undefined) {
@@ -104,13 +117,19 @@ export class SocialContentController {
         }
       }
 
-      const updated = await SocialContentService.updateContentPost(Number(id), {
-        title,
-        caption,
-        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-        sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
-        productIds: parsedProductIds,
-      });
+      const updated = await SocialContentService.updateContentPost(
+        Number(id),
+        {
+          type,
+          title,
+          caption,
+          isActive: isActive !== undefined ? (isActive === true || isActive === 'true') : undefined,
+          sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
+          productIds: parsedProductIds,
+        },
+        mediaFiles.length > 0 ? mediaFiles : undefined,
+        thumbnailFile
+      );
 
       res.status(200).json({
         success: true,

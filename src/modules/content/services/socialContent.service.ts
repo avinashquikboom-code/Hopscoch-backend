@@ -215,11 +215,24 @@ export class SocialContentService {
   static async updateContentPost(
     id: number,
     data: {
+      type?: 'PLAY' | 'POST' | 'STORY';
       title?: string;
       caption?: string;
       isActive?: boolean;
       sortOrder?: number;
       productIds?: number[];
+    },
+    files?: Array<{
+      buffer?: Buffer;
+      originalname?: string;
+      mimetype?: string;
+      size?: number;
+    }>,
+    thumbnailFile?: {
+      buffer?: Buffer;
+      originalname?: string;
+      mimetype?: string;
+      size?: number;
     }
   ) {
     const post = await prisma.contentPost.findUnique({ where: { id } });
@@ -228,10 +241,32 @@ export class SocialContentService {
     }
 
     const updateData: any = {};
+    if (data.type && ['PLAY', 'POST', 'STORY'].includes(data.type)) {
+      updateData.type = data.type;
+    }
     if (data.title !== undefined) updateData.title = data.title;
     if (data.caption !== undefined) updateData.caption = data.caption;
     if (data.isActive !== undefined) updateData.isActive = Boolean(data.isActive);
     if (data.sortOrder !== undefined) updateData.sortOrder = Number(data.sortOrder);
+
+    const targetType = updateData.type || post.type;
+
+    // Handle new media file uploads if provided
+    if (files && files.length > 0) {
+      const mediaUrls: string[] = [];
+      for (const file of files) {
+        const url = await uploadToS3(file, `content/${targetType.toLowerCase()}`);
+        mediaUrls.push(url);
+      }
+      updateData.mediaUrls = mediaUrls;
+      updateData.mediaType = files[0].mimetype?.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+    }
+
+    // Handle new thumbnail upload if provided
+    if (thumbnailFile) {
+      const thumbnailUrl = await uploadToS3(thumbnailFile, 'content/thumbnails');
+      updateData.thumbnailUrl = thumbnailUrl;
+    }
 
     // If productIds provided, update tagged products
     if (Array.isArray(data.productIds)) {
