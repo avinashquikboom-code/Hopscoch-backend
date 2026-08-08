@@ -3491,14 +3491,14 @@ export class AdminService {
       type: (data.type?.toUpperCase() as any) || 'SYSTEM',
     };
 
-    let result = { success: true, deliveredCount: 0 };
+    let result: any = { success: true, deliveredCount: 0 };
     if (userIds.length > 0) {
       result = await UnifiedNotificationService.sendNotificationToUser(userIds, payload);
     }
 
     return {
       success: true,
-      deliveredCount: result.deliveredCount,
+      deliveredCount: result?.deliveredCount ?? 0,
       message: 'Broadcast notification sent successfully',
     };
   }
