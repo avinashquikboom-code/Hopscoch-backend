@@ -46,15 +46,15 @@ export class CatalogService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      status: 'PUBLISHED',
+      status: { in: ['PUBLISHED', 'ACTIVE'] },
       deletedAt: null,
     };
 
-    // Category resolution by ID, slug, or name
+    // Category resolution by ID, slug, or name (case-insensitive + subcategory tree)
     const catInput = categoryId || category;
-    if (catInput) {
+    if (catInput && catInput !== 'all') {
       const numCatId = Number(catInput);
-      if (!isNaN(numCatId)) {
+      if (!isNaN(numCatId) && numCatId > 0) {
         const childCategories = await prisma.category.findMany({
           where: { parentId: numCatId, deletedAt: null },
           select: { id: true },
@@ -62,22 +62,26 @@ export class CatalogService {
         const allCategoryIds = [numCatId, ...childCategories.map((c) => c.id)];
         where.categoryId = { in: allCategoryIds };
       } else {
-        const catRecord = await prisma.category.findFirst({
+        const catStr = String(catInput).trim();
+        const catRecords = await prisma.category.findMany({
           where: {
             OR: [
-              { slug: { equals: String(catInput), mode: 'insensitive' } },
-              { name: { equals: String(catInput), mode: 'insensitive' } },
+              { slug: { equals: catStr, mode: 'insensitive' } },
+              { name: { equals: catStr, mode: 'insensitive' } },
+              { slug: { contains: catStr, mode: 'insensitive' } },
+              { name: { contains: catStr, mode: 'insensitive' } },
             ],
             deletedAt: null,
           },
           select: { id: true },
         });
-        if (catRecord) {
+        if (catRecords.length > 0) {
+          const catIds = catRecords.map((c) => c.id);
           const childCategories = await prisma.category.findMany({
-            where: { parentId: catRecord.id, deletedAt: null },
+            where: { parentId: { in: catIds }, deletedAt: null },
             select: { id: true },
           });
-          const allCategoryIds = [catRecord.id, ...childCategories.map((c) => c.id)];
+          const allCategoryIds = Array.from(new Set([...catIds, ...childCategories.map((c) => c.id)]));
           where.categoryId = { in: allCategoryIds };
         }
       }
