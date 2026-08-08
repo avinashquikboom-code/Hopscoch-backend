@@ -163,15 +163,8 @@ router.post('/:id/send', authenticate, async (req, res, next) => {
           select: { id: true },
         });
         if (activeUsers.length > 0) {
-          await prisma.notification.createMany({
-            data: activeUsers.map(u => ({
-              userId: u.id,
-              title: payload.title,
-              body: payload.body,
-              type: payload.type,
-              channel: 'PUSH',
-            })),
-          });
+          const userIds = activeUsers.map(u => u.id);
+          await UnifiedNotificationService.sendNotificationToUser(userIds, payload);
         }
       } else if (Array.isArray(targetNotification.targetUsers) && targetNotification.targetUsers.length > 0) {
         const userIds = targetNotification.targetUsers.map((u: any) => Number(u)).filter((n: number) => !isNaN(n));

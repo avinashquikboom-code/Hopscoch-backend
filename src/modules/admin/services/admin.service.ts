@@ -3484,49 +3484,22 @@ export class AdminService {
       select: { id: true },
     });
 
-    const notificationsData = activeUsers.map(u => ({
-      userId: u.id,
+    const userIds = activeUsers.map(u => u.id);
+    const payload = {
       title: data.title,
-      body: data.message,
-      type: data.type || 'SYSTEM',
-      channel: data.channel || 'PUSH',
-    }));
+      body: data.message || data.body || '',
+      type: (data.type?.toUpperCase() as any) || 'SYSTEM',
+    };
 
-    let notification;
-    if (notificationsData.length > 0) {
-      await prisma.notification.createMany({
-        data: notificationsData,
-      });
-    }
-
-    try {
-      const { notificationQueue } = await import('../../../config/queue');
-
-      if (data.deviceTokens && data.deviceTokens.length > 0) {
-        for (const token of data.deviceTokens) {
-          await notificationQueue.add('push-notification', {
-            type: 'PUSH',
-            data: {
-              title: data.title,
-              body: data.message,
-              deviceToken: token,
-              additionalData: {
-                type: data.type,
-              },
-            },
-          });
-        }
-      } else {
-        console.log('Broadcast notification to all users');
-      }
-    } catch (err) {
-      logger.error('Failed to queue push notifications:', err);
+    let result = { success: true, deliveredCount: 0 };
+    if (userIds.length > 0) {
+      result = await UnifiedNotificationService.sendNotificationToUser(userIds, payload);
     }
 
     return {
       success: true,
-      notification,
-      message: 'Notification queued for sending',
+      deliveredCount: result.deliveredCount,
+      message: 'Broadcast notification sent successfully',
     };
   }
 
