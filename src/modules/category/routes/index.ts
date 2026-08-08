@@ -26,17 +26,26 @@ router.get('/', async (req, res, next) => {
         children: {
           where: { deletedAt: null },
           orderBy: { sortOrder: 'asc' },
+          include: {
+            _count: { select: { products: { where: { deletedAt: null, status: 'PUBLISHED' } } } },
+          },
         },
+        _count: { select: { products: { where: { deletedAt: null, status: 'PUBLISHED' } } } },
       },
       orderBy: { sortOrder: 'asc' },
     });
-    
+
     const categoriesWithFullUrls = categories.map((category: any) => ({
       ...category,
       iconUrl: toFullUrl(category.iconUrl),
       bannerUrl: toFullUrl(category.bannerUrl),
+      productCount: category._count?.products ?? 0,
+      children: (category.children ?? []).map((child: any) => ({
+        ...child,
+        productCount: child._count?.products ?? 0,
+      })),
     }));
-    
+
     return ResponseFormatter.success(res, 'Categories retrieved successfully', categoriesWithFullUrls);
   } catch (error) {
     return next(error);
@@ -51,19 +60,29 @@ router.get('/:categoryId', async (req, res, next) => {
       where: { id: Number(categoryId), deletedAt: null },
       include: {
         parent: true,
-        children: true,
+        children: {
+          include: {
+            _count: { select: { products: { where: { deletedAt: null, status: 'PUBLISHED' } } } },
+          },
+        },
+        _count: { select: { products: { where: { deletedAt: null, status: 'PUBLISHED' } } } },
       },
     });
     if (!category) {
       return res.status(404).json({ success: false, message: 'Category not found' });
     }
-    
+
     const categoryWithFullUrls = {
       ...category,
       iconUrl: toFullUrl(category.iconUrl),
       bannerUrl: toFullUrl(category.bannerUrl),
+      productCount: (category as any)._count?.products ?? 0,
+      children: ((category as any).children ?? []).map((child: any) => ({
+        ...child,
+        productCount: child._count?.products ?? 0,
+      })),
     };
-    
+
     return ResponseFormatter.success(res, 'Category retrieved successfully', categoryWithFullUrls);
   } catch (error) {
     return next(error);
