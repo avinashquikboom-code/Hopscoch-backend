@@ -326,10 +326,9 @@ export class SocialContentService {
 
     const items = await prisma.contentPost.findMany({
       where: {
-        type: { in: ['POST', 'PLAY'] },
+        type: 'POST',
         isActive: true,
       },
-
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       skip,
       take: limit,
@@ -350,7 +349,6 @@ export class SocialContentService {
         },
         likes: userId ? { where: { userId } } : false,
         _count: { select: { comments: true } },
-
       },
     });
 
@@ -363,7 +361,7 @@ export class SocialContentService {
   static async getStories(userId?: number) {
     const now = new Date();
 
-    let items = await prisma.contentPost.findMany({
+    const items = await prisma.contentPost.findMany({
       where: {
         type: 'STORY',
         isActive: true,
@@ -389,39 +387,6 @@ export class SocialContentService {
         _count: { select: { comments: true } },
       },
     });
-
-    if (items.length < 10) {
-      const existingIds = items.map((i) => i.id);
-      const fillerItems = await prisma.contentPost.findMany({
-        where: {
-          id: { notIn: existingIds },
-          type: { in: ['PLAY', 'POST'] },
-          isActive: true,
-        },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-        take: 10 - items.length,
-        include: {
-          products: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  thumbnailUrl: true,
-                  basePrice: true,
-                  discountType: true,
-                  discountValue: true,
-                },
-              },
-            },
-          },
-          likes: userId ? { where: { userId } } : false,
-          _count: { select: { comments: true } },
-        },
-      });
-
-      items = [...items, ...fillerItems];
-    }
 
     return items.map((item) => this.formatPostResponse(item, userId));
   }
