@@ -1,46 +1,21 @@
 import { Router } from 'express';
-import { authenticate, optionalAuth } from '../../../middleware/auth';
+import { authenticate } from '../../../middleware/auth';
 import prisma from '../../../utils/prisma';
-import { ResponseFormatter } from '../../../utils/responseFormatter';
 import adminController from '../../admin/controllers/admin.controller';
 import catalogController from '../../catalog/controllers/catalog.controller';
 
 const router = Router();
 
+// Sub-routes that must be registered BEFORE /:productId to avoid being caught as product IDs
+router.get('/trending', catalogController.getTrendingProducts.bind(catalogController));
+router.get('/new', catalogController.getNewArrivals.bind(catalogController));
+router.get('/featured', catalogController.getFeaturedProducts.bind(catalogController));
+
 // GET single product by ID
 router.get('/:productId', catalogController.getProductById.bind(catalogController));
 
-// GET all products (catalog ledger) - Public / Optional Auth
-router.get('/', optionalAuth, async (req, res, next) => {
-  try {
-    const products = await prisma.product.findMany({
-      where: { deletedAt: null },
-      include: {
-        category: true,
-        brand: true,
-        variants: {
-          select: {
-            stock: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const mappedProducts = products.map(p => {
-      const totalStock = p.variants.reduce((acc, v) => acc + (v.stock || 0), 0);
-      return {
-        ...p,
-        price: Number(p.basePrice),
-        stock: totalStock,
-      };
-    });
-
-    return ResponseFormatter.success(res, 'Products retrieved successfully', mappedProducts);
-  } catch (error) {
-    return next(error);
-  }
-});
+// GET all products with filters — delegate to catalog service (handles all query params, status, pagination)
+router.get('/', catalogController.listProducts.bind(catalogController));
 
 // Middleware to resolve category and brand strings to database IDs
 const resolveCategoryAndBrand = async (req: any, res: any, next: any) => {
