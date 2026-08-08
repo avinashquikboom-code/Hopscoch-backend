@@ -46,14 +46,21 @@ export class CatalogService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      status: { in: ['PUBLISHED', 'ACTIVE'] },
+      status: 'PUBLISHED',
       deletedAt: null,
     };
 
-    // Category resolution by ID, slug, or name (case-insensitive + subcategory tree)
+    // Category resolution by ID, slug, or name (case-insensitive + subcategory tree + gender target)
     const catInput = categoryId || category;
     if (catInput && catInput !== 'all') {
-      const numCatId = Number(catInput);
+      const catStr = String(catInput).trim();
+      const numCatId = Number(catStr);
+
+      const targetLower = catStr.toLowerCase();
+      const isMenTarget = targetLower === 'men' || targetLower === 'male' || targetLower === 'boy' || targetLower === 'boys';
+      const isWomenTarget = targetLower === 'women' || targetLower === 'female' || targetLower === 'girl' || targetLower === 'girls';
+      const isKidsTarget = targetLower === 'kids' || targetLower === 'kid' || targetLower === 'children' || targetLower === 'baby';
+
       if (!isNaN(numCatId) && numCatId > 0) {
         const childCategories = await prisma.category.findMany({
           where: { parentId: numCatId, deletedAt: null },
@@ -62,7 +69,6 @@ export class CatalogService {
         const allCategoryIds = [numCatId, ...childCategories.map((c) => c.id)];
         where.categoryId = { in: allCategoryIds };
       } else {
-        const catStr = String(catInput).trim();
         const catRecords = await prisma.category.findMany({
           where: {
             OR: [
@@ -75,13 +81,36 @@ export class CatalogService {
           },
           select: { id: true },
         });
-        if (catRecords.length > 0) {
-          const catIds = catRecords.map((c) => c.id);
+
+        const catIds = catRecords.map((c) => c.id);
+        let allCategoryIds: number[] = [];
+        if (catIds.length > 0) {
           const childCategories = await prisma.category.findMany({
             where: { parentId: { in: catIds }, deletedAt: null },
             select: { id: true },
           });
-          const allCategoryIds = Array.from(new Set([...catIds, ...childCategories.map((c) => c.id)]));
+          allCategoryIds = Array.from(new Set([...catIds, ...childCategories.map((c) => c.id)]));
+        }
+
+        if (isMenTarget) {
+          const genderConditions: any[] = [{ gender: 'MALE' }, { gender: 'UNISEX' }];
+          if (allCategoryIds.length > 0) {
+            genderConditions.push({ categoryId: { in: allCategoryIds } });
+          }
+          where.OR = where.OR ? [...where.OR, ...genderConditions] : genderConditions;
+        } else if (isWomenTarget) {
+          const genderConditions: any[] = [{ gender: 'FEMALE' }, { gender: 'UNISEX' }];
+          if (allCategoryIds.length > 0) {
+            genderConditions.push({ categoryId: { in: allCategoryIds } });
+          }
+          where.OR = where.OR ? [...where.OR, ...genderConditions] : genderConditions;
+        } else if (isKidsTarget) {
+          const kidsConditions: any[] = [{ ageGroup: 'KID' }, { ageGroup: 'INFANT' }];
+          if (allCategoryIds.length > 0) {
+            kidsConditions.push({ categoryId: { in: allCategoryIds } });
+          }
+          where.OR = where.OR ? [...where.OR, ...kidsConditions] : kidsConditions;
+        } else if (allCategoryIds.length > 0) {
           where.categoryId = { in: allCategoryIds };
         }
       }
