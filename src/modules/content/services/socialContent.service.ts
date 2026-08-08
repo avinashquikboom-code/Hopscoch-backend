@@ -260,6 +260,11 @@ export class SocialContentService {
       }
       updateData.mediaUrls = mediaUrls;
       updateData.mediaType = files[0].mimetype?.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+
+      // Auto-sync thumbnailUrl to new image if thumbnailFile not provided
+      if (!thumbnailFile && updateData.mediaType === 'IMAGE') {
+        updateData.thumbnailUrl = mediaUrls[0];
+      }
     }
 
     // Handle new thumbnail upload if provided
