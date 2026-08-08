@@ -3427,8 +3427,16 @@ export class AdminService {
     const { page, limit } = filters;
     const skip = (page - 1) * limit;
 
+    const whereClause = {
+      OR: [
+        { type: 'SYSTEM' as const },
+        { user: { role: 'ADMIN' as const } },
+      ],
+    };
+
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
+        where: whereClause,
         select: {
           id: true,
           title: true,
@@ -3446,7 +3454,7 @@ export class AdminService {
         skip,
         take: limit,
       }),
-      prisma.notification.count(),
+      prisma.notification.count({ where: whereClause }),
     ]);
 
     const mappedNotifications = notifications.map(n => ({

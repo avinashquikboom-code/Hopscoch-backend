@@ -364,6 +364,16 @@ export class WebhookService {
             });
           } catch (_) {}
         }
+
+        // Notify Admins of payment failure
+        try {
+          await UnifiedNotificationService.notifyAdmins({
+            title: 'Payment Failure Alert ⚠️',
+            body: `Payment failed for Order #${order.orderNumber || order.id}: ${errorDescription}`,
+            type: 'SYSTEM',
+            data: { orderId: String(order.id), status: 'FAILED' },
+          });
+        } catch (_) {}
       }
     }
   }

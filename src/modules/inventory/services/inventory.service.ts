@@ -3,6 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import { Prisma, WarehouseStatus, StockMovementType } from '@prisma/client';
 import { getDefaultWarehouse } from './warehouse.service';
+import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
 
 type Tx = Omit<
   typeof prisma,
@@ -642,6 +643,17 @@ export async function reserveStock(
         where: { id: item.variantId },
         data: { stock: totalStock },
       });
+
+      if (totalStock <= 5) {
+        try {
+          UnifiedNotificationService.notifyAdmins({
+            title: 'Low Stock Warning ⚠️',
+            body: `Low stock alert! Variant ID #${item.variantId} available stock is down to ${totalStock}.`,
+            type: 'SYSTEM',
+            data: { variantId: String(item.variantId), stock: String(totalStock) },
+          });
+        } catch (_) {}
+      }
     }
   });
 }

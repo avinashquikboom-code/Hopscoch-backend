@@ -86,8 +86,21 @@ export class UnifiedNotificationService {
     if (ids.length === 0) return { success: false, deliveredCount: 0 };
 
     try {
-      // 1. Save in-app notification to DB for persistent list
+      // 1. Save in-app notification to DB for persistent list (with 2-minute idempotency guard)
+      const cutoffTime = new Date(Date.now() - 2 * 60 * 1000);
       for (const uId of ids) {
+        const recentDuplicate = await prisma.notification.findFirst({
+          where: {
+            userId: uId,
+            title: payload.title,
+            createdAt: { gte: cutoffTime },
+          },
+        });
+        if (recentDuplicate) {
+          logger.info(`[NotificationService] Suppressed duplicate notification "${payload.title}" for user ${uId}`);
+          continue;
+        }
+
         await prisma.notification.create({
           data: {
             userId: uId,
@@ -146,8 +159,21 @@ export class UnifiedNotificationService {
       const adminIds = adminUsers.map((a: { id: number }) => a.id);
       if (adminIds.length === 0) return { success: false, deliveredCount: 0 };
 
-      // Save in-app notification for admins
+      // Save in-app notification for admins (with 2-minute idempotency guard)
+      const cutoffTime = new Date(Date.now() - 2 * 60 * 1000);
       for (const adminId of adminIds) {
+        const recentDuplicate = await prisma.notification.findFirst({
+          where: {
+            userId: adminId,
+            title: payload.title,
+            createdAt: { gte: cutoffTime },
+          },
+        });
+        if (recentDuplicate) {
+          logger.info(`[NotificationService] Suppressed duplicate admin notification "${payload.title}" for admin ${adminId}`);
+          continue;
+        }
+
         await prisma.notification.create({
           data: {
             userId: adminId,
