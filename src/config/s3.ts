@@ -1,8 +1,9 @@
 export {
   getS3Config,
-  isS3Configured,
   testS3Connection,
-  uploadToS3,
-  deleteFromS3,
+  isS3Configured,
   validateFile,
+  uploadToS3,
+  getObjectFromS3,
+  deleteFromS3,
 } from '../services/s3.service';

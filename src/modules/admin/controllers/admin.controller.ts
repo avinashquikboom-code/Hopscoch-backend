@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { AuthRequest } from '../../../middleware/auth';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import { AppError } from '../../../middleware/errorHandler';
+import { normalizeAssetUrl } from '../../../utils/asset-url';
 import AdminService from '../services/admin.service';
 import {
   createAdminUserSchema,
@@ -34,13 +35,10 @@ export class AdminController {
         role: role as string,
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative avatar URLs to full URLs
+      // Convert relative avatar URLs to full production/S3 URLs
       const usersWithFullUrls = users.users.map((user: any) => ({
         ...user,
-        avatarUrl: user.avatarUrl ? user.avatarUrl.startsWith('http') ? user.avatarUrl : `${baseUrl}${user.avatarUrl}` : null,
+        avatarUrl: normalizeAssetUrl(user.avatarUrl),
       }));
       
       ResponseFormatter.success(res, `Retrieved ${usersWithFullUrls.length} admin users (page ${page} of ${users.pagination.totalPages})`, {
@@ -207,21 +205,18 @@ export class AdminController {
         brandId: brandId as string,
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative image URLs to full URLs
+      // Convert image URLs to production/S3 URLs
       const productsWithFullUrls = products.products.map((product: any) => ({
         ...product,
-        thumbnailUrl: product.thumbnailUrl ? (product.thumbnailUrl.startsWith('http') ? product.thumbnailUrl : `${baseUrl}${product.thumbnailUrl}`) : null,
+        thumbnailUrl: normalizeAssetUrl(product.thumbnailUrl),
         images: product.images ? product.images.map((img: any) => ({
           ...img,
-          url: img?.url ? (img.url.startsWith('http') ? img.url : `${baseUrl}${img.url}`) : '',
+          url: normalizeAssetUrl(img?.url) ?? '',
         })) : [],
         videos: product.videos ? product.videos.map((vid: any) => ({
           ...vid,
-          url: vid?.url ? (vid.url.startsWith('http') ? vid.url : `${baseUrl}${vid.url}`) : '',
-          thumbnailUrl: vid?.thumbnailUrl ? (vid.thumbnailUrl.startsWith('http') ? vid.thumbnailUrl : `${baseUrl}${vid.thumbnailUrl}`) : null,
+          url: normalizeAssetUrl(vid?.url) ?? '',
+          thumbnailUrl: normalizeAssetUrl(vid?.thumbnailUrl),
         })) : [],
       }));
       
@@ -239,13 +234,10 @@ export class AdminController {
       // Handle file uploads
       const body = req.body;
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
       // Check for single file uploads (thumbnail)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = await AdminService.processFileUpload(file, 'products', baseUrl);
+        const fileUrl = await AdminService.processFileUpload(file, 'products');
         if (file.fieldname === 'thumbnail') {
           body.thumbnailUrl = fileUrl;
         } else if (file.fieldname === 'video') {
@@ -258,14 +250,14 @@ export class AdminController {
         const files = req.files as any;
         if (files.images && files.images.length > 0) {
           body.imageUrls = await Promise.all(
-            files.images.map((img: any) => AdminService.processFileUpload(img, 'products', baseUrl))
+            files.images.map((img: any) => AdminService.processFileUpload(img, 'products'))
           );
         }
         if (files.thumbnail && files.thumbnail[0]) {
-          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products', baseUrl);
+          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products');
         }
         if (files.video && files.video[0]) {
-          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos', baseUrl);
+          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos');
         }
       }
       
@@ -293,13 +285,10 @@ export class AdminController {
       // Handle file uploads
       const body = req.body;
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
       // Check for single file uploads (thumbnail)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = await AdminService.processFileUpload(file, 'products', baseUrl);
+        const fileUrl = await AdminService.processFileUpload(file, 'products');
         if (file.fieldname === 'thumbnail') {
           body.thumbnailUrl = fileUrl;
         } else if (file.fieldname === 'video') {
@@ -312,14 +301,14 @@ export class AdminController {
         const files = req.files as any;
         if (files.images && files.images.length > 0) {
           body.imageUrls = await Promise.all(
-            files.images.map((img: any) => AdminService.processFileUpload(img, 'products', baseUrl))
+            files.images.map((img: any) => AdminService.processFileUpload(img, 'products'))
           );
         }
         if (files.thumbnail && files.thumbnail[0]) {
-          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products', baseUrl);
+          body.thumbnailUrl = await AdminService.processFileUpload(files.thumbnail[0], 'products');
         }
         if (files.video && files.video[0]) {
-          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos', baseUrl);
+          body.videoUrl = await AdminService.processFileUpload(files.video[0], 'videos');
         }
       }
       
@@ -349,14 +338,11 @@ export class AdminController {
         search: search as string,
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative image URLs to full URLs
+      // Convert image URLs to production/S3 URLs
       const categoriesWithFullUrls = categories.categories.map((category: any) => ({
         ...category,
-        iconUrl: category.iconUrl ? category.iconUrl.startsWith('http') ? category.iconUrl : `${baseUrl}${category.iconUrl}` : null,
-        bannerUrl: category.bannerUrl ? category.bannerUrl.startsWith('http') ? category.bannerUrl : `${baseUrl}${category.bannerUrl}` : null,
+        iconUrl: normalizeAssetUrl(category.iconUrl),
+        bannerUrl: normalizeAssetUrl(category.bannerUrl),
       }));
       
       ResponseFormatter.success(res, `Retrieved ${categoriesWithFullUrls.length} categories (page ${page} of ${categories.pagination.totalPages})`, {
@@ -378,13 +364,10 @@ export class AdminController {
         body.parentId = Number(req.params.parentId);
       }
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
       // Check for single file uploads (icon or banner)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = await AdminService.processFileUpload(file, 'categories', baseUrl);
+        const fileUrl = await AdminService.processFileUpload(file, 'categories');
         if (file.fieldname === 'icon') {
           body.iconUrl = fileUrl;
         } else if (file.fieldname === 'banner') {
@@ -396,10 +379,10 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.icon && files.icon[0]) {
-          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories', baseUrl);
+          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories');
         }
         if (files.banner && files.banner[0]) {
-          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories', baseUrl);
+          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories');
         }
       }
       
@@ -417,13 +400,10 @@ export class AdminController {
       // Handle file uploads
       const body = req.body;
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
       // Check for single file uploads (icon or banner)
       if (req.file) {
         const file = req.file as any;
-        const fileUrl = await AdminService.processFileUpload(file, 'categories', baseUrl);
+        const fileUrl = await AdminService.processFileUpload(file, 'categories');
         if (file.fieldname === 'icon') {
           body.iconUrl = fileUrl;
         } else if (file.fieldname === 'banner') {
@@ -435,10 +415,10 @@ export class AdminController {
       if (req.files) {
         const files = req.files as any;
         if (files.icon && files.icon[0]) {
-          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories', baseUrl);
+          body.iconUrl = await AdminService.processFileUpload(files.icon[0], 'categories');
         }
         if (files.banner && files.banner[0]) {
-          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories', baseUrl);
+          body.bannerUrl = await AdminService.processFileUpload(files.banner[0], 'categories');
         }
       }
       
@@ -468,14 +448,11 @@ export class AdminController {
         search: search as string,
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative image URLs to full URLs
+      // Convert image URLs to production/S3 URLs
       const brandsWithFullUrls = brands.brands.map((brand: any) => ({
         ...brand,
-        logoUrl: brand.logoUrl ? brand.logoUrl.startsWith('http') ? brand.logoUrl : `${baseUrl}${brand.logoUrl}` : null,
-        bannerUrl: brand.bannerUrl ? brand.bannerUrl.startsWith('http') ? brand.bannerUrl : `${baseUrl}${brand.bannerUrl}` : null,
+        logoUrl: normalizeAssetUrl(brand.logoUrl),
+        bannerUrl: normalizeAssetUrl(brand.bannerUrl),
       }));
       
       ResponseFormatter.success(res, `Retrieved ${brandsWithFullUrls.length} brands (page ${page} of ${brands.pagination.totalPages})`, {
@@ -527,13 +504,10 @@ export class AdminController {
         endDate: endDate as string,
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative invoice URLs to full URLs
+      // Convert invoice URLs to production/S3 URLs
       const ordersWithFullUrls = orders.orders.map((order: any) => ({
         ...order,
-        invoiceUrl: order.invoiceUrl ? order.invoiceUrl.startsWith('http') ? order.invoiceUrl : `${baseUrl}${order.invoiceUrl}` : null,
+        invoiceUrl: normalizeAssetUrl(order.invoiceUrl),
       }));
       
       ResponseFormatter.success(res, `Retrieved ${ordersWithFullUrls.length} orders (page ${page} of ${orders.pagination.totalPages})`, {
@@ -783,10 +757,7 @@ export class AdminController {
 
   async uploadFile(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-      const host = req.headers['x-forwarded-host'] || req.get('host');
-      const apiBase = `${protocol}://${host}`;
-      const result = await AdminService.uploadFile(req.file, apiBase);
+      const result = await AdminService.uploadFile(req.file);
       ResponseFormatter.success(res, 'File uploaded successfully', result);
     } catch (error) {
       throw error;
@@ -960,13 +931,10 @@ export class AdminController {
         limit: parseInt(limit as string),
       });
       
-      // Get the backend base URL from environment or use default
-      const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
-      
-      // Convert relative image URLs to full URLs
+      // Convert image URLs to production/S3 URLs
       const collectionsWithFullUrls = collections.collections.map((collection: any) => ({
         ...collection,
-        imageUrl: collection.imageUrl ? collection.imageUrl.startsWith('http') ? collection.imageUrl : `${baseUrl}${collection.imageUrl}` : null,
+        imageUrl: normalizeAssetUrl(collection.imageUrl),
       }));
       
       ResponseFormatter.success(res, `Retrieved ${collectionsWithFullUrls.length} collections (page ${page} of ${collections.pagination.totalPages})`, {

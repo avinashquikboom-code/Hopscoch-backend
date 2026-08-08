@@ -2956,17 +2956,11 @@ export class AdminService {
     }
 
     let url = '';
-    try {
-      url = await uploadToS3(file, 'images');
-    } catch (err) {
-      logger.error(`S3 upload failed: ${err}`);
-      if (file.filename) {
-        const apiBase = process.env.API_URL || 'https://api.fciseller.com';
-        url = `${apiBase}/uploads/${file.filename}`;
-      } else {
-        throw err;
-      }
+    const configured = await isS3Configured();
+    if (!configured) {
+      throw new AppError('S3 storage is not configured. Image uploads require S3.', 500);
     }
+    url = await uploadToS3(file, 'images');
 
     // Save image record to database
     const productId = Number(data.productId);
@@ -3642,40 +3636,30 @@ export class AdminService {
     return { message: 'Collection deleted successfully' };
   }
 
-  async uploadFile(file: any, apiBase?: string) {
+  async uploadFile(file: any) {
     if (!file) {
       throw new AppError('No file provided', 400);
     }
 
     let url = '';
-    try {
-      url = await uploadToS3(file, 'files');
-    } catch (err) {
-      logger.error(`S3 upload failed: ${err}`);
-      if (file.filename) {
-        const base = apiBase || process.env.API_URL || 'https://api.fciseller.com';
-        url = `${base}/uploads/${file.filename}`;
-      } else {
-        throw err;
-      }
+    const configured = await isS3Configured();
+    if (!configured) {
+      throw new AppError('S3 storage is not configured. File uploads require S3.', 500);
     }
+    url = await uploadToS3(file, 'files');
 
     return { url };
   }
 
-  async processFileUpload(file: any, folder: string = 'uploads', apiBase?: string): Promise<string> {
+  async processFileUpload(file: any, folder: string = 'uploads'): Promise<string> {
     if (!file) return '';
 
-    try {
-      return await uploadToS3(file, folder);
-    } catch (err) {
-      logger.error(`S3 upload failed for ${file.originalname || file.filename}: ${err}`);
-      if (file.filename) {
-        const base = apiBase || process.env.API_URL || 'https://api.fciseller.com';
-        return `${base}/uploads/${file.filename}`;
-      }
-      throw err;
+    const configured = await isS3Configured();
+    if (!configured) {
+      throw new AppError('S3 storage is not configured. File uploads require S3.', 500);
     }
+
+    return await uploadToS3(file, folder);
   }
 
 

@@ -1,106 +1,83 @@
-import prisma from '../src/utils/prisma';
-
 /**
- * Migration Script: Clean up legacy local '/uploads/' or presigned image URLs in PostgreSQL.
- * Converts legacy relative/localhost paths to permanent static S3 URLs.
+ * Migrate legacy localhost / relative upload URLs to production S3/API URLs.
+ *
+ * Usage: npx ts-node scripts/migrate-legacy-image-urls.ts
  */
-async function migrateLegacyImageUrls() {
-  const bucketName = process.env.S3_BUCKET_NAME || 'hopscotch-bt';
-  const region = process.env.AWS_REGION || 'ap-south-1';
-  const s3BaseUrl = `https://${bucketName}.s3.${region}.amazonaws.com`;
+import dotenv from 'dotenv';
+import prisma from '../src/utils/prisma';
+import { normalizeAssetUrl } from '../src/utils/asset-url';
 
-  console.log('🔄 Starting migration of legacy image URLs...');
+dotenv.config();
 
-  // 1. Migrate Users avatarUrl
-  const usersWithLegacy = await prisma.user.findMany({
-    where: { avatarUrl: { contains: '/uploads/' } },
-  });
+const URL_FIELDS: Array<{ model: string; fields: string[] }> = [
+  { model: 'product', fields: ['thumbnailUrl'] },
+  { model: 'productImage', fields: ['url'] },
+  { model: 'productVideo', fields: ['url', 'thumbnailUrl'] },
+  { model: 'category', fields: ['iconUrl', 'bannerUrl'] },
+  { model: 'brand', fields: ['logoUrl', 'bannerUrl'] },
+  { model: 'collection', fields: ['imageUrl'] },
+  { model: 'user', fields: ['avatarUrl'] },
+];
 
-  for (const user of usersWithLegacy) {
-    if (user.avatarUrl) {
-      const filename = user.avatarUrl.split('/uploads/').pop();
-      const newUrl = `${s3BaseUrl}/avatars/${filename}`;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { avatarUrl: newUrl },
-      });
-      console.log(`Updated User #${user.id} avatarUrl: ${newUrl}`);
-    }
+function needsMigration(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (/https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?/i.test(trimmed)) {
+    return true;
   }
-
-  // 2. Migrate ProductImage url
-  const prodImagesWithLegacy = await prisma.productImage.findMany({
-    where: { url: { contains: '/uploads/' } },
-  });
-
-  for (const img of prodImagesWithLegacy) {
-    const filename = img.url.split('/uploads/').pop();
-    const newUrl = `${s3BaseUrl}/products/${filename}`;
-    await prisma.productImage.update({
-      where: { id: img.id },
-      data: { url: newUrl },
-    });
-    console.log(`Updated ProductImage #${img.id} url: ${newUrl}`);
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('/api/uploads/')) {
+    return true;
   }
-
-  // 3. Migrate Category iconUrl & bannerUrl
-  const categoriesWithLegacy = await prisma.category.findMany({
-    where: {
-      OR: [
-        { iconUrl: { contains: '/uploads/' } },
-        { bannerUrl: { contains: '/uploads/' } },
-      ],
-    },
-  });
-
-  for (const cat of categoriesWithLegacy) {
-    const updateData: any = {};
-    if (cat.iconUrl && cat.iconUrl.includes('/uploads/')) {
-      const filename = cat.iconUrl.split('/uploads/').pop();
-      updateData.iconUrl = `${s3BaseUrl}/categories/${filename}`;
-    }
-    if (cat.bannerUrl && cat.bannerUrl.includes('/uploads/')) {
-      const urls = cat.bannerUrl.split(',').map((u) => {
-        if (u.includes('/uploads/')) {
-          const filename = u.split('/uploads/').pop();
-          return `${s3BaseUrl}/categories/${filename}`;
-        }
-        return u;
-      });
-      updateData.bannerUrl = urls.join(',');
-    }
-
-    await prisma.category.update({
-      where: { id: cat.id },
-      data: updateData,
-    });
-    console.log(`Updated Category #${cat.id} URLs`);
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return true;
   }
-
-  // 4. Migrate Banner imageUrl
-  const bannersWithLegacy = await prisma.banner.findMany({
-    where: { imageUrl: { contains: '/uploads/' } },
-  });
-
-  for (const banner of bannersWithLegacy) {
-    const filename = banner.imageUrl.split('/uploads/').pop();
-    const newUrl = `${s3BaseUrl}/banners/${filename}`;
-    await prisma.banner.update({
-      where: { id: banner.id },
-      data: { imageUrl: newUrl },
-    });
-    console.log(`Updated Banner #${banner.id} imageUrl: ${newUrl}`);
-  }
-
-  const totalAffected =
-    usersWithLegacy.length +
-    prodImagesWithLegacy.length +
-    categoriesWithLegacy.length +
-    bannersWithLegacy.length;
-
-  console.log(`✅ Migration complete! Total rows updated: ${totalAffected}`);
+  return false;
 }
 
-migrateLegacyImageUrls()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+async function migrateTable(modelName: string, fields: string[]) {
+  const delegate = (prisma as any)[modelName];
+  if (!delegate) {
+    console.warn(`Skipping unknown model: ${modelName}`);
+    return 0;
+  }
+
+  let updated = 0;
+  const rows = await delegate.findMany();
+  for (const row of rows) {
+    const data: Record<string, string> = {};
+    for (const field of fields) {
+      const current = row[field];
+      if (!needsMigration(current)) continue;
+      const normalized = normalizeAssetUrl(current);
+      if (normalized && normalized !== current) {
+        data[field] = normalized;
+      }
+    }
+    if (Object.keys(data).length > 0) {
+      await delegate.update({ where: { id: row.id }, data });
+      updated += 1;
+      console.log(`Updated ${modelName} id=${row.id}: ${JSON.stringify(data)}`);
+    }
+  }
+  return updated;
+}
+
+async function main() {
+  let total = 0;
+  for (const { model, fields } of URL_FIELDS) {
+    const count = await migrateTable(model, fields);
+    total += count;
+    console.log(`${model}: ${count} row(s) updated`);
+  }
+  console.log(`Done. Total rows updated: ${total}`);
+}
+
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

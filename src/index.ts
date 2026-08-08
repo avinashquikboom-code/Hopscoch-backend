@@ -90,17 +90,8 @@ app.use(cors({
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 app.use(compression());
-// Use absolute path for uploads directory to work correctly from both src and dist
-const uploadsPath = path.resolve(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsPath, {
-  setHeaders: (res) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
-}));
 
+// Serve uploaded assets from S3 only (no local disk storage)
 app.get(['/api/uploads/*', '/uploads/*'], async (req, res): Promise<void> => {
   try {
     const rawKey = req.params[0];
@@ -109,14 +100,6 @@ app.get(['/api/uploads/*', '/uploads/*'], async (req, res): Promise<void> => {
       return;
     }
     const key = rawKey.startsWith('/') ? rawKey.substring(1) : rawKey;
-    const localPath = path.resolve(process.cwd(), 'uploads', key);
-
-    if (fs.existsSync(localPath)) {
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
-      res.sendFile(localPath);
-      return;
-    }
 
     const { getObjectFromS3 } = require('./services/s3.service');
     const s3Object = await getObjectFromS3(key);

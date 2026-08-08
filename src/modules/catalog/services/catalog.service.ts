@@ -1,6 +1,7 @@
 import { AppError } from '../../../middleware/errorHandler';
 import prisma from '../../../utils/prisma';
 import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
+import { normalizeAssetUrl } from '../../../utils/asset-url';
 
 export class CatalogService {
   async listProducts(filters: {
@@ -21,7 +22,6 @@ export class CatalogService {
     isBestSeller?: boolean;
     gender?: string;
     ageGroup?: string;
-    baseUrl?: string;
   }) {
     const {
       categoryId,
@@ -41,7 +41,6 @@ export class CatalogService {
       isBestSeller,
       gender,
       ageGroup,
-      baseUrl: customBaseUrl,
     } = filters;
 
     const skip = (page - 1) * limit;
@@ -148,7 +147,7 @@ export class CatalogService {
     ]);
 
     const products = await Promise.all(
-      rawProducts.map((p) => this.formatProductResponse(p, customBaseUrl))
+      rawProducts.map((p) => this.formatProductResponse(p))
     );
 
     return {
@@ -162,17 +161,11 @@ export class CatalogService {
     };
   }
 
-  async formatProductResponse(p: any, customBaseUrl?: string) {
-    const baseUrl = customBaseUrl || process.env.API_URL || 'https://api.fciseller.com';
+  async formatProductResponse(p: any) {
     const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600&auto=format&fit=crop&q=80';
 
     const toFullUrl = (url: string | null | undefined): string | null => {
-      if (!url || typeof url !== 'string') return null;
-      const trimmed = url.trim();
-      if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-      return `${baseUrl}${cleanPath}`;
+      return normalizeAssetUrl(url);
     };
 
     const vars = p.variants || [];

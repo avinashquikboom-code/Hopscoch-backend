@@ -3,6 +3,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
 import settingsService from '../modules/settings/services/settings.service';
+import { buildPublicAssetUrl, extractS3KeyFromUrl } from '../utils/asset-url';
 
 dotenv.config();
 
@@ -12,20 +13,22 @@ dotenv.config();
  * with integration settings fallback.
  */
 export async function getS3Config() {
-  const envAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const envSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  const envRegion = process.env.AWS_REGION;
-  const envBucketName = process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET_NAME;
-
   const dbAccessKey = await settingsService.getIntegrationKey('aws', 'access_key_id');
   const dbSecretKey = await settingsService.getIntegrationKey('aws', 'secret_access_key');
   const dbRegion = await settingsService.getIntegrationKey('aws', 'region');
   const dbBucket = await settingsService.getIntegrationKey('aws', 'bucket_name');
 
-  const accessKeyId = (envAccessKeyId && envAccessKeyId !== 'your_access_key') ? envAccessKeyId : (dbAccessKey || envAccessKeyId);
-  const secretAccessKey = (envSecretAccessKey && envSecretAccessKey !== 'your_secret_key') ? envSecretAccessKey : (dbSecretKey || envSecretAccessKey);
-  const region = envRegion || dbRegion || 'ap-south-1';
-  const bucketName = (envBucketName && envBucketName !== 'your_s3_bucket_name') ? envBucketName : (dbBucket || envBucketName || 'fciseller-bt');
+  const envAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const envSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const envRegion = process.env.AWS_REGION;
+  const envBucketName = process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET_NAME;
+
+  const isValid = (val?: string) => val && val.trim() !== '' && !val.startsWith('your_') && !val.startsWith('YOUR_');
+
+  const accessKeyId = isValid(dbAccessKey) ? dbAccessKey : (isValid(envAccessKeyId) ? envAccessKeyId! : '');
+  const secretAccessKey = isValid(dbSecretKey) ? dbSecretKey : (isValid(envSecretAccessKey) ? envSecretAccessKey! : '');
+  const region = isValid(dbRegion) ? dbRegion : (isValid(envRegion) ? envRegion! : 'ap-south-1');
+  const bucketName = isValid(dbBucket) ? dbBucket : (isValid(envBucketName) ? envBucketName! : 'hopscotch-bt');
 
   return { accessKeyId, secretAccessKey, region, bucketName };
 }
@@ -166,8 +169,7 @@ export async function uploadToS3(
 
   await client.send(command);
 
-  // Return proxied public uploads URL accessible to client apps and browsers
-  const publicUrl = `/api/uploads/${key}`;
+  const publicUrl = buildPublicAssetUrl(key);
   logger.info(`Successfully uploaded to S3: key=${key}, publicUrl=${publicUrl}`);
   return publicUrl;
 }
@@ -212,11 +214,7 @@ export async function deleteFromS3(fileUrlOrKey: string): Promise<void> {
       },
     });
 
-    let key = fileUrlOrKey;
-    if (fileUrlOrKey.startsWith('http://') || fileUrlOrKey.startsWith('https://')) {
-      const url = new URL(fileUrlOrKey);
-      key = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
-    }
+    let key = extractS3KeyFromUrl(fileUrlOrKey);
 
     const command = new DeleteObjectCommand({
       Bucket: config.bucketName,

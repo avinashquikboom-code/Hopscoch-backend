@@ -17,14 +17,14 @@ export class GeminiVisionService {
   private model: any;
 
   private async getApiKey(): Promise<string | null> {
-    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your-gemini-api-key') {
-      return process.env.GEMINI_API_KEY;
-    }
     try {
       const dbKey = await settingsService.getIntegrationKey('google', 'gemini_api_key');
-      if (dbKey) return dbKey;
+      if (dbKey && dbKey.trim() !== '' && !dbKey.startsWith('your-')) return dbKey;
     } catch (err) {
       logger.warn('[GEMINI_VISION] Could not read Gemini key from settingsService');
+    }
+    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your-gemini-api-key') {
+      return process.env.GEMINI_API_KEY;
     }
     return null;
   }

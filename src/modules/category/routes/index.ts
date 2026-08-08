@@ -4,13 +4,11 @@ import { authenticate } from '../../../middleware/auth';
 import { upload } from '../../../middleware/upload';
 import prisma from '../../../utils/prisma';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
+import { normalizeAssetUrl } from '../../../utils/asset-url';
 
 const router = Router();
 
-const toFullUrl = (url: string | null | undefined, baseUrl: string): string | null => {
-  if (!url || typeof url !== 'string') return null;
-  return url.startsWith('http') ? url : `${baseUrl}${url}`;
-};
+const toFullUrl = (url: string | null | undefined): string | null => normalizeAssetUrl(url);
 
 // GET all categories (Top-level categories with subcategories nested in children)
 router.get('/', async (req, res, next) => {
@@ -33,12 +31,10 @@ router.get('/', async (req, res, next) => {
       orderBy: { sortOrder: 'asc' },
     });
     
-    // Construct full URLs for images
-    const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const categoriesWithFullUrls = categories.map((category: any) => ({
       ...category,
-      iconUrl: toFullUrl(category.iconUrl, baseUrl),
-      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
+      iconUrl: toFullUrl(category.iconUrl),
+      bannerUrl: toFullUrl(category.bannerUrl),
     }));
     
     return ResponseFormatter.success(res, 'Categories retrieved successfully', categoriesWithFullUrls);
@@ -62,12 +58,10 @@ router.get('/:categoryId', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Category not found' });
     }
     
-    // Construct full URLs for images
-    const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const categoryWithFullUrls = {
       ...category,
-      iconUrl: toFullUrl(category.iconUrl, baseUrl),
-      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
+      iconUrl: toFullUrl(category.iconUrl),
+      bannerUrl: toFullUrl(category.bannerUrl),
     };
     
     return ResponseFormatter.success(res, 'Category retrieved successfully', categoryWithFullUrls);
@@ -126,11 +120,10 @@ router.get('/:parentId/children', async (req, res, next) => {
       orderBy: { sortOrder: 'asc' },
     });
     
-    const baseUrl = process.env.API_URL || `http://${req.get('host')}`;
     const subcategoriesWithFullUrls = subcategories.map((category: any) => ({
       ...category,
-      iconUrl: toFullUrl(category.iconUrl, baseUrl),
-      bannerUrl: toFullUrl(category.bannerUrl, baseUrl),
+      iconUrl: toFullUrl(category.iconUrl),
+      bannerUrl: toFullUrl(category.bannerUrl),
     }));
     
     return ResponseFormatter.success(res, 'Subcategories retrieved successfully', subcategoriesWithFullUrls);
