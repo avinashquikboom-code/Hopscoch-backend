@@ -68,17 +68,24 @@ const defaultOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001'
 ];
-const allowedOrigins = process.env.CORS_ORIGIN
+const envOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : defaultOrigins;
+  : [];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (defaultOrigins.includes(origin) || allowedOrigins.includes(origin)) {
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      /^https?:\/\/(.+\.)?fciseller\.com$/i.test(origin) ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+    if (isAllowed) {
       return cb(null, true);
     }
-    return cb(new Error(`CORS blocked: ${origin}`));
+    logger.warn(`[CORS] Blocked request from origin: ${origin}`);
+    return cb(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
