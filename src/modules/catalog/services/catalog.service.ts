@@ -148,13 +148,13 @@ export class CatalogService {
       ];
     }
 
-    const orderBy: any = {};
-    if (sort === 'price_asc') orderBy.basePrice = 'asc';
-    else if (sort === 'price_desc') orderBy.basePrice = 'desc';
-    else if (sort === 'rating') orderBy.avgRating = 'desc';
-    else if (sort === 'popular') orderBy.reviewCount = 'desc';
-    else if (sort === 'newest') orderBy.createdAt = 'desc';
-    else orderBy.createdAt = 'desc';
+    let orderBy: any[];
+    if (sort === 'price_asc') orderBy = [{ basePrice: 'asc' }, { id: 'asc' }];
+    else if (sort === 'price_desc') orderBy = [{ basePrice: 'desc' }, { id: 'desc' }];
+    else if (sort === 'rating') orderBy = [{ avgRating: 'desc' }, { id: 'desc' }];
+    else if (sort === 'popular') orderBy = [{ reviewCount: 'desc' }, { id: 'desc' }];
+    else if (sort === 'newest') orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
+    else orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
 
     const [rawProducts, total] = await Promise.all([
       prisma.product.findMany({
@@ -189,7 +189,9 @@ export class CatalogService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
       },
     };
   }

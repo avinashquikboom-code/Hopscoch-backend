@@ -9,6 +9,7 @@ import {
   createAdminUserSchema,
   updateAdminUserSchema,
   activityLogQuerySchema,
+  getAdminProductsQuerySchema,
 } from '../validators/admin.validator';
 
 export class AdminController {
@@ -195,15 +196,8 @@ export class AdminController {
 
   async getProducts(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { page = '1', limit = '1000', search, status, categoryId, brandId } = req.query;
-      const products = await AdminService.getProducts({
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        search: search as string,
-        status: status as string,
-        categoryId: categoryId as string,
-        brandId: brandId as string,
-      });
+      const query = getAdminProductsQuerySchema.parse(req.query);
+      const products = await AdminService.getProducts(query);
       
       // Convert image URLs to production/S3 URLs
       const productsWithFullUrls = products.products.map((product: any) => ({
@@ -220,12 +214,16 @@ export class AdminController {
         })) : [],
       }));
       
-      ResponseFormatter.success(res, `Retrieved ${productsWithFullUrls.length} products (page ${page} of ${products.pagination.totalPages})`, {
+      ResponseFormatter.success(res, `Retrieved ${productsWithFullUrls.length} products (page ${query.page} of ${products.pagination.totalPages})`, {
         ...products,
         products: productsWithFullUrls,
       });
     } catch (error) {
-      throw error;
+      if (error instanceof ZodError) {
+        ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
+      } else {
+        throw error;
+      }
     }
   }
 

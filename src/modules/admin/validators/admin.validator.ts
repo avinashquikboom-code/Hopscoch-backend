@@ -37,8 +37,21 @@ export const activityLogQuerySchema = z.object({
   endDate: z.string().datetime().optional(),
 });
 
+export const getAdminProductsQuerySchema = z.object({
+  page: z.coerce.number().positive().default(1),
+  limit: z.coerce.number().positive().max(500).default(50),
+  search: z.string().optional(),
+  status: z.string().optional(),
+  categoryId: z.string().optional(),
+  brandId: z.string().optional(),
+  stockLevel: z.enum(['all', 'in', 'low', 'out']).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
 export type CreateAdminUserDto = z.infer<typeof createAdminUserSchema>;
 export type UpdateAdminUserDto = z.infer<typeof updateAdminUserSchema>;
 export type CreateRoleDto = z.infer<typeof createRoleSchema>;
 export type UpdateRoleDto = z.infer<typeof updateRoleSchema>;
 export type ActivityLogQueryDto = z.infer<typeof activityLogQuerySchema>;
+export type GetAdminProductsQueryDto = z.infer<typeof getAdminProductsQuerySchema>;

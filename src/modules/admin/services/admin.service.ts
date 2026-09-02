@@ -747,31 +747,125 @@ export class AdminService {
     status?: any;
     categoryId?: any;
     brandId?: any;
+    stockLevel?: 'all' | 'in' | 'low' | 'out';
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }) {
-    const { page, limit, search, status, categoryId, brandId } = filters;
+    const { page, limit, search, status, categoryId, brandId, stockLevel, sortBy, sortOrder = 'desc' } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       deletedAt: null,
     };
 
-    if (search) {
+    if (search && search.trim() !== '') {
+      const q = search.trim();
+      const numSearch = Number(q);
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        ...(isNaN(numSearch) ? [] : [{ id: numSearch }]),
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        { hsnCode: { contains: q, mode: 'insensitive' } },
+        { category: { name: { contains: q, mode: 'insensitive' } } },
+        { brand: { name: { contains: q, mode: 'insensitive' } } },
+        { variants: { some: { sku: { contains: q, mode: 'insensitive' } } } },
       ];
     }
 
-    if (status) {
-      where.status = status;
+    if (status && status !== 'all') {
+      const statusUpper = status.toUpperCase();
+      if (statusUpper === 'ACTIVE' || statusUpper === 'PUBLISHED') {
+        where.status = 'PUBLISHED';
+      } else if (statusUpper === 'DRAFT') {
+        where.status = 'DRAFT';
+      } else if (statusUpper === 'ARCHIVED') {
+        where.status = 'ARCHIVED';
+      } else {
+        where.status = status;
+      }
     }
 
-    if (categoryId) {
-      where.categoryId = categoryId;
+    if (categoryId && categoryId !== 'all') {
+      const numCat = Number(categoryId);
+      if (!isNaN(numCat) && numCat > 0) {
+        const childCategories = await prisma.category.findMany({
+          where: { parentId: numCat, deletedAt: null },
+          select: { id: true },
+        });
+        const catIds = [numCat, ...childCategories.map((c) => c.id)];
+        where.categoryId = { in: catIds };
+      } else {
+        const cat = await prisma.category.findFirst({
+          where: {
+            OR: [
+              { name: { equals: String(categoryId), mode: 'insensitive' } },
+              { slug: { equals: String(categoryId), mode: 'insensitive' } },
+            ],
+            deletedAt: null,
+          },
+        });
+        if (cat) {
+          const childCategories = await prisma.category.findMany({
+            where: { parentId: cat.id, deletedAt: null },
+            select: { id: true },
+          });
+          const catIds = [cat.id, ...childCategories.map((c) => c.id)];
+          where.categoryId = { in: catIds };
+        }
+      }
     }
 
-    if (brandId) {
-      where.brandId = brandId;
+    if (brandId && brandId !== 'all') {
+      const numBrand = Number(brandId);
+      if (!isNaN(numBrand) && numBrand > 0) {
+        where.brandId = numBrand;
+      } else {
+        const b = await prisma.brand.findFirst({
+          where: {
+            OR: [
+              { name: { equals: String(brandId), mode: 'insensitive' } },
+              { slug: { equals: String(brandId), mode: 'insensitive' } },
+            ],
+            deletedAt: null,
+          },
+        });
+        if (b) where.brandId = b.id;
+      }
+    }
+
+    if (stockLevel && stockLevel !== 'all') {
+      if (stockLevel === 'out') {
+        where.OR = [
+          { variants: { none: {} } },
+          { variants: { every: { stock: { lte: 0 } } } },
+        ];
+      } else if (stockLevel === 'low') {
+        where.variants = {
+          some: {
+            stock: { gt: 0, lt: 20 },
+          },
+        };
+      } else if (stockLevel === 'in') {
+        where.variants = {
+          some: {
+            stock: { gte: 20 },
+          },
+        };
+      }
+    }
+
+    let orderBy: any[];
+    if (sortBy === 'name') {
+      orderBy = [{ name: sortOrder }, { id: 'desc' }];
+    } else if (sortBy === 'price' || sortBy === 'basePrice') {
+      orderBy = [{ basePrice: sortOrder }, { id: 'desc' }];
+    } else if (sortBy === 'rating' || sortBy === 'avgRating') {
+      orderBy = [{ avgRating: sortOrder }, { id: 'desc' }];
+    } else if (sortBy === 'updatedAt') {
+      orderBy = [{ updatedAt: sortOrder }, { id: 'desc' }];
+    } else {
+      orderBy = [{ createdAt: sortOrder }, { id: 'desc' }];
     }
 
     const [
@@ -852,7 +946,7 @@ export class AdminService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -894,7 +988,9 @@ export class AdminService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
       },
       stats: {
         totalCount: totalCatalogCount,
