@@ -247,6 +247,7 @@ export class AdminService {
       pendingReturns,
       lowStockItems,
       totalProducts,
+      publishedProducts,
       recentOrders,
       recentActivity,
       pendingOrders,
@@ -276,6 +277,7 @@ export class AdminService {
           },
         },
       }),
+      prisma.product.count({ where: { deletedAt: null } }),
       prisma.product.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
       prisma.order.findMany({
         take: 5,
@@ -470,6 +472,7 @@ export class AdminService {
       totalOrders,
       totalCustomers: totalUsers,
       totalProducts,
+      publishedProducts,
       pendingOrders,
       deliveredOrders,
       cancelledOrders,
@@ -771,7 +774,17 @@ export class AdminService {
       where.brandId = brandId;
     }
 
-    const [products, total] = await Promise.all([
+    const [
+      products,
+      total,
+      totalCatalogCount,
+      publishedCount,
+      draftCount,
+      archivedCount,
+      lowStockCount,
+      featuredCount,
+      deletedCount,
+    ] = await Promise.all([
       prisma.product.findMany({
         where,
         select: {
@@ -844,6 +857,22 @@ export class AdminService {
         take: limit,
       }),
       prisma.product.count({ where }),
+      prisma.product.count({ where: { deletedAt: null } }),
+      prisma.product.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+      prisma.product.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      prisma.product.count({ where: { status: 'ARCHIVED', deletedAt: null } }),
+      prisma.product.count({
+        where: {
+          deletedAt: null,
+          variants: {
+            some: {
+              stock: { lt: 20 },
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where: { isFeatured: true, deletedAt: null } }),
+      prisma.product.count({ where: { deletedAt: { not: null } } }),
     ]);
 
     const mappedProducts = products.map((p: any) => {
@@ -866,6 +895,16 @@ export class AdminService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+      stats: {
+        totalCount: totalCatalogCount,
+        activeCount: publishedCount,
+        publishedCount,
+        draftCount,
+        archivedCount,
+        lowStockCount,
+        featuredCount,
+        deletedCount,
       },
     };
   }
