@@ -30,11 +30,13 @@ export class OrderController {
         ResponseFormatter.error(res, 'Authentication required', 401);
         return;
       }
-      const { page = '1', limit = '20', status } = req.query;
+      const { page = '1', limit = '20', status, fromDate, toDate, from_date, to_date } = req.query;
       const orders = await OrderService.getOrders(req.user.id, {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         status: status as string,
+        fromDate: (fromDate || from_date) as string | undefined,
+        toDate: (toDate || to_date) as string | undefined,
       });
       ResponseFormatter.success(res, 'Orders retrieved successfully', orders);
     } catch (error) {

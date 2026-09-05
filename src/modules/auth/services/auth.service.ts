@@ -267,10 +267,31 @@ export class AuthService {
     }
 
     // Auto-detect correct device type from session configuration
-    const sessionDeviceType = tokenRecord.session.deviceType || deviceType || 'web';
+    const sessionDeviceType = tokenRecord.session?.deviceType || deviceType || 'web';
 
-    // Verify refresh token with device-specific secret
-    const decoded = jwt.verify(refreshToken, this.getRefreshSecret(sessionDeviceType)) as TokenPayload;
+    // Verify refresh token with device-specific secret, with graceful fallback to candidate secrets
+    let decoded: TokenPayload | null = null;
+    const candidateSecrets = Array.from(new Set([
+      this.getRefreshSecret(sessionDeviceType),
+      this.getRefreshSecret(deviceType),
+      this.getRefreshSecret('mobile'),
+      this.getRefreshSecret('web'),
+      this.getRefreshSecret('admin'),
+      this.getRefreshSecret(undefined),
+    ]));
+
+    for (const secret of candidateSecrets) {
+      try {
+        decoded = jwt.verify(refreshToken, secret) as TokenPayload;
+        if (decoded) break;
+      } catch (err: any) {
+        // Try next secret
+      }
+    }
+
+    if (!decoded) {
+      throw new AppError('Invalid refresh token signature', 401, true, 'REFRESH_TOKEN_INVALID');
+    }
 
     // Check if user is still active
     const user = await authRepository.findById(decoded.userId);

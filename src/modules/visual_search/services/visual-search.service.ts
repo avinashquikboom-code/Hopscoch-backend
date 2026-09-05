@@ -226,6 +226,9 @@ export class VisualSearchService {
   private formatProduct(p: any) {
     const rawImages = p.images || [];
     const imageUrls = rawImages.map((img: any) => typeof img === 'string' ? img : (img.url || img.imageUrl)).filter(Boolean);
+    if (p.thumbnailUrl && !imageUrls.includes(p.thumbnailUrl)) {
+      imageUrls.unshift(p.thumbnailUrl);
+    }
     if (imageUrls.length === 0 && p.imageUrl) {
       imageUrls.push(p.imageUrl);
     }
@@ -238,8 +241,8 @@ export class VisualSearchService {
       originalPrice: p.compareAtPrice ? Number(p.compareAtPrice) : (p.originalPrice ? Number(p.originalPrice) : undefined),
       category: typeof p.category === 'string' ? p.category : (p.category?.name || p.category?.slug || 'clothing'),
       brand: typeof p.brand === 'string' ? p.brand : (p.brand?.name || 'Hopscotch'),
-      images: imageUrls.length > 0 ? imageUrls : ['https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600'],
-      imageUrl: imageUrls[0] || 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=600',
+      images: imageUrls,
+      imageUrl: imageUrls[0] || p.thumbnailUrl || null,
       rating: p.rating || 4.5,
       reviewCount: p.reviewCount || 12,
       isNew: p.isNew || false,

@@ -19,8 +19,35 @@ function formatOrderSummary(order: any) {
   const walletAmountUsed = Number(order.walletAmountUsed || 0);
   const totalAmount = Number(order.totalAmount || Math.max(0, subtotal + shippingAmount - discountAmount - rewardDiscount - walletAmountUsed));
 
+  const courierName = order.courierName || order.shipment?.courier || null;
+  const awbNumber = order.awbNumber || order.shipment?.awb || null;
+  let trackingUrl = order.trackingUrl || null;
+  if (!trackingUrl && awbNumber) {
+    const courierLower = (courierName || '').toLowerCase();
+    if (courierLower.includes('delhivery')) {
+      trackingUrl = `https://www.delhivery.com/track/package/${awbNumber}`;
+    } else if (courierLower.includes('bluedart')) {
+      trackingUrl = `https://www.bluedart.com/tracking?numbers=${awbNumber}`;
+    } else if (courierLower.includes('xpressbees')) {
+      trackingUrl = `https://www.xpressbees.com/shipment/tracking?awbNo=${awbNumber}`;
+    } else if (courierLower.includes('dtdc')) {
+      trackingUrl = `https://www.dtdc.in/tracking/shipment-tracking.asp?trNo=${awbNumber}`;
+    } else {
+      trackingUrl = `https://shiprocket.co/tracking/${awbNumber}`;
+    }
+  }
+
+  const orderNum = order.orderNumber || String(order.id);
+  const displayOrderId = order.orderNumber || `#ORD-${order.id}`;
+
   return {
     ...order,
+    orderId: orderNum,
+    orderNumber: orderNum,
+    displayOrderId,
+    courierName,
+    awbNumber,
+    trackingUrl,
     subtotal,
     subTotal: subtotal,
     itemsPrice: subtotal,
@@ -318,6 +345,19 @@ export class OrderService {
       ? (String(paymentMethod).toUpperCase() as any)
       : 'COD';
 
+    if (pMethod === 'COD') {
+      const nonCodItem = rawItemsToCalculate.find((item) => {
+        const p = item.product;
+        return p && (p.isCodAllowed === false || p.codAllowed === false);
+      });
+      if (nonCodItem) {
+        throw new AppError(
+          `Cash on Delivery (COD) is not available for "${nonCodItem.product?.name || 'an item in your cart'}". Please choose an online payment method.`,
+          400
+        );
+      }
+    }
+
     const isPaid = pMethod === 'WALLET' || pMethod !== 'COD' || Boolean(razorpayPaymentId);
     const initialStatus = isPaid ? 'CONFIRMED' : 'PENDING';
     const orderNumber = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -500,13 +540,26 @@ export class OrderService {
     return formatOrderSummary(order);
   }
 
-  async getOrders(userId: any, filters: { page: number; limit: number; status?: string }) {
-    const { page, limit, status } = filters;
+  async getOrders(userId: any, filters: { page: number; limit: number; status?: string; fromDate?: string; toDate?: string }) {
+    const { page, limit, status, fromDate, toDate } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = { userId };
     if (status) {
       where.status = status;
+    }
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) {
+        where.createdAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        const end = new Date(toDate);
+        if (toDate.length === 10) {
+          end.setHours(23, 59, 59, 999);
+        }
+        where.createdAt.lte = end;
+      }
     }
 
     const [orders, total] = await Promise.all([
@@ -526,6 +579,7 @@ export class OrderService {
             },
           },
           address: true,
+          shipment: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -540,7 +594,7 @@ export class OrderService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
   }
@@ -575,6 +629,7 @@ export class OrderService {
           orderBy: { createdAt: 'asc' },
         },
         payment: true,
+        shipment: true,
       },
     });
 

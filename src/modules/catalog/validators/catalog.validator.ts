@@ -18,4 +18,6 @@ export const listProductsSchema = z.object({
   isBestSeller: z.preprocess((v) => (v === 'true' ? true : v === 'false' ? false : v), z.boolean().optional()),
   gender: z.enum(['MALE', 'FEMALE', 'UNISEX']).optional(),
   ageGroup: z.enum(['ADULT', 'KID', 'INFANT']).optional(),
+  size: z.string().optional(),
+  sizes: z.union([z.string(), z.array(z.string())]).optional(),
 });

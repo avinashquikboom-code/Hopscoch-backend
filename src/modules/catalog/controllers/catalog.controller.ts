@@ -105,12 +105,15 @@ export class CatalogController {
   async getProductsByCategory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const categoryId = req.params.categoryId || req.params.id;
-      const limit = req.query.limit ? Number(req.query.limit) : 100;
-      const page = req.query.page ? Number(req.query.page) : 1;
-      const result = await CatalogService.listProducts({ categoryId, limit, page });
+      const filters = listProductsSchema.parse({ ...req.query, categoryId });
+      const result = await CatalogService.listProducts(filters);
       ResponseFormatter.success(res, 'Category products retrieved successfully', result);
     } catch (error) {
-      throw error;
+      if (error instanceof ZodError) {
+        ResponseFormatter.error(res, 'Validation failed', 400, 'VALIDATION_ERROR', error.errors);
+      } else {
+        throw error;
+      }
     }
   }
 }

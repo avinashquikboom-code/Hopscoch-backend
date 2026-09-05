@@ -301,11 +301,15 @@ app.use('/api/sizes', sizeRoutes);
 app.use('/api/admin/sizes', sizeRoutes);
 import taxRoutes from './modules/tax/routes/tax.routes';
 import socialContentRoutes from './modules/content/routes/socialContent.routes';
+import contentRoutes from './modules/content/routes/content.routes';
 
 app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
 app.use(['/api/search', '/api/v1/search', '/api/v1/web/search', '/api/v1/mobile/search'], searchRoutes);
 app.use('/api', socialContentRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/v1/content', contentRoutes);
+app.use('/api', contentRoutes);
 import webhookRoutes from './modules/webhooks/routes/webhook.routes';
 
 app.use('/api', webhookRoutes);

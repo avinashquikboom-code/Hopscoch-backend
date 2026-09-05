@@ -314,6 +314,22 @@ router.put('/', authenticate, async (req, res, next) => {
     if (req.body.storePhone !== undefined) dbData.contactPhone = req.body.storePhone;
     if (req.body.storeEmail !== undefined) dbData.contactEmail = req.body.storeEmail;
 
+    // Persist full seller legal details (GSTIN, legal name, address, etc.)
+    const gst = req.body.sellerGstNumber || req.body.gstin || req.body.taxId || req.body.gstNumber;
+    if (gst !== undefined) dbData.sellerGstNumber = gst;
+    const legalName = req.body.sellerLegalName || req.body.legalName;
+    if (legalName !== undefined) dbData.sellerLegalName = legalName;
+    const address = req.body.sellerAddress || req.body.address;
+    if (address !== undefined) dbData.sellerAddress = address;
+    const city = req.body.sellerCity || req.body.city;
+    if (city !== undefined) dbData.sellerCity = city;
+    const state = req.body.sellerState || req.body.state;
+    if (state !== undefined) dbData.sellerState = state;
+    const pincode = req.body.sellerPincode || req.body.pincode || req.body.postalCode;
+    if (pincode !== undefined) dbData.sellerPincode = pincode;
+    const email = req.body.sellerEmail || req.body.supportEmail;
+    if (email !== undefined) dbData.sellerEmail = email;
+
     if (Object.keys(dbData).length > 0) {
       await SettingsService.updateAppSettings(dbData);
     }

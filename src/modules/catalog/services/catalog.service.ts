@@ -22,6 +22,8 @@ export class CatalogService {
     isBestSeller?: boolean;
     gender?: string;
     ageGroup?: string;
+    size?: string;
+    sizes?: string | string[];
   }) {
     const {
       categoryId,
@@ -41,6 +43,8 @@ export class CatalogService {
       isBestSeller,
       gender,
       ageGroup,
+      size,
+      sizes,
     } = filters;
 
     const skip = (page - 1) * limit;
@@ -133,6 +137,21 @@ export class CatalogService {
     if (isBestSeller !== undefined) where.isBestSeller = isBestSeller;
     if (gender) where.gender = gender as any;
     if (ageGroup) where.ageGroup = ageGroup as any;
+
+    const sizeFilter = size || sizes;
+    if (sizeFilter) {
+      const sizeList = Array.isArray(sizeFilter)
+        ? sizeFilter
+        : String(sizeFilter).split(',').map((s) => s.trim()).filter(Boolean);
+      if (sizeList.length > 0) {
+        where.variants = {
+          some: {
+            deletedAt: null,
+            size: { in: sizeList, mode: 'insensitive' },
+          },
+        };
+      }
+    }
 
     const searchKeyword = (search || q || query || '').trim();
     if (searchKeyword) {
