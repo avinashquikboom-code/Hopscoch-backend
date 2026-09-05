@@ -3,6 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import shiprocketClient from './shiprocket.client';
 import { getShiprocketPickupLocation } from '../../inventory/services/warehouse.service';
+import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
 
 export class ShipmentService {
   async createShipment(orderId: number) {
@@ -286,7 +287,7 @@ export class ShipmentService {
     <div class="grid">
       <div>
         <div class="title">Shipped From</div>
-        <div class="val">${order.sellerNameSnapshot || 'FCI Seller'} Fulfillment Center<br/>${(order as any).sellerAddressSnapshot ? `${(order as any).sellerAddressSnapshot}<br/>` : ''}${order.sellerContactSnapshot ? `Contact: ${order.sellerContactSnapshot}` : 'India'}</div>
+        <div class="val">${order.sellerNameSnapshot || DEFAULT_SELLER_CONFIG.name} Fulfillment Center<br/>${(order as any).sellerAddressSnapshot || DEFAULT_SELLER_CONFIG.fullAddress}<br/>Contact: ${(order as any).sellerContactSnapshot || DEFAULT_SELLER_CONFIG.contactNumber}</div>
       </div>
       <div>
         <div class="title">Total Amount</div>
@@ -337,25 +338,31 @@ export class ShipmentService {
     const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
     const totalAmt = Number((order as any).totalAmount || (order as any).total || 0);
 
-    // Prefer order-time seller snapshots (manual checkout entry), fall back to live settings
+    // Prefer order-time seller snapshots (manual checkout entry), fall back to live settings then centralized DEFAULT_SELLER_CONFIG
     const s = settings as any;
     const sellerLegalName =
       (order as any).sellerNameSnapshot ||
       s?.sellerLegalName ||
       s?.sellerName ||
-      'FCI Seller Retail Pvt. Ltd.';
-    const sellerGst = s?.sellerGstNumber || '';
+      DEFAULT_SELLER_CONFIG.name;
+    const sellerGst =
+      s?.sellerGstNumber ||
+      DEFAULT_SELLER_CONFIG.gstin;
     const sellerAddr =
       (order as any).sellerAddressSnapshot ||
-      [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ');
+      [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ') ||
+      DEFAULT_SELLER_CONFIG.fullAddress;
     const sellerPhone =
       (order as any).sellerContactSnapshot ||
       s?.sellerContactNumber ||
-      '';
-    const sellerEmail = s?.sellerEmail || '';
+      DEFAULT_SELLER_CONFIG.contactNumber;
+    const sellerEmail =
+      s?.sellerEmail ||
+      s?.contactEmail ||
+      DEFAULT_SELLER_CONFIG.supportEmail;
 
     // Fulfilled By — default warehouse (fallback; per-order tracking is a future enhancement)
-    const warehouseName = defaultWarehouse?.name || 'FCI Seller Fulfillment Center';
+    const warehouseName = defaultWarehouse?.name || 'FCI Fulfillment Center';
     const warehouseAddr = defaultWarehouse
       ? [defaultWarehouse.address, defaultWarehouse.city, defaultWarehouse.state, defaultWarehouse.pincode].filter(Boolean).join(', ')
       : 'India';
@@ -387,7 +394,7 @@ export class ShipmentService {
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Tax Invoice - FCI Seller #${order.id}</title>
+  <title>Tax Invoice - FCI #${order.id}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; margin:0; }
     .card { max-width: 850px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 30px; border-radius: 8px; }
@@ -413,8 +420,10 @@ export class ShipmentService {
   <div class="card">
     <div class="header">
       <div>
-        <div class="logo">FCI SELLER</div>
-        <p style="font-size:12px; color:#64748b; margin:4px 0 0 0;">Tax Invoice</p>
+        <div class="logo">FCI</div>
+        <div style="font-size:11px; color:#334155; margin-top:4px;"><strong>GSTIN:</strong> ${sellerGst}</div>
+        <div style="font-size:11px; color:#334155; margin-top:2px;"><strong>Support:</strong> ${sellerEmail}</div>
+        <div style="font-size:11px; color:#334155; margin-top:2px; max-width:380px;"><strong>Address:</strong> ${sellerAddr}</div>
       </div>
       <div style="text-align:right;">
         <div style="font-size:18px; font-weight:900; color:#0f172a;">TAX INVOICE</div>
@@ -428,10 +437,10 @@ export class ShipmentService {
       <div class="box">
         <div class="box-title">Sold By</div>
         <p><strong>${sellerLegalName}</strong></p>
-        ${sellerAddr ? `<p>${sellerAddr}</p>` : ''}
-        ${sellerGst ? `<p><strong>GSTIN:</strong> ${sellerGst}</p>` : ''}
+        <p>${sellerAddr}</p>
+        <p><strong>GSTIN:</strong> ${sellerGst}</p>
+        <p><strong>Support:</strong> ${sellerEmail}</p>
         ${sellerPhone ? `<p><strong>Contact:</strong> ${sellerPhone}</p>` : ''}
-        ${sellerEmail ? `<p>${sellerEmail}</p>` : ''}
       </div>
       <div class="box">
         <div class="box-title">Fulfilled By</div>

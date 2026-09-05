@@ -3,6 +3,7 @@ import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import countryToCurrency from 'country-to-currency';
+import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
 
 // Encryption setup
 const ALGORITHM = 'aes-256-cbc';
@@ -164,24 +165,24 @@ export class SettingsService {
     // NOTE: cast to any for new fields until 'npx prisma migrate dev' regenerates Prisma client types
     const db = dbSettings as any;
     const settings = {
-      siteName: dbSettings?.siteName || 'FCISeller',
+      siteName: dbSettings?.siteName || DEFAULT_SELLER_CONFIG.name,
       siteDescription: dbSettings?.siteDescription || 'Luxury Fashion E-commerce',
       siteUrl: process.env.CLIENT_URL || 'http://localhost:3000',
       logoUrl: dbSettings?.logoUrl || '',
       faviconUrl: dbSettings?.faviconUrl || '',
-      contactEmail: dbSettings?.contactEmail || 'support@fciseller.com',
-      contactPhone: dbSettings?.contactPhone || '+91 9876543210',
+      contactEmail: dbSettings?.contactEmail || DEFAULT_SELLER_CONFIG.supportEmail,
+      contactPhone: dbSettings?.contactPhone || DEFAULT_SELLER_CONFIG.contactNumber,
       // Seller display info (existing)
-      sellerName: dbSettings?.sellerName || 'FCI Seller Retail Pvt. Ltd.',
-      sellerContactNumber: dbSettings?.sellerContactNumber || '+91 9876543210',
-      // Seller legal details (new — requires migration to persist)
-      sellerLegalName: db?.sellerLegalName || '',
-      sellerGstNumber: db?.sellerGstNumber || '',
-      sellerAddress: db?.sellerAddress || '',
-      sellerCity: db?.sellerCity || '',
-      sellerState: db?.sellerState || '',
-      sellerPincode: db?.sellerPincode || '',
-      sellerEmail: db?.sellerEmail || '',
+      sellerName: dbSettings?.sellerName || DEFAULT_SELLER_CONFIG.name,
+      sellerContactNumber: dbSettings?.sellerContactNumber || DEFAULT_SELLER_CONFIG.contactNumber,
+      // Seller legal details
+      sellerLegalName: db?.sellerLegalName || DEFAULT_SELLER_CONFIG.legalName,
+      sellerGstNumber: db?.sellerGstNumber || DEFAULT_SELLER_CONFIG.gstin,
+      sellerAddress: db?.sellerAddress || DEFAULT_SELLER_CONFIG.address,
+      sellerCity: db?.sellerCity || DEFAULT_SELLER_CONFIG.city,
+      sellerState: db?.sellerState || DEFAULT_SELLER_CONFIG.state,
+      sellerPincode: db?.sellerPincode || DEFAULT_SELLER_CONFIG.pincode,
+      sellerEmail: db?.sellerEmail || DEFAULT_SELLER_CONFIG.supportEmail,
       socialLinks: {
         facebook: '',
         twitter: '',
@@ -243,19 +244,19 @@ export class SettingsService {
       },
       create: {
         id: 'default',
-        siteName: data.siteName || 'FCISeller',
+        siteName: data.siteName || DEFAULT_SELLER_CONFIG.name,
         siteDescription: data.siteDescription || 'Luxury Fashion E-commerce',
-        contactEmail: data.contactEmail || 'support@fciseller.com',
-        contactPhone: data.contactPhone || '+91 9876543210',
-        sellerName: data.sellerName || 'FCI Seller Retail Pvt. Ltd.',
-        sellerContactNumber: data.sellerContactNumber || '+91 9876543210',
-        sellerLegalName: data.sellerLegalName || null,
-        sellerGstNumber: data.sellerGstNumber || null,
-        sellerAddress: data.sellerAddress || null,
-        sellerCity: data.sellerCity || null,
-        sellerState: data.sellerState || null,
-        sellerPincode: data.sellerPincode || null,
-        sellerEmail: data.sellerEmail || null,
+        contactEmail: data.contactEmail || DEFAULT_SELLER_CONFIG.supportEmail,
+        contactPhone: data.contactPhone || DEFAULT_SELLER_CONFIG.contactNumber,
+        sellerName: data.sellerName || DEFAULT_SELLER_CONFIG.name,
+        sellerContactNumber: data.sellerContactNumber || DEFAULT_SELLER_CONFIG.contactNumber,
+        sellerLegalName: data.sellerLegalName || DEFAULT_SELLER_CONFIG.legalName,
+        sellerGstNumber: data.sellerGstNumber || DEFAULT_SELLER_CONFIG.gstin,
+        sellerAddress: data.sellerAddress || DEFAULT_SELLER_CONFIG.address,
+        sellerCity: data.sellerCity || DEFAULT_SELLER_CONFIG.city,
+        sellerState: data.sellerState || DEFAULT_SELLER_CONFIG.state,
+        sellerPincode: data.sellerPincode || DEFAULT_SELLER_CONFIG.pincode,
+        sellerEmail: data.sellerEmail || DEFAULT_SELLER_CONFIG.supportEmail,
       },
     });
 

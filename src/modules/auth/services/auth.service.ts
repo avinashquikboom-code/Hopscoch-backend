@@ -171,7 +171,13 @@ export class AuthService {
       throw new AppError('Invalid email or password', 401, true, 'INVALID_CREDENTIALS');
     }
 
-    // Restrict admin login to admin panel only
+    // Restrict admin panel login to ADMIN users only
+    if (deviceInfo?.deviceType === 'admin' && user.role !== 'ADMIN') {
+      logger.warn(`⚠️ Login failed: email=${email}. Reason: Non-admin user attempted admin login`);
+      throw new AppError('Admin panel access requires administrator privileges', 403, true, 'ADMIN_ACCESS_REQUIRED');
+    }
+
+    // Restrict admin users from logging in via non-admin applications
     if (user.role === 'ADMIN' && deviceInfo?.deviceType !== 'admin') {
       logger.warn(`⚠️ Login failed: email=${email}. Reason: Admin restricted to admin panel`);
       throw new AppError('Admin users can only login through the admin panel', 403, true, 'ADMIN_ONLY_ADMIN_PANEL');

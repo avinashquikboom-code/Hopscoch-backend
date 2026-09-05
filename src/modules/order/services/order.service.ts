@@ -7,6 +7,7 @@ import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
 import rewardService from '../../loyalty/services/reward.service';
 import walletService from '../../loyalty/services/wallet.service';
 import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
+import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
 
 function formatOrderSummary(order: any) {
   if (!order) return order;
@@ -345,16 +346,16 @@ export class OrderService {
       manualSellerName ||
       systemSettings?.sellerName ||
       systemSettings?.siteName ||
-      'FCI Seller Retail Pvt. Ltd.';
+      DEFAULT_SELLER_CONFIG.name;
     const sellerContactSnap =
       manualSellerContact ||
       systemSettings?.sellerContactNumber ||
       systemSettings?.contactPhone ||
-      '+91 9876543210';
+      DEFAULT_SELLER_CONFIG.contactNumber;
     const sellerAddressSnap =
       manualSellerAddress ||
       settingsAddress ||
-      null;
+      DEFAULT_SELLER_CONFIG.fullAddress;
 
     // 5. Create Order + OrderItems + Payment + Timeline in Single Transaction
     const order = await prisma.$transaction(async (tx) => {

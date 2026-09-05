@@ -42,8 +42,37 @@ router.patch('/admin/wallet-withdrawals/:id/approve', authenticate, authorize('A
 router.patch('/admin/wallet-withdrawals/:id/complete', authenticate, authorize('ADMIN'), loyaltyController.adminCompleteWithdrawal.bind(loyaltyController));
 router.patch('/admin/wallet-withdrawals/:id/reject', authenticate, authorize('ADMIN'), loyaltyController.adminRejectWithdrawal.bind(loyaltyController));
 
-router.get('/admin/category-rewards', authenticate, authorize('ADMIN'), loyaltyController.getCategoryRewards.bind(loyaltyController));
-router.put('/admin/category-rewards/:id', authenticate, authorize('ADMIN'), loyaltyController.updateCategoryReward.bind(loyaltyController));
+// Category Rewards Configuration & Reward Rules
+router.get(
+  ['/admin/category-rewards', '/admin/reward/category-rules', '/admin/rewards/category-rules', '/category-rewards', '/category-rules'],
+  authenticate,
+  authorize('ADMIN'),
+  loyaltyController.getCategoryRewards.bind(loyaltyController)
+);
+router.post(
+  ['/admin/category-rewards', '/admin/reward/category-rules', '/admin/rewards/category-rules', '/category-rewards', '/category-rules'],
+  authenticate,
+  authorize('ADMIN'),
+  loyaltyController.createCategoryReward.bind(loyaltyController)
+);
+router.put(
+  ['/admin/category-rewards/:id', '/admin/reward/category-rules/:id', '/admin/rewards/category-rules/:id', '/category-rewards/:id', '/category-rules/:id'],
+  authenticate,
+  authorize('ADMIN'),
+  loyaltyController.updateCategoryReward.bind(loyaltyController)
+);
+router.patch(
+  ['/admin/category-rewards/:id/status', '/admin/category-rewards/:id/toggle', '/admin/reward/category-rules/:id/status', '/admin/rewards/category-rules/:id/status', '/category-rewards/:id/status'],
+  authenticate,
+  authorize('ADMIN'),
+  loyaltyController.toggleCategoryRewardStatus.bind(loyaltyController)
+);
+router.delete(
+  ['/admin/category-rewards/:id', '/admin/reward/category-rules/:id', '/admin/rewards/category-rules/:id', '/category-rewards/:id', '/category-rules/:id'],
+  authenticate,
+  authorize('ADMIN'),
+  loyaltyController.deleteCategoryReward.bind(loyaltyController)
+);
 
 router.get('/admin/product-rewards', authenticate, authorize('ADMIN'), loyaltyController.getProductRewards.bind(loyaltyController));
 router.put('/admin/product-rewards/:id', authenticate, authorize('ADMIN'), loyaltyController.updateProductReward.bind(loyaltyController));

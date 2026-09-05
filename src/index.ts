@@ -275,6 +275,9 @@ app.use('/loyalty', loyaltyRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/v1/loyalty', loyaltyRoutes);
 app.use('/api/admin/loyalty', loyaltyRoutes);
+app.use('/api/admin/reward', loyaltyRoutes);
+app.use('/api/admin/rewards', loyaltyRoutes);
+app.use('/api/admin', loyaltyRoutes);
 app.use('/mobile/wallet', loyaltyRoutes);
 app.use('/api/mobile/wallet', loyaltyRoutes);
 

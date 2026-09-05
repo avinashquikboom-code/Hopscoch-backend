@@ -22,13 +22,27 @@ async function main() {
   
   await prisma.user.upsert({
     where: { email: 'admin@gmail.com' },
-    update: {},
+    update: { role: Role.ADMIN },
     create: {
       email: 'admin@gmail.com',
       passwordHash: hashedPassword,
       role: Role.ADMIN,
       firstName: 'Admin',
       lastName: 'User',
+      isEmailVerified: true,
+      isActive: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'avinash@gmail.com' },
+    update: { role: Role.ADMIN },
+    create: {
+      email: 'avinash@gmail.com',
+      passwordHash: hashedPassword,
+      role: Role.ADMIN,
+      firstName: 'Avinash',
+      lastName: 'Magar',
       isEmailVerified: true,
       isActive: true,
     },
@@ -552,6 +566,38 @@ async function main() {
       type: 'home',
       isActive: true,
       sortOrder: 2,
+  await (prisma.systemSettings.upsert as any)({
+    where: { id: 'default' },
+    update: {
+      siteName: 'FCI',
+      siteDescription: 'Luxury Fashion E-commerce',
+      contactEmail: 'fashioncityinidia18@gmail.com',
+      contactPhone: '+91 9876543210',
+      sellerName: 'FCI',
+      sellerContactNumber: '+91 9876543210',
+      sellerLegalName: 'FCI',
+      sellerGstNumber: '24GUKPS9446A1ZA',
+      sellerAddress: 'F/7 Jethabhai Park, Narayan Nagar Road, Paldi',
+      sellerCity: 'Ahmedabad',
+      sellerState: 'Gujarat',
+      sellerPincode: '380007',
+      sellerEmail: 'fashioncityinidia18@gmail.com',
+    },
+    create: {
+      id: 'default',
+      siteName: 'FCI',
+      siteDescription: 'Luxury Fashion E-commerce',
+      contactEmail: 'fashioncityinidia18@gmail.com',
+      contactPhone: '+91 9876543210',
+      sellerName: 'FCI',
+      sellerContactNumber: '+91 9876543210',
+      sellerLegalName: 'FCI',
+      sellerGstNumber: '24GUKPS9446A1ZA',
+      sellerAddress: 'F/7 Jethabhai Park, Narayan Nagar Road, Paldi',
+      sellerCity: 'Ahmedabad',
+      sellerState: 'Gujarat',
+      sellerPincode: '380007',
+      sellerEmail: 'fashioncityinidia18@gmail.com',
     },
   });
 

@@ -248,21 +248,139 @@ export class LoyaltyController {
     return ResponseFormatter.success(res, 'Category rewards retrieved', categories);
   }
 
-  async updateCategoryReward(req: Request, res: Response) {
-    const id = Number(req.params.id);
+  async createCategoryReward(req: Request, res: Response) {
     const body = req.body;
+    const categoryId = Number(body.categoryId || body.id);
+
+    if (!categoryId || isNaN(categoryId)) {
+      throw new AppError('Valid categoryId is required to configure category reward rules', 400);
+    }
+
     const category = await prisma.category.update({
-      where: { id },
+      where: { id: categoryId },
       data: {
-        overrideGlobalReward: body.overrideGlobalReward,
+        overrideGlobalReward: body.overrideGlobalReward !== undefined ? Boolean(body.overrideGlobalReward) : true,
         rewardPointsEarned: Number(body.rewardPointsEarned || 0),
         maxRedeemablePoints: Number(body.maxRedeemablePoints || 0),
         rewardMultiplier: Number(body.rewardMultiplier || 1.0),
         allowRewardRedemption: body.allowRewardRedemption !== false,
         allowRewardEarning: body.allowRewardEarning !== false,
       },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        overrideGlobalReward: true,
+        rewardPointsEarned: true,
+        maxRedeemablePoints: true,
+        rewardMultiplier: true,
+        allowRewardRedemption: true,
+        allowRewardEarning: true,
+      },
+    });
+
+    return ResponseFormatter.success(res, 'Category reward rule created successfully', category, 201);
+  }
+
+  async updateCategoryReward(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const body = req.body;
+    const category = await prisma.category.update({
+      where: { id },
+      data: {
+        overrideGlobalReward: body.overrideGlobalReward !== undefined ? Boolean(body.overrideGlobalReward) : true,
+        rewardPointsEarned: Number(body.rewardPointsEarned || 0),
+        maxRedeemablePoints: Number(body.maxRedeemablePoints || 0),
+        rewardMultiplier: Number(body.rewardMultiplier || 1.0),
+        allowRewardRedemption: body.allowRewardRedemption !== false,
+        allowRewardEarning: body.allowRewardEarning !== false,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        overrideGlobalReward: true,
+        rewardPointsEarned: true,
+        maxRedeemablePoints: true,
+        rewardMultiplier: true,
+        allowRewardRedemption: true,
+        allowRewardEarning: true,
+      },
     });
     return ResponseFormatter.success(res, 'Category reward updated successfully', category);
+  }
+
+  async toggleCategoryRewardStatus(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const body = req.body || {};
+
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      throw new AppError('Category not found', 404);
+    }
+
+    const newOverrideState = body.overrideGlobalReward !== undefined
+      ? Boolean(body.overrideGlobalReward)
+      : (body.isActive !== undefined ? Boolean(body.isActive) : !existing.overrideGlobalReward);
+
+    const data: any = {
+      overrideGlobalReward: newOverrideState,
+    };
+    if (body.allowRewardEarning !== undefined) {
+      data.allowRewardEarning = Boolean(body.allowRewardEarning);
+    }
+    if (body.allowRewardRedemption !== undefined) {
+      data.allowRewardRedemption = Boolean(body.allowRewardRedemption);
+    }
+
+    const updated = await prisma.category.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        overrideGlobalReward: true,
+        rewardPointsEarned: true,
+        maxRedeemablePoints: true,
+        rewardMultiplier: true,
+        allowRewardRedemption: true,
+        allowRewardEarning: true,
+      },
+    });
+
+    return ResponseFormatter.success(
+      res,
+      `Category reward rule ${newOverrideState ? 'enabled' : 'disabled'} successfully`,
+      updated
+    );
+  }
+
+  async deleteCategoryReward(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const category = await prisma.category.update({
+      where: { id },
+      data: {
+        overrideGlobalReward: false,
+        rewardPointsEarned: 0,
+        maxRedeemablePoints: 0,
+        rewardMultiplier: 1.0,
+        allowRewardRedemption: true,
+        allowRewardEarning: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        overrideGlobalReward: true,
+        rewardPointsEarned: true,
+        maxRedeemablePoints: true,
+        rewardMultiplier: true,
+        allowRewardRedemption: true,
+        allowRewardEarning: true,
+      },
+    });
+    return ResponseFormatter.success(res, 'Category reward rule reset to global defaults', category);
   }
 
   // 6. Product Rewards Configuration

@@ -23,19 +23,37 @@ const getApiKeyByAppType = (appType: 'admin' | 'mobile' | 'web'): string => {
 const getAppTypeFromRequest = (req: Request): 'admin' | 'mobile' | 'web' => {
   const userAgent = req.headers['user-agent'] || '';
   const referer = req.headers.referer || '';
+  const origin = req.headers.origin || '';
+  const host = req.headers.host || '';
   const apiKey = req.headers['x-api-key'] as string;
+  const appTypeHeader = ((req.headers['x-app-type'] as string) || '').toLowerCase();
+  const path = req.originalUrl || req.baseUrl || req.path || '';
   
-  // Check for admin panel
-  if (referer.includes('/admin') || userAgent.includes('admin') || apiKey === getApiKeyByAppType('admin')) {
+  // 1. Explicit app type header from client API
+  if (appTypeHeader === 'admin') return 'admin';
+  if (appTypeHeader === 'mobile') return 'mobile';
+  if (appTypeHeader === 'web') return 'web';
+
+  // 2. Check for admin panel
+  if (
+    referer.includes('/admin') ||
+    referer.includes('admin.') ||
+    origin.includes('admin.') ||
+    host.includes('admin.') ||
+    path.includes('/admin') ||
+    path.includes('/loyalty/admin') ||
+    userAgent.includes('admin') ||
+    apiKey === getApiKeyByAppType('admin')
+  ) {
     return 'admin';
   }
   
-  // Check for mobile app
+  // 3. Check for mobile app
   if (userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone') || userAgent.includes('iPad') || apiKey === getApiKeyByAppType('mobile')) {
     return 'mobile';
   }
   
-  // Default to web
+  // 4. Default to web
   return 'web';
 };
 

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import prisma from '../utils/prisma';
 import AuthService from '../modules/auth/services/auth.service';
+import { logger } from '../utils/logger';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -30,18 +31,35 @@ const parseCookies = (cookieHeader: string | undefined): Record<string, string> 
 const getAppTypeFromRequest = (req: Request): 'admin' | 'mobile' | 'web' => {
   const userAgent = req.headers['user-agent'] || '';
   const referer = req.headers.referer || '';
-  
-  // Check for admin panel
-  if (referer.includes('/admin') || userAgent.includes('admin')) {
+  const origin = req.headers.origin || '';
+  const host = req.headers.host || '';
+  const appTypeHeader = ((req.headers['x-app-type'] as string) || '').toLowerCase();
+  const path = req.originalUrl || req.baseUrl || req.path || '';
+
+  // 1. Explicit app type header from client API
+  if (appTypeHeader === 'admin') return 'admin';
+  if (appTypeHeader === 'mobile') return 'mobile';
+  if (appTypeHeader === 'web') return 'web';
+
+  // 2. Check for admin panel via referer, origin, host, route path, or user-agent
+  if (
+    referer.includes('/admin') ||
+    referer.includes('admin.') ||
+    origin.includes('admin.') ||
+    host.includes('admin.') ||
+    path.includes('/admin') ||
+    path.includes('/loyalty/admin') ||
+    userAgent.includes('admin')
+  ) {
     return 'admin';
   }
   
-  // Check for mobile app
+  // 3. Check for mobile app
   if (userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
     return 'mobile';
   }
   
-  // Default to web
+  // 4. Default to web
   return 'web';
 };
 
@@ -201,10 +219,17 @@ export const authorize = (...roles: string[]) => {
       throw new AppError('Authentication required', 401);
     }
 
+    const routePath = `${req.method} ${req.originalUrl || req.path}`;
     if (!roles.includes(req.user.role)) {
+      logger.warn(
+        `[AUTH] 403 Forbidden: User ID ${req.user.id} (${req.user.email}) [Role: ${req.user.role}] denied access to ${routePath}. Required: [${roles.join(', ')}]`
+      );
       throw new AppError('Insufficient permissions', 403);
     }
 
+    logger.info(
+      `[AUTH] Authorized: User ID ${req.user.id} (${req.user.email}) [Role: ${req.user.role}] granted access to ${routePath}`
+    );
     next();
   };
 };
