@@ -340,9 +340,13 @@ export class OrderService {
       : calculatedTotal;
 
     // 4. Determine Status & Payment Method
+    let normalizedMethod = String(paymentMethod || '').trim().toUpperCase();
+    if (normalizedMethod === 'CASH ON DELIVERY' || normalizedMethod === 'CASH_ON_DELIVERY') {
+      normalizedMethod = 'COD';
+    }
     const validPaymentMethods = ['RAZORPAY', 'STRIPE', 'UPI', 'CARD', 'WALLET', 'COD'];
-    const pMethod = validPaymentMethods.includes(String(paymentMethod).toUpperCase())
-      ? (String(paymentMethod).toUpperCase() as any)
+    const pMethod = validPaymentMethods.includes(normalizedMethod)
+      ? (normalizedMethod as any)
       : 'COD';
 
     if (pMethod === 'COD') {
@@ -398,6 +402,16 @@ export class OrderService {
       DEFAULT_SELLER_CONFIG.fullAddress;
 
     // 5. Create Order + OrderItems + Payment + Timeline in Single Transaction
+    const cleanRazorpayOrderId = (pMethod !== 'COD' && razorpayOrderId && typeof razorpayOrderId === 'string' && razorpayOrderId.trim().length > 0)
+      ? razorpayOrderId.trim()
+      : undefined;
+    const cleanRazorpayPaymentId = (pMethod !== 'COD' && razorpayPaymentId && typeof razorpayPaymentId === 'string' && razorpayPaymentId.trim().length > 0)
+      ? razorpayPaymentId.trim()
+      : undefined;
+    const cleanRazorpaySignature = (pMethod !== 'COD' && razorpaySignature && typeof razorpaySignature === 'string' && razorpaySignature.trim().length > 0)
+      ? razorpaySignature.trim()
+      : undefined;
+
     const order = await prisma.$transaction(async (tx) => {
       const createdOrder = await tx.order.create({
         data: {
@@ -441,16 +455,16 @@ export class OrderService {
               note: isPaid ? 'Order placed and payment verified' : 'Order placed (Payment pending / COD)',
             },
           },
-          payment: razorpayOrderId ? {
+          payment: cleanRazorpayOrderId ? {
             connectOrCreate: {
-              where: { razorpayOrderId },
+              where: { razorpayOrderId: cleanRazorpayOrderId },
               create: {
                 method: pMethod,
                 status: isPaid ? 'PAID' : 'PENDING',
                 amount: totalAmount,
-                razorpayOrderId,
-                razorpayPaymentId,
-                razorpaySignature,
+                razorpayOrderId: cleanRazorpayOrderId,
+                razorpayPaymentId: cleanRazorpayPaymentId,
+                razorpaySignature: cleanRazorpaySignature,
               },
             },
           } : {
@@ -458,9 +472,6 @@ export class OrderService {
               method: pMethod,
               status: isPaid ? 'PAID' : 'PENDING',
               amount: totalAmount,
-              razorpayOrderId,
-              razorpayPaymentId,
-              razorpaySignature,
             },
           },
         },
@@ -472,13 +483,13 @@ export class OrderService {
         },
       });
 
-      if (razorpayOrderId) {
+      if (cleanRazorpayOrderId) {
         await tx.payment.updateMany({
-          where: { razorpayOrderId },
+          where: { razorpayOrderId: cleanRazorpayOrderId },
           data: {
             status: isPaid ? 'PAID' : 'PENDING',
-            ...(razorpayPaymentId ? { razorpayPaymentId } : {}),
-            ...(razorpaySignature ? { razorpaySignature } : {}),
+            ...(cleanRazorpayPaymentId ? { razorpayPaymentId: cleanRazorpayPaymentId } : {}),
+            ...(cleanRazorpaySignature ? { razorpaySignature: cleanRazorpaySignature } : {}),
           },
         });
       }
