@@ -814,7 +814,7 @@ model Order {
   invoiceUrl String? @map("invoice_url")
 
   sellerNameSnapshot    String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name_snapshot")
-  sellerContactSnapshot String? @default("+91 9876543210") @map("seller_contact_snapshot")
+  sellerContactSnapshot String? @default("+91 96015 11596") @map("seller_contact_snapshot")
   sellerAddressSnapshot String? @map("seller_address_snapshot")
 
   courierName String?   @map("courier_name")
@@ -1239,7 +1239,7 @@ model SystemSettings {
 
   // Basic seller display info (existing)
   sellerName          String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name")
-  sellerContactNumber String? @default("+91 9876543210") @map("seller_contact_number")
+  sellerContactNumber String? @default("+91 96015 11596") @map("seller_contact_number")
 
   // Full seller legal details (new — for invoice "Sold By" section)
   sellerLegalName String? @map("seller_legal_name")

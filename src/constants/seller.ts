@@ -9,5 +9,5 @@ export const DEFAULT_SELLER_CONFIG = {
   pincode: '380007',
   country: 'India',
   fullAddress: 'F/7 Jethabhai Park, Narayan Nagar Road, Paldi, Ahmedabad, Gujarat - 380007, India',
-  contactNumber: '+91 9876543210',
+  contactNumber: '+91 96015 11596',
 };

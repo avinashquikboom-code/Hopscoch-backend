@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
 import { isS3Configured, uploadToS3 } from '../../../config/s3';
 import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
+import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
 
 export class AdminService {
   async createAdminUser(data: {
@@ -3059,12 +3060,12 @@ export class AdminService {
     const settings = await prisma.systemSettings.findFirst();
     if (!settings) {
       return {
-        siteName: 'FCISeller',
+        siteName: DEFAULT_SELLER_CONFIG.name,
         siteDescription: 'Luxury Fashion E-commerce',
-        contactEmail: 'contact@fciseller.com',
-        contactPhone: '+91 9876543210',
-        sellerName: 'FCI Seller Retail Pvt. Ltd.',
-        sellerContactNumber: '+91 9876543210',
+        contactEmail: DEFAULT_SELLER_CONFIG.supportEmail,
+        contactPhone: DEFAULT_SELLER_CONFIG.contactNumber,
+        sellerName: DEFAULT_SELLER_CONFIG.name,
+        sellerContactNumber: DEFAULT_SELLER_CONFIG.contactNumber,
         currency: 'INR',
       };
     }
