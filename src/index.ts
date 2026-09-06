@@ -224,7 +224,10 @@ app.get(['/api/banners', '/api/v1/banners', '/api/v1/web/banners'], async (req, 
     if (type) where.type = String(type);
     const banners = await prisma.banner.findMany({
       where,
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { id: 'asc' },
+      ],
     });
     return ResponseFormatter.success(res, 'Banners retrieved successfully', banners);
   } catch (error) {

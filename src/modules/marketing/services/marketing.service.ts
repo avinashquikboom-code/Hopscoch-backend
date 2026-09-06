@@ -15,15 +15,35 @@ export class MarketingService {
     endDate?: string;
   }) {
     const { title, description, imageUrl, link, type, position, isActive, startDate, endDate } = data;
+    const finalImageUrl = imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=80';
+    const finalPosition = String(position);
+
+    // Idempotency & Debounce Guard:
+    // Prevent double-click, form double-submission, or network retries from creating duplicate records
+    const normalizedTitle = title ? title.trim() : '';
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const existingRecent = await prisma.banner.findFirst({
+      where: {
+        title: normalizedTitle,
+        imageUrl: finalImageUrl,
+        position: finalPosition,
+        createdAt: { gte: tenSecondsAgo },
+      },
+    });
+
+    if (existingRecent) {
+      logger.warn(`Duplicate banner creation prevented for title: "${normalizedTitle}". Returning existing banner id: ${existingRecent.id}`);
+      return existingRecent;
+    }
 
     const banner = await prisma.banner.create({
       data: {
-        title,
+        title: normalizedTitle,
         description,
-        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=80',
+        imageUrl: finalImageUrl,
         link,
         type: type || 'home',
-        position: String(position),
+        position: finalPosition,
         isActive,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
@@ -56,7 +76,10 @@ export class MarketingService {
 
     const banners = await prisma.banner.findMany({
       where,
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { id: 'asc' },
+      ],
     });
 
     return banners;
@@ -138,14 +161,11 @@ export class MarketingService {
       throw new AppError('Banner not found', 404);
     }
 
-    await prisma.banner.update({
+    await prisma.banner.delete({
       where: { id },
-      data: {
-        isActive: false,
-      },
     });
 
-    logger.info(`Banner deleted: ${bannerId}`);
+    logger.info(`Banner permanently deleted: ${bannerId}`);
     return { message: 'Banner deleted successfully' };
   }
 
