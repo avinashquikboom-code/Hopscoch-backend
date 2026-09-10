@@ -171,7 +171,7 @@ async function main() {
     where: { code: 'AURA-MUM-01' },
     update: {},
     create: {
-      name: 'FCI SELLER Main Warehouse',
+      name: 'Fashion City Main Warehouse',
       code: 'AURA-MUM-01',
       address: 'Sector 8, Kopar Khairane',
       city: 'Navi Mumbai',

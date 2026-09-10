@@ -22,9 +22,30 @@ export function normalizeSellerName(name?: string | null): string {
     lower === 'fci seller' ||
     lower === 'fci-seller' ||
     lower === 'fciseller' ||
-    lower === 'fci ecommerce'
+    lower === 'fci ecommerce' ||
+    lower === 'fashion city' ||
+    lower === 'fashion city india' ||
+    lower === 'fashion city india ltd' ||
+    lower === 'fci seller retail pvt. ltd.' ||
+    /\bfci\b/i.test(trimmed) ||
+    lower.startsWith('fci ') ||
+    lower.endsWith(' fci')
   ) {
     return DEFAULT_SELLER_CONFIG.name;
+  }
+  return trimmed;
+}
+
+export function normalizeWarehouseName(name?: string | null): string {
+  if (!name || typeof name !== 'string') return `${DEFAULT_SELLER_CONFIG.name} Fulfillment Center`;
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    !trimmed ||
+    lower.includes('fci') ||
+    lower.includes('fciseller')
+  ) {
+    return `${DEFAULT_SELLER_CONFIG.name} Main Warehouse`;
   }
   return trimmed;
 }

@@ -3219,6 +3219,13 @@ export class AdminService {
         contactEmail: DEFAULT_SELLER_CONFIG.supportEmail,
         contactPhone: DEFAULT_SELLER_CONFIG.contactNumber,
         sellerName: DEFAULT_SELLER_CONFIG.name,
+        sellerLegalName: DEFAULT_SELLER_CONFIG.legalName,
+        sellerGstNumber: DEFAULT_SELLER_CONFIG.gstin,
+        sellerAddress: DEFAULT_SELLER_CONFIG.address,
+        sellerCity: DEFAULT_SELLER_CONFIG.city,
+        sellerState: DEFAULT_SELLER_CONFIG.state,
+        sellerPincode: DEFAULT_SELLER_CONFIG.pincode,
+        sellerEmail: DEFAULT_SELLER_CONFIG.supportEmail,
         sellerContactNumber: DEFAULT_SELLER_CONFIG.contactNumber,
         currency: 'INR',
       };
@@ -3228,6 +3235,13 @@ export class AdminService {
       ...settings,
       sellerName: normalizeSellerName(settings.sellerName),
       sellerLegalName: normalizeSellerName(sAny.sellerLegalName),
+      sellerGstNumber: sAny.sellerGstNumber || DEFAULT_SELLER_CONFIG.gstin,
+      sellerAddress: sAny.sellerAddress || DEFAULT_SELLER_CONFIG.address,
+      sellerCity: sAny.sellerCity || DEFAULT_SELLER_CONFIG.city,
+      sellerState: sAny.sellerState || DEFAULT_SELLER_CONFIG.state,
+      sellerPincode: sAny.sellerPincode || DEFAULT_SELLER_CONFIG.pincode,
+      sellerEmail: sAny.sellerEmail || DEFAULT_SELLER_CONFIG.supportEmail,
+      sellerContactNumber: sAny.sellerContactNumber || DEFAULT_SELLER_CONFIG.contactNumber,
       siteName: normalizeSellerName(settings.siteName),
     };
   }

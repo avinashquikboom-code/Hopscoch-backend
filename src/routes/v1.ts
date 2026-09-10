@@ -117,12 +117,24 @@ router.get(
   (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
 );
 router.get(
+  '/admin/orders/:orderId/receipt',
+  (req: any, res: any) => ShipmentController.downloadReceipt(req, res)
+);
+router.get(
   '/web/orders/:orderId/invoice',
   (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
 );
 router.get(
+  '/web/orders/:orderId/receipt',
+  (req: any, res: any) => ShipmentController.downloadReceipt(req, res)
+);
+router.get(
   '/orders/:orderId/invoice',
   (req: any, res: any) => ShipmentController.downloadInvoice(req, res)
+);
+router.get(
+  '/orders/:orderId/receipt',
+  (req: any, res: any) => ShipmentController.downloadReceipt(req, res)
 );
 router.post(
   '/admin/shipping/pickup',

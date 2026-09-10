@@ -142,5 +142,6 @@ import ShipmentController from '../../shipments/controllers/shipment.controller'
 
 router.patch('/:orderId/cancel', authenticate, orderController.cancelOrder.bind(orderController));
 router.get('/:orderId/invoice', (req: any, res: any) => ShipmentController.downloadInvoice(req, res));
+router.get('/:orderId/receipt', (req: any, res: any) => ShipmentController.downloadReceipt(req, res));
 
 export default router;

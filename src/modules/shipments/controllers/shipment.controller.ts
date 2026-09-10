@@ -136,6 +136,17 @@ export class ShipmentController {
     }
   }
 
+  async downloadReceipt(req: any, res: Response): Promise<void> {
+    try {
+      const orderParam = req.params.orderId;
+      const html = await ShipmentService.renderReceiptHtml(orderParam);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error: any) {
+      ResponseFormatter.error(res, error.message || 'Failed to render receipt', 404);
+    }
+  }
+
   async schedulePickup(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.user || req.user.role !== 'ADMIN') {

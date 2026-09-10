@@ -1,9 +1,8 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
-import shiprocketClient from './shiprocket.client';
-import { getShiprocketPickupLocation } from '../../inventory/services/warehouse.service';
-import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
+import { CreateShipmentDto, UpdateShipmentDto, TrackShipmentDto, ReturnItemDto } from '../dtos/shipment.dto';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName, normalizeWarehouseName } from '../../../constants/seller';
 
 export class ShipmentService {
   async createShipment(orderId: number) {
@@ -233,8 +232,8 @@ export class ShipmentService {
     const phone = addr.phone || addr.phoneNumber || order.user?.phone || '';
     const fullAddress = [street, city, state, pincode].filter(Boolean).join(', ');
 
-    const courier = order.shipment?.courier || 'FCI Seller Express';
-    const awb = order.shipment?.awb || `AWB-FCIS-${orderId}`;
+    const courier = order.shipment?.courier || 'Express Delivery';
+    const awb = order.shipment?.awb || `AWB-${orderId}`;
     const paymentMode = order.paymentStatus === 'PAID' ? 'PREPAID' : 'COD';
     const itemsList = (order.items || []).map((i: any) => `${i.product?.name || i.name || 'Product'} (x${i.quantity || 1})`).join(', ');
 
@@ -260,7 +259,7 @@ export class ShipmentService {
 <body onload="window.print()">
   <div class="label-box">
     <div class="header">
-      <div class="brand">FCI Seller</div>
+      <div class="brand">${normalizeSellerName((order as any).sellerNameSnapshot || (order as any).sellerName)}</div>
       <div class="badge">${paymentMode}</div>
     </div>
     <div class="barcode">||| |||| || ||||| |||| ${awb}</div>
@@ -363,7 +362,7 @@ export class ShipmentService {
       DEFAULT_SELLER_CONFIG.supportEmail;
 
     // Fulfilled By — default warehouse (fallback; per-order tracking is a future enhancement)
-    const warehouseName = defaultWarehouse?.name || `${sellerLegalName} Fulfillment Center`;
+    const warehouseName = normalizeWarehouseName(defaultWarehouse?.name || `${sellerLegalName} Fulfillment Center`);
     const warehouseAddr = defaultWarehouse
       ? [defaultWarehouse.address, defaultWarehouse.city, defaultWarehouse.state, defaultWarehouse.pincode].filter(Boolean).join(', ')
       : 'India';
@@ -431,7 +430,7 @@ export class ShipmentService {
       </div>
       <div style="text-align:right;">
         <div style="font-size:18px; font-weight:900; color:#0f172a;">TAX INVOICE</div>
-        <div style="font-size:12px; color:#64748b;">Invoice #: INV-FCI-${order.id}</div>
+        <div style="font-size:12px; color:#64748b;">Invoice #: INV-${order.id}</div>
         <div style="font-size:12px; color:#64748b;">Date: ${dateStr}</div>
         <div style="font-size:12px; color:#64748b;">Order: #${(order as any).orderNumber || order.id}</div>
         ${awb ? `<div style="font-size:12px; color:#64748b;">AWB: ${awb}${courier ? ` (${courier})` : ''}</div>` : ''}
@@ -497,6 +496,172 @@ export class ShipmentService {
         <p>For ${sellerLegalName}</p>
         <div class="signatory-space"></div>
         <p style="font-size:11px; color:#64748b;">Authorized Signatory</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  async renderReceiptHtml(orderParam: string | number): Promise<string> {
+    const isNum = !isNaN(Number(orderParam));
+    const numId = isNum ? Number(orderParam) : -1;
+    const strParam = String(orderParam);
+
+    const [order, settings] = await Promise.all([
+      prisma.order.findFirst({
+        where: {
+          OR: [
+            { id: numId },
+            { orderNumber: strParam },
+          ],
+        },
+        include: {
+          items: { include: { product: true } },
+          user: true,
+          address: true,
+        },
+      }),
+      prisma.systemSettings.findFirst(),
+    ]);
+
+    if (!order) {
+      throw new Error(`Order #${orderParam} not found`);
+    }
+
+    const addr = (order.address as any) || {};
+    const recipientName = addr.recipientName || addr.fullName || addr.name || order.user?.firstName || 'Customer';
+    const street = addr.addressLine1 || addr.line1 || addr.street || '';
+    const city = addr.city || '';
+    const state = addr.state || '';
+    const pincode = addr.pincode || addr.postalCode || '';
+    const phone = addr.phone || addr.phoneNumber || (order.user as any)?.phone || '';
+    const fullAddress = [street, city, state, pincode].filter(Boolean).join(', ');
+
+    const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+    const totalAmt = Number((order as any).totalAmount || (order as any).total || 0);
+
+    const s = settings as any;
+    const rawSeller =
+      (order as any).sellerNameSnapshot ||
+      (order as any).sellerName ||
+      s?.sellerLegalName ||
+      s?.sellerName;
+    const sellerLegalName = normalizeSellerName(rawSeller);
+    const sellerGst = s?.sellerGstNumber || DEFAULT_SELLER_CONFIG.gstin;
+    const sellerAddr =
+      (order as any).sellerAddressSnapshot ||
+      [s?.sellerAddress, s?.sellerCity, s?.sellerState, s?.sellerPincode].filter(Boolean).join(', ') ||
+      DEFAULT_SELLER_CONFIG.fullAddress;
+    const sellerPhone =
+      (order as any).sellerContactSnapshot ||
+      s?.sellerContactNumber ||
+      DEFAULT_SELLER_CONFIG.contactNumber;
+    const sellerEmail =
+      s?.sellerEmail ||
+      s?.contactEmail ||
+      DEFAULT_SELLER_CONFIG.supportEmail;
+
+    const itemsRows = (order.items || []).map((item: any, idx: number) => {
+      const title = item.product?.name || item.name || 'Product Item';
+      const qty = item.quantity || 1;
+      const price = Number(item.price || item.priceSnapshot || item.unitPrice || 0);
+      const total = price * qty;
+      return `<tr>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-size:12px;">${idx + 1}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; font-weight:600; font-size:12px;">${title}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-size:12px;">${qty}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px;">₹${price.toFixed(2)}</td>
+        <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-size:12px; font-weight:700;">₹${total.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Payment Receipt - ${sellerLegalName} #${order.id}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #1e293b; padding: 24px; margin:0; }
+    .card { max-width: 800px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 30px; border-radius: 8px; }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #14b8a6; padding-bottom: 16px; margin-bottom: 20px; }
+    .logo { font-size: 24px; font-weight: 900; color: #14b8a6; text-transform: uppercase; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; background: #f8fafc; }
+    .box-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #14b8a6; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; letter-spacing: 0.5px; }
+    .box p { font-size: 12px; margin: 3px 0; color: #334155; line-height: 1.4; }
+    .box p strong { color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f172a; color: #fff; padding: 10px; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
+    .totals-table { width: 300px; margin-left: auto; }
+    .totals-table td { padding: 6px 12px; font-size: 12px; border: none; }
+    .totals-table tr.grand-total td { font-size: 15px; font-weight: 900; color: #0f172a; border-top: 2px solid #14b8a6; border-bottom: 2px solid #14b8a6; background: #f0fdf4; }
+    .footer { margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 16px; display: flex; justify-content: space-between; }
+    @media print { body { padding: 0; } .card { border: none; } }
+  </style>
+</head>
+<body onload="window.print()">
+  <div class="card">
+    <div class="header">
+      <div>
+        <div class="logo">${sellerLegalName}</div>
+        <div style="font-size:11px; color:#334155; margin-top:4px;"><strong>GSTIN:</strong> ${sellerGst}</div>
+        <div style="font-size:11px; color:#334155; margin-top:2px;"><strong>Email:</strong> ${sellerEmail}</div>
+        <div style="font-size:11px; color:#334155; margin-top:2px; max-width:380px;"><strong>Address:</strong> ${sellerAddr}</div>
+        <div style="font-size:11px; color:#334155; margin-top:2px;"><strong>Phone:</strong> ${sellerPhone}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:18px; font-weight:900; color:#0f172a;">PAYMENT RECEIPT</div>
+        <div style="font-size:12px; color:#64748b;">Receipt #: RCP-${order.id}</div>
+        <div style="font-size:12px; color:#64748b;">Date: ${dateStr}</div>
+        <div style="font-size:12px; color:#64748b;">Order: #${(order as any).orderNumber || order.id}</div>
+        <div style="font-size:12px; color:#14b8a6; font-weight:bold; margin-top:4px;">Payment: ${(order as any).paymentStatus || 'PAID'}</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="box">
+        <div class="box-title">Seller Information</div>
+        <p><strong>${sellerLegalName}</strong></p>
+        <p>${sellerAddr}</p>
+        <p><strong>GSTIN:</strong> ${sellerGst}</p>
+        <p><strong>Support:</strong> ${sellerEmail}</p>
+        <p><strong>Phone:</strong> ${sellerPhone}</p>
+      </div>
+      <div class="box">
+        <div class="box-title">Received From (Customer)</div>
+        <p><strong>${recipientName}</strong></p>
+        <p>${fullAddress}</p>
+        ${phone ? `<p>Ph: ${phone}</p>` : ''}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px; text-align:center;">#</th>
+          <th>Item Description</th>
+          <th style="width:50px; text-align:center;">Qty</th>
+          <th style="width:100px; text-align:right;">Unit Price (₹)</th>
+          <th style="width:100px; text-align:right;">Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsRows || `<tr><td colspan="5" style="padding:12px; text-align:center; border:1px solid #cbd5e1;">Standard Order Item</td></tr>`}
+      </tbody>
+    </table>
+
+    <table class="totals-table">
+      <tr class="grand-total"><td>Total Amount Received:</td><td style="text-align:right;">₹${totalAmt.toFixed(2)}</td></tr>
+    </table>
+
+    <div class="footer">
+      <div style="font-size:10px; color:#64748b; max-width:420px; line-height:1.5;">
+        <p style="font-weight:700; color:#0f172a; margin:0 0 4px;">Receipt Notes:</p>
+        <p style="margin:2px 0;">This is an official payment acknowledgement receipt from ${sellerLegalName}.</p>
+      </div>
+      <div style="text-align:right; font-size:11px; color:#64748b;">
+        <p>Generated by ${sellerLegalName} Billing System</p>
       </div>
     </div>
   </div>
