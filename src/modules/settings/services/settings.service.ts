@@ -189,8 +189,8 @@ export class SettingsService {
         instagram: '',
         linkedin: '',
       },
-      seoTitle: 'FCISeller - Luxury Fashion',
-      seoDescription: 'Shop the latest luxury fashion at FCISeller',
+      seoTitle: 'Fashion City India Ltd - Luxury Fashion',
+      seoDescription: 'Shop the latest luxury fashion at Fashion City India Ltd',
     };
 
     return settings;
