@@ -368,6 +368,9 @@ export class ShipmentService {
       ? [defaultWarehouse.address, defaultWarehouse.city, defaultWarehouse.state, defaultWarehouse.pincode].filter(Boolean).join(', ')
       : 'India';
 
+    const awb = (order as any).awbNumber || (order as any).shipment?.awb || null;
+    const courier = (order as any).courierName || (order as any).shipment?.courier || null;
+
     const itemsRows = (order.items || []).map((item: any, idx: number) => {
       const title = item.product?.name || item.name || 'Product Item';
       const qty = item.quantity || 1;
@@ -563,7 +566,7 @@ export class ShipmentService {
     return { success: true, message: 'Shipment cancelled' };
   }
 
-  async trackShipment(orderIdInput: number | string) {
+  async trackShipment(orderIdInput: number | string, requestingUserId?: number, isAdmin?: boolean) {
     const numericId = typeof orderIdInput === 'number' ? orderIdInput : parseInt(String(orderIdInput).replace(/\D/g, ''));
     const order = await prisma.order.findFirst({
       where: {
@@ -585,7 +588,11 @@ export class ShipmentService {
       throw new AppError('Order not found', 404);
     }
 
-    const courier = (order as any).courierName || order.shipment?.courier || 'Logistics Partner';
+    if (!isAdmin && requestingUserId && order.userId !== requestingUserId) {
+      throw new AppError('Access denied: You do not have permission to view tracking for this order', 403);
+    }
+
+    const courier = (order as any).courierName || order.shipment?.courier || null;
     const awb = (order as any).awbNumber || order.shipment?.awb || null;
 
     let trackingUrl: string | null = (order.shipment?.timeline as any)?.trackingUrl || null;
@@ -612,7 +619,9 @@ export class ShipmentService {
       orderNumber: order.orderNumber,
       status: order.status,
       courierName: courier,
+      shippingCompany: courier,
       awbNumber: awb,
+      trackingNumber: awb,
       shippedAt: (order as any).shippedAt || order.shipment?.createdAt || null,
       trackingUrl,
       activities: activities.length > 0 ? activities : [

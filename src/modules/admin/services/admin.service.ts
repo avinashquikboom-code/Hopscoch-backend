@@ -2293,20 +2293,8 @@ export class AdminService {
       cleanTrackingUrl = generateTrackingUrl(cleanCourier, cleanAwb);
     }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: {
-        status: data.status,
-        ...(cleanCourier ? { courierName: cleanCourier } : {}),
-        ...(cleanAwb ? { awbNumber: cleanAwb } : {}),
-        ...(!isAlreadyShipped && isShipped ? { shippedAt: new Date() } : {}),
-      },
-      include: {
-        shipment: true,
-      },
-    });
-
     // Upsert Shipment record atomically (Single shipment per order)
+    let savedShipment: any = order.shipment;
     if (isShipped && (cleanCourier || cleanAwb)) {
       const existingShipment = await prisma.shipment.findUnique({ where: { orderId: id } });
       const currentTimeline = (existingShipment?.timeline as any) || {};
@@ -2316,7 +2304,7 @@ export class AdminService {
         lastUpdated: new Date().toISOString(),
       };
 
-      await prisma.shipment.upsert({
+      savedShipment = await prisma.shipment.upsert({
         where: { orderId: id },
         create: {
           orderId: id,
@@ -2334,6 +2322,19 @@ export class AdminService {
         },
       });
     }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        status: data.status,
+        ...(cleanCourier ? { courierName: cleanCourier } : {}),
+        ...(cleanAwb ? { awbNumber: cleanAwb } : {}),
+        ...(!isAlreadyShipped && isShipped ? { shippedAt: new Date() } : {}),
+      },
+      include: {
+        shipment: true,
+      },
+    });
 
     // Add timeline event
     const noteText = isShipped && cleanCourier && cleanAwb
@@ -2377,24 +2378,31 @@ export class AdminService {
       }
     }
 
+    const effectiveAwb = cleanAwb || updatedOrder.awbNumber || savedShipment?.awb || null;
+    const effectiveCourier = cleanCourier || updatedOrder.courierName || savedShipment?.courier || null;
+    const effectiveTrackingUrl = cleanTrackingUrl || ((savedShipment?.timeline as any)?.trackingUrl) || null;
+
     return {
       ...updatedOrder,
-      courierName: cleanCourier,
-      shippingCompany: cleanCourier,
-      awbNumber: cleanAwb,
-      trackingUrl: cleanTrackingUrl,
-      shipment: {
-        ...(updatedOrder.shipment || {}),
-        courier: cleanCourier,
-        courierName: cleanCourier,
-        shippingCompany: cleanCourier,
-        carrier: cleanCourier,
-        awb: cleanAwb,
-        awbNumber: cleanAwb,
-        trackingNumber: cleanAwb,
-        trackingUrl: cleanTrackingUrl,
-        status: 'SHIPPED',
-      },
+      orderId: String(updatedOrder.id),
+      awbNumber: effectiveAwb,
+      trackingNumber: effectiveAwb,
+      courierName: effectiveCourier,
+      shippingCompany: effectiveCourier,
+      trackingUrl: effectiveTrackingUrl,
+      shippedAt: updatedOrder.shippedAt,
+      shipment: savedShipment || updatedOrder.shipment || (effectiveAwb ? {
+        orderId: updatedOrder.id,
+        courier: effectiveCourier,
+        courierName: effectiveCourier,
+        shippingCompany: effectiveCourier,
+        carrier: effectiveCourier,
+        awb: effectiveAwb,
+        awbNumber: effectiveAwb,
+        trackingNumber: effectiveAwb,
+        trackingUrl: effectiveTrackingUrl,
+        status: updatedOrder.status,
+      } : null),
     };
   }
 

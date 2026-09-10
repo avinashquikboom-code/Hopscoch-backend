@@ -57,10 +57,13 @@ export class ShipmentController {
         ResponseFormatter.success(res, 'AWB list retrieved successfully', shipments);
         return;
       }
-      const tracking = await ShipmentService.trackShipment(Number(rawOrderId));
+      const requestingUserId = req.user?.id ? Number(req.user.id) : undefined;
+      const isAdmin = req.user?.role === 'ADMIN';
+      const tracking = await ShipmentService.trackShipment(rawOrderId, requestingUserId, isAdmin);
       ResponseFormatter.success(res, 'AWB details retrieved successfully', tracking);
     } catch (error: any) {
-      ResponseFormatter.error(res, error.message || 'Failed to retrieve AWB details', 500);
+      const statusCode = error.statusCode || 500;
+      ResponseFormatter.error(res, error.message || 'Failed to retrieve AWB details', statusCode);
     }
   }
 
@@ -164,10 +167,13 @@ export class ShipmentController {
   async trackShipment(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { orderId } = req.params;
-      const tracking = await ShipmentService.trackShipment(Number(orderId));
+      const requestingUserId = req.user?.id ? Number(req.user.id) : undefined;
+      const isAdmin = req.user?.role === 'ADMIN';
+      const tracking = await ShipmentService.trackShipment(orderId, requestingUserId, isAdmin);
       ResponseFormatter.success(res, 'Shipment tracking data retrieved', tracking);
     } catch (error: any) {
-      ResponseFormatter.error(res, error.message || 'Failed to track shipment', 500);
+      const statusCode = error.statusCode || 500;
+      ResponseFormatter.error(res, error.message || 'Failed to track shipment', statusCode);
     }
   }
 
