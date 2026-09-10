@@ -1,6 +1,6 @@
 export const DEFAULT_SELLER_CONFIG = {
-  name: 'FCI',
-  legalName: 'FCI',
+  name: 'Fashion City India Ltd',
+  legalName: 'Fashion City India Ltd',
   gstin: '24GUKPS9446A1ZA',
   supportEmail: 'fashioncityinidia18@gmail.com',
   address: 'F/7 Jethabhai Park, Narayan Nagar Road, Paldi',

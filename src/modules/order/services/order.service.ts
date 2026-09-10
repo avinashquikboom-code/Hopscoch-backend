@@ -390,8 +390,10 @@ export class OrderService {
       settingsAny?.sellerState,
       settingsAny?.sellerPincode,
     ].filter(Boolean).join(', ');
+    const rawManualSeller = manualSellerName;
+    const resolvedManualSeller = (rawManualSeller && rawManualSeller !== 'FCI' && rawManualSeller !== 'FCI Seller') ? rawManualSeller : null;
     const sellerNameSnap =
-      manualSellerName ||
+      resolvedManualSeller ||
       systemSettings?.sellerName ||
       systemSettings?.siteName ||
       DEFAULT_SELLER_CONFIG.name;

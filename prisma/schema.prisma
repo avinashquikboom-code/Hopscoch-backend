@@ -813,7 +813,7 @@ model Order {
 
   invoiceUrl String? @map("invoice_url")
 
-  sellerNameSnapshot    String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name_snapshot")
+  sellerNameSnapshot    String? @default("Fashion City India Ltd") @map("seller_name_snapshot")
   sellerContactSnapshot String? @default("+91 96015 11596") @map("seller_contact_snapshot")
   sellerAddressSnapshot String? @map("seller_address_snapshot")
 
@@ -1238,7 +1238,7 @@ model SystemSettings {
   faviconUrl     String? @map("favicon_url")
 
   // Basic seller display info (existing)
-  sellerName          String? @default("FCI Seller Retail Pvt. Ltd.") @map("seller_name")
+  sellerName          String? @default("Fashion City India Ltd") @map("seller_name")
   sellerContactNumber String? @default("+91 96015 11596") @map("seller_contact_number")
 
   // Full seller legal details (new — for invoice "Sold By" section)
