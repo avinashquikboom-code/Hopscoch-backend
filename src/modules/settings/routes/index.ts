@@ -6,6 +6,7 @@ import MarketingService from '../../marketing/services/marketing.service';
 import { ResponseFormatter } from '../../../utils/responseFormatter';
 import path from 'path';
 import fs from 'fs';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
 const router = Router();
 const settingsController = SettingsController;
@@ -274,14 +275,14 @@ const paymentSettingsFilePath = path.join(__dirname, '../payment-settings.json')
 const shippingSettingsFilePath = path.join(__dirname, '../shipping-settings.json');
 
 const defaultStoreSettings = {
-  storeName: 'FCI SELLER',
-  storeEmail: 'admin@fciseller.com',
-  storePhone: '',
-  storeAddress: '',
+  storeName: DEFAULT_SELLER_CONFIG.name,
+  storeEmail: DEFAULT_SELLER_CONFIG.supportEmail,
+  storePhone: DEFAULT_SELLER_CONFIG.contactNumber,
+  storeAddress: DEFAULT_SELLER_CONFIG.fullAddress,
   currency: 'USD',
   language: 'en',
   timezone: 'UTC',
-  metaTitle: '',
+  metaTitle: DEFAULT_SELLER_CONFIG.name,
   metaDescription: '',
   newOrderAlerts: true,
   lowStockWarnings: true,
@@ -293,7 +294,14 @@ router.get('/', authenticate, async (req, res, next) => {
   try {
     const dbSettings = await SettingsService.getAppSettings();
     const jsonSettings = await readJsonFile(storeSettingsFilePath, defaultStoreSettings);
-    const settings = { ...jsonSettings, ...dbSettings };
+    const settings = {
+      ...jsonSettings,
+      ...dbSettings,
+      storeName: normalizeSellerName(jsonSettings?.storeName || dbSettings?.siteName),
+      sellerName: normalizeSellerName(dbSettings?.sellerName),
+      sellerLegalName: normalizeSellerName((dbSettings as any)?.sellerLegalName),
+      siteName: normalizeSellerName(dbSettings?.siteName),
+    };
     return ResponseFormatter.success(res, 'Settings retrieved successfully', settings);
   } catch (error) {
     return next(error);

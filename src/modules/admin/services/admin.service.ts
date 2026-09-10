@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import { Role, ProductStatus, OrderStatus, ReturnStatus, ReviewStatus } from '@prisma/client';
 import { isS3Configured, uploadToS3 } from '../../../config/s3';
 import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
-import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
 export class AdminService {
   async createAdminUser(data: {
@@ -3069,7 +3069,13 @@ export class AdminService {
         currency: 'INR',
       };
     }
-    return settings;
+    const sAny = settings as any;
+    return {
+      ...settings,
+      sellerName: normalizeSellerName(settings.sellerName),
+      sellerLegalName: normalizeSellerName(sAny.sellerLegalName),
+      siteName: normalizeSellerName(settings.siteName),
+    };
   }
 
   async updateSettings(data: any) {

@@ -11,3 +11,21 @@ export const DEFAULT_SELLER_CONFIG = {
   fullAddress: 'F/7 Jethabhai Park, Narayan Nagar Road, Paldi, Ahmedabad, Gujarat - 380007, India',
   contactNumber: '+91 96015 11596',
 };
+
+export function normalizeSellerName(name?: string | null): string {
+  if (!name || typeof name !== 'string') return DEFAULT_SELLER_CONFIG.name;
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    !trimmed ||
+    lower === 'fci' ||
+    lower === 'fci seller' ||
+    lower === 'fci-seller' ||
+    lower === 'fciseller' ||
+    lower === 'fci ecommerce'
+  ) {
+    return DEFAULT_SELLER_CONFIG.name;
+  }
+  return trimmed;
+}
+

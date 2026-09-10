@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import shiprocketClient from './shiprocket.client';
 import { getShiprocketPickupLocation } from '../../inventory/services/warehouse.service';
-import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
 export class ShipmentService {
   async createShipment(orderId: number) {
@@ -287,7 +287,7 @@ export class ShipmentService {
     <div class="grid">
       <div>
         <div class="title">Shipped From</div>
-        <div class="val">${((order as any).sellerNameSnapshot && (order as any).sellerNameSnapshot !== 'FCI' && (order as any).sellerNameSnapshot !== 'FCI Seller' ? (order as any).sellerNameSnapshot : null) || DEFAULT_SELLER_CONFIG.name} Fulfillment Center<br/>${(order as any).sellerAddressSnapshot || DEFAULT_SELLER_CONFIG.fullAddress}<br/>Contact: ${(order as any).sellerContactSnapshot || DEFAULT_SELLER_CONFIG.contactNumber}</div>
+        <div class="val">${normalizeSellerName((order as any).sellerNameSnapshot || (order as any).sellerName)} Fulfillment Center<br/>${(order as any).sellerAddressSnapshot || DEFAULT_SELLER_CONFIG.fullAddress}<br/>Contact: ${(order as any).sellerContactSnapshot || DEFAULT_SELLER_CONFIG.contactNumber}</div>
       </div>
       <div>
         <div class="title">Total Amount</div>
@@ -340,12 +340,12 @@ export class ShipmentService {
 
     // Prefer order-time seller snapshots (manual checkout entry), fall back to live settings then centralized DEFAULT_SELLER_CONFIG
     const s = settings as any;
-    const rawSeller = (order as any).sellerNameSnapshot;
-    const sellerLegalName =
-      (rawSeller && rawSeller !== 'FCI' && rawSeller !== 'FCI Seller' ? rawSeller : null) ||
+    const rawSeller =
+      (order as any).sellerNameSnapshot ||
+      (order as any).sellerName ||
       s?.sellerLegalName ||
-      s?.sellerName ||
-      DEFAULT_SELLER_CONFIG.name;
+      s?.sellerName;
+    const sellerLegalName = normalizeSellerName(rawSeller);
     const sellerGst =
       s?.sellerGstNumber ||
       DEFAULT_SELLER_CONFIG.gstin;
@@ -436,7 +436,7 @@ export class ShipmentService {
 
     <div class="info-grid">
       <div class="box">
-        <div class="box-title">Sold By</div>
+        <div class="box-title">Sold By (Seller Details)</div>
         <p><strong>${sellerLegalName}</strong></p>
         <p>${sellerAddr}</p>
         <p><strong>GSTIN:</strong> ${sellerGst}</p>

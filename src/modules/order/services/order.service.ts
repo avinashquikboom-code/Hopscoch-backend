@@ -7,7 +7,7 @@ import loyaltyRuleEngine from '../../loyalty/services/loyalty_rule.engine';
 import rewardService from '../../loyalty/services/reward.service';
 import walletService from '../../loyalty/services/wallet.service';
 import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
-import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
 function formatOrderSummary(order: any) {
   if (!order) return order;
@@ -391,12 +391,12 @@ export class OrderService {
       settingsAny?.sellerPincode,
     ].filter(Boolean).join(', ');
     const rawManualSeller = manualSellerName;
-    const resolvedManualSeller = (rawManualSeller && rawManualSeller !== 'FCI' && rawManualSeller !== 'FCI Seller') ? rawManualSeller : null;
-    const sellerNameSnap =
+    const resolvedManualSeller = normalizeSellerName(rawManualSeller);
+    const sellerNameSnap = normalizeSellerName(
       resolvedManualSeller ||
       systemSettings?.sellerName ||
-      systemSettings?.siteName ||
-      DEFAULT_SELLER_CONFIG.name;
+      systemSettings?.siteName
+    );
     const sellerContactSnap =
       manualSellerContact ||
       systemSettings?.sellerContactNumber ||

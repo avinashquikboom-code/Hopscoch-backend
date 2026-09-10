@@ -3,7 +3,7 @@ import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
 import countryToCurrency from 'country-to-currency';
-import { DEFAULT_SELLER_CONFIG } from '../../../constants/seller';
+import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
 // Encryption setup
 const ALGORITHM = 'aes-256-cbc';
@@ -165,7 +165,7 @@ export class SettingsService {
     // NOTE: cast to any for new fields until 'npx prisma migrate dev' regenerates Prisma client types
     const db = dbSettings as any;
     const settings = {
-      siteName: dbSettings?.siteName || DEFAULT_SELLER_CONFIG.name,
+      siteName: normalizeSellerName(dbSettings?.siteName),
       siteDescription: dbSettings?.siteDescription || 'Luxury Fashion E-commerce',
       siteUrl: process.env.CLIENT_URL || 'http://localhost:3000',
       logoUrl: dbSettings?.logoUrl || '',
@@ -173,10 +173,10 @@ export class SettingsService {
       contactEmail: dbSettings?.contactEmail || DEFAULT_SELLER_CONFIG.supportEmail,
       contactPhone: dbSettings?.contactPhone || DEFAULT_SELLER_CONFIG.contactNumber,
       // Seller display info (existing)
-      sellerName: dbSettings?.sellerName || DEFAULT_SELLER_CONFIG.name,
+      sellerName: normalizeSellerName(dbSettings?.sellerName),
       sellerContactNumber: dbSettings?.sellerContactNumber || DEFAULT_SELLER_CONFIG.contactNumber,
       // Seller legal details
-      sellerLegalName: db?.sellerLegalName || DEFAULT_SELLER_CONFIG.legalName,
+      sellerLegalName: normalizeSellerName(db?.sellerLegalName),
       sellerGstNumber: db?.sellerGstNumber || DEFAULT_SELLER_CONFIG.gstin,
       sellerAddress: db?.sellerAddress || DEFAULT_SELLER_CONFIG.address,
       sellerCity: db?.sellerCity || DEFAULT_SELLER_CONFIG.city,
