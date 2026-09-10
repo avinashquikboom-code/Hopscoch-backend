@@ -21,17 +21,21 @@ function formatOrderSummary(order: any) {
 
   const courierName = order.courierName || order.shipment?.courier || null;
   const awbNumber = order.awbNumber || order.shipment?.awb || null;
-  let trackingUrl = order.trackingUrl || null;
+  let trackingUrl = (order.shipment?.timeline as any)?.trackingUrl || order.trackingUrl || null;
   if (!trackingUrl && awbNumber) {
     const courierLower = (courierName || '').toLowerCase();
     if (courierLower.includes('delhivery')) {
       trackingUrl = `https://www.delhivery.com/track/package/${awbNumber}`;
-    } else if (courierLower.includes('bluedart')) {
+    } else if (courierLower.includes('bluedart') || courierLower.includes('blue dart')) {
       trackingUrl = `https://www.bluedart.com/tracking?numbers=${awbNumber}`;
-    } else if (courierLower.includes('xpressbees')) {
+    } else if (courierLower.includes('xpressbees') || courierLower.includes('xpress bees')) {
       trackingUrl = `https://www.xpressbees.com/shipment/tracking?awbNo=${awbNumber}`;
     } else if (courierLower.includes('dtdc')) {
       trackingUrl = `https://www.dtdc.in/tracking/shipment-tracking.asp?trNo=${awbNumber}`;
+    } else if (courierLower.includes('india post') || courierLower.includes('speed post')) {
+      trackingUrl = `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;
+    } else if (courierLower.includes('ecom')) {
+      trackingUrl = `https://ecomexpress.in/tracking/?awb=${awbNumber}`;
     } else {
       trackingUrl = `https://shiprocket.co/tracking/${awbNumber}`;
     }
@@ -40,14 +44,41 @@ function formatOrderSummary(order: any) {
   const orderNum = order.orderNumber || String(order.id);
   const displayOrderId = order.orderNumber || `#ORD-${order.id}`;
 
+  const formattedShipment = order.shipment ? {
+    ...order.shipment,
+    awb: awbNumber,
+    awbNumber,
+    trackingNumber: awbNumber,
+    courier: courierName,
+    courierName,
+    shippingCompany: courierName,
+    carrier: courierName,
+    trackingUrl,
+    status: order.shipment.status || order.status || 'SHIPPED',
+  } : (awbNumber ? {
+    awb: awbNumber,
+    awbNumber,
+    trackingNumber: awbNumber,
+    courier: courierName,
+    courierName,
+    shippingCompany: courierName,
+    carrier: courierName,
+    trackingUrl,
+    status: order.status || 'SHIPPED',
+  } : null);
+
   return {
     ...order,
     orderId: orderNum,
     orderNumber: orderNum,
     displayOrderId,
     courierName,
+    shippingCompany: courierName,
+    carrier: courierName,
     awbNumber,
+    trackingNumber: awbNumber,
     trackingUrl,
+    shipment: formattedShipment,
     subtotal,
     subTotal: subtotal,
     itemsPrice: subtotal,

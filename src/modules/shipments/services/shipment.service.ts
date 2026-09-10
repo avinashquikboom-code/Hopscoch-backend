@@ -431,6 +431,7 @@ export class ShipmentService {
         <div style="font-size:12px; color:#64748b;">Invoice #: INV-FCI-${order.id}</div>
         <div style="font-size:12px; color:#64748b;">Date: ${dateStr}</div>
         <div style="font-size:12px; color:#64748b;">Order: #${(order as any).orderNumber || order.id}</div>
+        ${awb ? `<div style="font-size:12px; color:#64748b;">AWB: ${awb}${courier ? ` (${courier})` : ''}</div>` : ''}
       </div>
     </div>
 
@@ -587,14 +588,16 @@ export class ShipmentService {
     const courier = (order as any).courierName || order.shipment?.courier || 'Logistics Partner';
     const awb = (order as any).awbNumber || order.shipment?.awb || null;
 
-    let trackingUrl: string | null = null;
-    if (courier && awb) {
+    let trackingUrl: string | null = (order.shipment?.timeline as any)?.trackingUrl || null;
+    if (!trackingUrl && courier && awb) {
       const courierLower = courier.toLowerCase();
       if (courierLower.includes('delhivery')) trackingUrl = `https://www.delhivery.com/track/package/${awb}`;
-      else if (courierLower.includes('bluedart')) trackingUrl = `https://www.bluedart.com/tracking?trackNo=${awb}`;
+      else if (courierLower.includes('bluedart') || courierLower.includes('blue dart')) trackingUrl = `https://www.bluedart.com/tracking?trackNo=${awb}`;
       else if (courierLower.includes('dtdc')) trackingUrl = `https://www.dtdc.in/tracking/shipment-tracking.asp?strAWB=${awb}`;
-      else if (courierLower.includes('india post') || courierLower.includes('speedpost')) trackingUrl = `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;
+      else if (courierLower.includes('xpressbees') || courierLower.includes('xpress bees')) trackingUrl = `https://www.xpressbees.com/shipment/tracking?awbNo=${awb}`;
+      else if (courierLower.includes('india post') || courierLower.includes('speedpost') || courierLower.includes('speed post')) trackingUrl = `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;
       else if (courierLower.includes('ecom')) trackingUrl = `https://ecomexpress.in/tracking/?awb=${awb}`;
+      else trackingUrl = `https://shiprocket.co/tracking/${awb}`;
     }
 
     const activities = order.timeline.map((evt) => ({

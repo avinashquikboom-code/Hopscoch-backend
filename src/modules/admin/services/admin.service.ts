@@ -7,6 +7,34 @@ import { isS3Configured, uploadToS3 } from '../../../config/s3';
 import { UnifiedNotificationService } from '../../notification/services/unified-notification.service';
 import { DEFAULT_SELLER_CONFIG, normalizeSellerName } from '../../../constants/seller';
 
+export function generateTrackingUrl(courier?: string | null, awb?: string | null): string {
+  if (!awb || typeof awb !== 'string') return '';
+  const cleanAwb = encodeURIComponent(awb.trim());
+  const c = (courier || '').toLowerCase().trim();
+  if (c.includes('delhivery')) {
+    return `https://www.delhivery.com/track/package/${cleanAwb}`;
+  }
+  if (c.includes('bluedart') || c.includes('blue dart')) {
+    return `https://www.bluedart.com/tracking?numbers=${cleanAwb}`;
+  }
+  if (c.includes('dtdc')) {
+    return `https://www.dtdc.in/tracking/shipment-tracking.asp?trNo=${cleanAwb}`;
+  }
+  if (c.includes('xpressbees') || c.includes('xpress bees')) {
+    return `https://www.xpressbees.com/shipment/tracking?awbNo=${cleanAwb}`;
+  }
+  if (c.includes('india post') || c.includes('speed post')) {
+    return `https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx`;
+  }
+  if (c.includes('ecom')) {
+    return `https://ecomexpress.in/tracking/?awb=${cleanAwb}`;
+  }
+  if (c.includes('shiprocket')) {
+    return `https://shiprocket.co/tracking/${cleanAwb}`;
+  }
+  return `https://shiprocket.co/tracking/${cleanAwb}`;
+}
+
 export class AdminService {
   async createAdminUser(data: {
     email: string;
@@ -2055,6 +2083,10 @@ export class AdminService {
           id: true,
           orderNumber: true,
           status: true,
+          courierName: true,
+          awbNumber: true,
+          shippedAt: true,
+          shipment: true,
           totalAmount: true,
           subtotal: true,
           taxAmount: true,
@@ -2134,6 +2166,7 @@ export class AdminService {
           },
         },
         address: true,
+        shipment: true,
         items: {
           include: {
             product: {
@@ -2162,65 +2195,151 @@ export class AdminService {
       throw new AppError('Order not found', 404);
     }
 
-    return order;
+    const awb = order.awbNumber || order.shipment?.awb || null;
+    const courier = order.courierName || order.shipment?.courier || null;
+    const trackingUrl = (order.shipment?.timeline as any)?.trackingUrl || (awb ? generateTrackingUrl(courier, awb) : null);
+
+    return {
+      ...order,
+      awbNumber: awb,
+      courierName: courier,
+      shippingCompany: courier,
+      trackingUrl,
+      shipment: order.shipment ? {
+        ...order.shipment,
+        awb,
+        awbNumber: awb,
+        trackingNumber: awb,
+        courier,
+        courierName: courier,
+        shippingCompany: courier,
+        carrier: courier,
+        trackingUrl,
+      } : (awb ? {
+        awb,
+        awbNumber: awb,
+        trackingNumber: awb,
+        courier,
+        courierName: courier,
+        shippingCompany: courier,
+        carrier: courier,
+        trackingUrl,
+        status: order.status || 'SHIPPED',
+      } : null),
+    };
   }
 
-  async updateOrderStatus(orderId: any, data: { status: OrderStatus; courierName?: string; awbNumber?: string }) {
+  async updateOrderStatus(
+    orderId: any,
+    data: {
+      status: OrderStatus;
+      courierName?: string;
+      shippingCompany?: string;
+      awbNumber?: string;
+      trackingUrl?: string;
+    }
+  ) {
     const id = Number(orderId);
     const order = await prisma.order.findUnique({
       where: { id },
+      include: { shipment: true },
     });
 
     if (!order) {
       throw new AppError('Order not found', 404);
     }
 
-    if (data.status === 'SHIPPED' && order.status === 'SHIPPED') {
-      throw new AppError('Order is already marked as SHIPPED', 400);
-    }
+    const isShipped = data.status === 'SHIPPED';
+    const isAlreadyShipped = order.status === 'SHIPPED';
 
-    if (data.status === 'SHIPPED' && (order.status === 'DELIVERED' || order.status === 'CANCELLED' || order.status === 'RETURNED')) {
+    if (isShipped && (order.status === 'DELIVERED' || order.status === 'CANCELLED' || order.status === 'RETURNED')) {
       throw new AppError(`Cannot change status to SHIPPED for order in ${order.status} state`, 400);
     }
 
-    const isShipped = data.status === 'SHIPPED';
-    const courierName = data.courierName || order.courierName || null;
-    const awbNumber = data.awbNumber || order.awbNumber || null;
+    let cleanAwb = typeof data.awbNumber === 'string' ? data.awbNumber.trim() : '';
+    let cleanCourier = typeof (data.courierName || data.shippingCompany) === 'string'
+      ? (data.courierName || data.shippingCompany)!.trim()
+      : '';
+
+    // Enforce requirements when shipping
+    if (isShipped) {
+      // When re-saving/editing an already shipped order, keep existing values if not provided in payload
+      if (isAlreadyShipped) {
+        if (!cleanAwb) cleanAwb = (order.awbNumber || order.shipment?.awb || '').trim();
+        if (!cleanCourier) cleanCourier = (order.courierName || order.shipment?.courier || '').trim();
+      }
+
+      if (!cleanAwb) {
+        throw new AppError('AWB number is required.', 400);
+      }
+
+      if (!cleanCourier) {
+        throw new AppError('Shipping company is required.', 400);
+      }
+    } else {
+      if (!cleanAwb) cleanAwb = (order.awbNumber || '').trim();
+      if (!cleanCourier) cleanCourier = (order.courierName || '').trim();
+    }
+
+    // Validate safe URL if tracking URL is manually provided
+    let cleanTrackingUrl: string | null = null;
+    if (data.trackingUrl && typeof data.trackingUrl === 'string' && data.trackingUrl.trim().length > 0) {
+      const trimmedUrl = data.trackingUrl.trim();
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        throw new AppError('Invalid tracking URL. URL must start with http:// or https://', 400);
+      }
+      cleanTrackingUrl = trimmedUrl;
+    } else if (cleanAwb) {
+      cleanTrackingUrl = generateTrackingUrl(cleanCourier, cleanAwb);
+    }
 
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status: data.status,
-        ...(isShipped || courierName ? { courierName } : {}),
-        ...(isShipped || awbNumber ? { awbNumber } : {}),
-        ...(isShipped ? { shippedAt: new Date() } : {}),
+        ...(cleanCourier ? { courierName: cleanCourier } : {}),
+        ...(cleanAwb ? { awbNumber: cleanAwb } : {}),
+        ...(!isAlreadyShipped && isShipped ? { shippedAt: new Date() } : {}),
       },
       include: {
         shipment: true,
       },
     });
 
-    // Upsert Shipment record manually (No Shiprocket call)
-    if (isShipped && (courierName || awbNumber)) {
+    // Upsert Shipment record atomically (Single shipment per order)
+    if (isShipped && (cleanCourier || cleanAwb)) {
+      const existingShipment = await prisma.shipment.findUnique({ where: { orderId: id } });
+      const currentTimeline = (existingShipment?.timeline as any) || {};
+      const updatedTimeline = {
+        ...currentTimeline,
+        trackingUrl: cleanTrackingUrl,
+        lastUpdated: new Date().toISOString(),
+      };
+
       await prisma.shipment.upsert({
         where: { orderId: id },
         create: {
           orderId: id,
-          courier: courierName,
-          awb: awbNumber,
+          shipmentId: existingShipment?.shipmentId || `shp_manual_${Date.now()}`,
+          courier: cleanCourier,
+          awb: cleanAwb,
           status: 'SHIPPED',
+          timeline: updatedTimeline,
         },
         update: {
-          courier: courierName,
-          awb: awbNumber,
+          courier: cleanCourier,
+          awb: cleanAwb,
           status: 'SHIPPED',
+          timeline: updatedTimeline,
         },
       });
     }
 
     // Add timeline event
-    const noteText = isShipped && courierName && awbNumber
-      ? `Shipped via ${courierName} (AWB: ${awbNumber})`
+    const noteText = isShipped && cleanCourier && cleanAwb
+      ? (isAlreadyShipped
+          ? `Tracking details updated: ${cleanCourier} (AWB: ${cleanAwb})`
+          : `Shipped via ${cleanCourier} (AWB: ${cleanAwb})`)
       : undefined;
 
     await prisma.orderTimelineEvent.create({
@@ -2231,25 +2350,52 @@ export class AdminService {
       },
     });
 
-    logger.info(`Order status updated manually: ${id} to ${data.status} (Courier: ${courierName}, AWB: ${awbNumber})`);
+    logger.info(`Order status updated: ${id} to ${data.status} (Courier: ${cleanCourier}, AWB: ${cleanAwb}, Tracking: ${cleanTrackingUrl})`);
 
-    // Trigger FCM & In-App Notification to Customer
-    try {
-      const notifBody = isShipped && courierName && awbNumber
-        ? `Your order #${order.orderNumber} has been shipped via ${courierName}! Tracking AWB: ${awbNumber}`
-        : `Your order #${order.orderNumber} status is now ${data.status.replace(/_/g, ' ')}.`;
+    // Trigger FCM & In-App Notification to Customer only when newly shipped or status changed
+    if (!isAlreadyShipped || data.status !== order.status) {
+      try {
+        const notifBody = isShipped && cleanCourier && cleanAwb
+          ? `Your order #${order.orderNumber} has been shipped via ${cleanCourier}! Tracking AWB: ${cleanAwb}`
+          : `Your order #${order.orderNumber} status is now ${data.status.replace(/_/g, ' ')}.`;
 
-      UnifiedNotificationService.sendNotificationToUser(order.userId, {
-        title: isShipped ? 'Order Shipped! 🚚' : 'Order Status Update 📦',
-        body: notifBody,
-        type: 'ORDER',
-        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: String(data.status), courierName: courierName || '', awbNumber: awbNumber || '' },
-      });
-    } catch (notifErr: any) {
-      logger.warn(`Order status update notification failed: ${notifErr.message}`);
+        UnifiedNotificationService.sendNotificationToUser(order.userId, {
+          title: isShipped ? 'Order Shipped! 🚚' : 'Order Status Update 📦',
+          body: notifBody,
+          type: 'ORDER',
+          data: {
+            orderId: String(order.id),
+            orderNumber: order.orderNumber,
+            status: String(data.status),
+            courierName: cleanCourier || '',
+            awbNumber: cleanAwb || '',
+            trackingUrl: cleanTrackingUrl || '',
+          },
+        });
+      } catch (notifErr: any) {
+        logger.warn(`Order status update notification failed: ${notifErr.message}`);
+      }
     }
 
-    return updatedOrder;
+    return {
+      ...updatedOrder,
+      courierName: cleanCourier,
+      shippingCompany: cleanCourier,
+      awbNumber: cleanAwb,
+      trackingUrl: cleanTrackingUrl,
+      shipment: {
+        ...(updatedOrder.shipment || {}),
+        courier: cleanCourier,
+        courierName: cleanCourier,
+        shippingCompany: cleanCourier,
+        carrier: cleanCourier,
+        awb: cleanAwb,
+        awbNumber: cleanAwb,
+        trackingNumber: cleanAwb,
+        trackingUrl: cleanTrackingUrl,
+        status: 'SHIPPED',
+      },
+    };
   }
 
   async getOrderTimeline(orderId: any) {
