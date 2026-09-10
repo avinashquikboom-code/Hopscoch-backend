@@ -207,7 +207,7 @@ export class OrderService {
     });
 
     if (cart && cart.items && cart.items.length > 0) {
-      rawItemsToCalculate = cart.items;
+      rawItemsToCalculate = cart.items.filter((ci: any) => ci.quantity >= 1);
     } else if (Array.isArray(inputItems) && inputItems.length > 0) {
       for (const rawItem of inputItems) {
         let pId = rawItem.productId ? Number(rawItem.productId) : null;
@@ -218,6 +218,11 @@ export class OrderService {
         }
 
         if (!pId || isNaN(pId)) continue;
+
+        const quantity = Number(rawItem.quantity !== undefined ? rawItem.quantity : 1);
+        if (isNaN(quantity) || quantity < 1) {
+          throw new AppError(`Invalid item quantity for product ${pId}. Order item quantity must be at least 1.`, 400);
+        }
 
         const product = await prisma.product.findUnique({
           where: { id: pId },
@@ -235,7 +240,6 @@ export class OrderService {
           variant = product.variants[0];
         }
 
-        const quantity = Number(rawItem.quantity || 1);
         rawItemsToCalculate.push({
           product,
           variant,

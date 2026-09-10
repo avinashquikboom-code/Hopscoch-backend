@@ -253,6 +253,9 @@ export class CartService {
     }
 
     if (data.quantity !== undefined) {
+      if (data.quantity <= 0) {
+        return this.removeFromCart(userId, cartItemId);
+      }
       // Check stock
       if (data.quantity > (cartItem as any).variant!.stock) {
         throw new AppError('Insufficient stock', 400);

@@ -24,7 +24,7 @@ export const createOrderSchema = z.object({
       productId: z.union([z.string(), z.number()]).optional(),
       variantId: z.union([z.string(), z.number()]).optional(),
       product: z.any().optional(),
-      quantity: z.number().min(1).default(1),
+      quantity: z.number().int('Quantity must be an integer').min(1, 'Quantity must be at least 1').default(1),
     })
   ).optional(),
   paymentMethod: z.string().optional().default('COD'),
