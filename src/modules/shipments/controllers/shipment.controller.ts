@@ -74,12 +74,13 @@ export class ShipmentController {
         return;
       }
       const rawOrderId = req.body?.orderId || req.query?.orderId || req.params?.orderId;
-      const { courierName, awbNumber } = req.body || {};
+      const { courierName, shippingCompany, awbNumber, trackingUrl } = req.body || {};
+      const finalCourier = courierName || shippingCompany;
       if (!rawOrderId) {
         ResponseFormatter.error(res, 'Order ID is required', 400);
         return;
       }
-      const shipment = await ShipmentService.generateAWB(Number(rawOrderId), courierName, awbNumber);
+      const shipment = await ShipmentService.generateAWB(Number(rawOrderId), finalCourier, awbNumber, trackingUrl);
       ResponseFormatter.success(res, 'AWB assigned successfully', shipment);
     } catch (error: any) {
       ResponseFormatter.error(res, error.message || 'Failed to assign AWB', 500);

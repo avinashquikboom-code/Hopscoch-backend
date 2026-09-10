@@ -1773,5 +1773,38 @@ model WebhookLog {
   @@map("webhook_logs")
 }
 
+// =====================================================================
+// POLICIES & POLICY CATEGORIES
+// =====================================================================
 
+model PolicyCategory {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
+  policies    Policy[]
+
+  @@map("policy_categories")
+}
+
+model Policy {
+  id              Int            @id @default(autoincrement())
+  categoryId      Int            @map("category_id")
+  category        PolicyCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String         @unique
+  content         String         @db.Text
+  metaTitle       String?        @map("meta_title")
+  metaDescription String?        @map("meta_description")
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@map("policies")
+}

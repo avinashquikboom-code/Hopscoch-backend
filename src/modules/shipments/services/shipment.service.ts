@@ -99,7 +99,7 @@ export class ShipmentService {
     return updatedOrder;
   }
 
-  async generateAWB(orderId: number, courierName?: string, awbNumber?: string) {
+  async generateAWB(orderId: number, courierName?: string, awbNumber?: string, trackingUrl?: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: { shipment: true },
@@ -112,6 +112,13 @@ export class ShipmentService {
     const finalCourier = courierName || order.courierName || order.shipment?.courier || 'Standard Logistics';
     const finalAwb = awbNumber || order.awbNumber || order.shipment?.awb || `AWB-${Date.now()}`;
 
+    const currentTimeline = (order.shipment?.timeline as any) || {};
+    const updatedTimeline = {
+      ...currentTimeline,
+      ...(trackingUrl ? { trackingUrl } : {}),
+      lastUpdated: new Date().toISOString(),
+    };
+
     const shipment = await prisma.shipment.upsert({
       where: { orderId },
       create: {
@@ -120,11 +127,13 @@ export class ShipmentService {
         courier: finalCourier,
         awb: finalAwb,
         status: 'AWB_ASSIGNED',
+        timeline: updatedTimeline,
       },
       update: {
         courier: finalCourier,
         awb: finalAwb,
         status: 'AWB_ASSIGNED',
+        timeline: updatedTimeline,
       },
     });
 
@@ -152,13 +161,25 @@ export class ShipmentService {
         title: 'Order Shipped! 🚚',
         body: `Your order #${order.orderNumber} has been shipped via ${finalCourier}! Tracking AWB: ${finalAwb}`,
         type: 'ORDER',
-        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: 'SHIPPED', courierName: finalCourier, awbNumber: finalAwb },
+        data: { orderId: String(order.id), orderNumber: order.orderNumber, status: 'SHIPPED', courierName: finalCourier, awbNumber: finalAwb, trackingUrl: trackingUrl || '' },
       });
     } catch (notifErr: any) {
       logger.warn(`Order shipped notification failed: ${notifErr.message}`);
     }
 
-    return shipment;
+    return {
+      ...shipment,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: 'SHIPPED',
+      awb: finalAwb,
+      awbNumber: finalAwb,
+      trackingNumber: finalAwb,
+      courier: finalCourier,
+      courierName: finalCourier,
+      shippingCompany: finalCourier,
+      trackingUrl: trackingUrl || (order.shipment?.timeline as any)?.trackingUrl || null,
+    };
   }
 
   async generateLabel(orderId: number) {

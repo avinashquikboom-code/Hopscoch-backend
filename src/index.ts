@@ -305,6 +305,7 @@ app.use('/api/admin/sizes', sizeRoutes);
 import taxRoutes from './modules/tax/routes/tax.routes';
 import socialContentRoutes from './modules/content/routes/socialContent.routes';
 import contentRoutes from './modules/content/routes/content.routes';
+import policyRoutes from './modules/content/routes/policy.routes';
 
 app.use('/api/taxes', taxRoutes);
 app.use('/api/admin/taxes', taxRoutes);
@@ -313,6 +314,8 @@ app.use('/api', socialContentRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/v1/content', contentRoutes);
 app.use('/api', contentRoutes);
+app.use('/api', policyRoutes);
+app.use('/api/v1', policyRoutes);
 import webhookRoutes from './modules/webhooks/routes/webhook.routes';
 
 app.use('/api', webhookRoutes);
