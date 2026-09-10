@@ -1,7 +1,6 @@
 import { AppError } from '../../../middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import prisma from '../../../utils/prisma';
-import { CreateShipmentDto, UpdateShipmentDto, TrackShipmentDto, ReturnItemDto } from '../dtos/shipment.dto';
 import { DEFAULT_SELLER_CONFIG, normalizeSellerName, normalizeWarehouseName } from '../../../constants/seller';
 
 export class ShipmentService {
